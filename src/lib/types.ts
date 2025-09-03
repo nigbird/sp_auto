@@ -20,6 +20,8 @@ export type Activity = {
     user: string;
     date: Date;
   };
+  weight: number;
+  progress: number;
 };
 
 export type User = {
@@ -34,3 +36,23 @@ export type Notification = {
   date: Date;
   read: boolean;
 };
+
+export type Initiative = {
+    id: string;
+    title: string;
+    weight: number;
+    activities: Activity[];
+}
+
+export type Objective = {
+    id: string;
+    title: string;
+    weight: number;
+    initiatives: Initiative[];
+}
+
+export type Pillar = {
+    id: string;
+    title: string;
+    objectives: Objective[];
+}

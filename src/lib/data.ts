@@ -1,5 +1,5 @@
 
-import type { Activity, User, Notification, ActivityStatus } from "./types";
+import type { Activity, User, Notification, ActivityStatus, Pillar } from "./types";
 
 const users: User[] = [
   { name: "Liam Johnson", email: "liam@example.com", avatar: "/avatars/01.png" },
@@ -24,6 +24,8 @@ const activities: Activity[] = [
       { name: "Website Traffic Increase", target: 20, actual: 15 },
     ],
     lastUpdated: { user: "Olivia Smith", date: new Date("2024-07-20T10:00:00Z") },
+    weight: 40,
+    progress: 56,
   },
   {
     id: "ACT-002",
@@ -39,6 +41,8 @@ const activities: Activity[] = [
       { name: "Data Migration Complete", target: 100, actual: 80 },
     ],
     lastUpdated: { user: "Liam Johnson", date: new Date("2024-07-18T14:30:00Z") },
+    weight: 30,
+    progress: 72
   },
   {
     id: "ACT-003",
@@ -54,6 +58,8 @@ const activities: Activity[] = [
       { name: "Mobile Bounce Rate (%)", target: 40, actual: 35 },
     ],
     lastUpdated: { user: "Noah Williams", date: new Date("2024-07-25T11:00:00Z") },
+    weight: 30,
+    progress: 100
   },
   {
     id: "ACT-004",
@@ -68,6 +74,8 @@ const activities: Activity[] = [
       { name: "Participation Rate", target: 60, actual: 0 },
     ],
     lastUpdated: { user: "Admin", date: new Date("2024-07-15T09:00:00Z") },
+    weight: 50,
+    progress: 0
   },
   {
     id: "ACT-005",
@@ -82,6 +90,8 @@ const activities: Activity[] = [
         { name: "Staff Certified", target: 100, actual: 50 },
     ],
     lastUpdated: { user: "Oliver Jones", date: new Date("2024-07-22T16:00:00Z") },
+    weight: 50,
+    progress: 50,
   },
    {
     id: "ACT-006",
@@ -97,6 +107,8 @@ const activities: Activity[] = [
       { name: "Initial Prototyping", target: 100, actual: 0 },
     ],
     lastUpdated: { user: "Admin", date: new Date("2024-07-28T11:00:00Z") },
+    weight: 60,
+    progress: 0,
   },
   {
     id: "ACT-007",
@@ -111,8 +123,110 @@ const activities: Activity[] = [
       { name: "Documents Prepared", target: 100, actual: 10 },
     ],
     lastUpdated: { user: "Liam Johnson", date: new Date("2024-07-30T15:00:00Z") },
+    weight: 40,
+    progress: 10
   },
 ];
+
+const reportData: Pillar[] = [
+    {
+        id: "PILLAR-01",
+        title: "Market Leadership",
+        objectives: [
+            {
+                id: "OBJ-01",
+                title: "Increase Market Share",
+                weight: 60,
+                initiatives: [
+                    {
+                        id: "INIT-01",
+                        title: "Aggressive Marketing & Sales",
+                        weight: 100,
+                        activities: [activities[0], activities[1]]
+                    }
+                ]
+            },
+            {
+                id: "OBJ-02",
+                title: "Enhance Brand Presence",
+                weight: 40,
+                initiatives: [
+                    {
+                        id: "INIT-02",
+                        title: "Digital Presence Overhaul",
+                        weight: 100,
+                        activities: [activities[2]]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        id: "PILLAR-02",
+        title: "Operational Excellence",
+        objectives: [
+            {
+                id: "OBJ-03",
+                title: "Improve Employee Satisfaction",
+                weight: 50,
+                initiatives: [
+                    {
+                        id: "INIT-03",
+                        title: "Workplace Wellness",
+                        weight: 100,
+                        activities: [activities[3]]
+                    }
+                ]
+            },
+            {
+                id: "OBJ-04",
+                title: "Streamline Customer Service",
+                weight: 50,
+                initiatives: [
+                    {
+                        id: "INIT-04",
+                        title: "Support Enhancement",
+                        weight: 100,
+                        activities: [activities[4]]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        id: "PILLAR-03",
+        title: "Product Innovation",
+        objectives: [
+            {
+                id: "OBJ-05",
+                title: "Launch Next-Gen Features",
+                weight: 70,
+                initiatives: [
+                    {
+                        id: "INIT-05",
+                        title: "Core Product Updates",
+                        weight: 100,
+                        activities: [activities[5]]
+                    }
+                ]
+            },
+            {
+                id: "OBJ-06",
+                title: "Ensure Compliance and Governance",
+                weight: 30,
+                initiatives: [
+                    {
+                        id: "INIT-06",
+                        title: "Audit and Compliance Readiness",
+                        weight: 100,
+                        activities: [activities[6]]
+                    }
+                ]
+            }
+        ]
+    }
+]
+
 
 const notifications: Notification[] = [
     { id: "1", message: "Activity 'Customer Support Training' is delayed.", date: new Date(), read: false },
@@ -134,4 +248,9 @@ export async function getUsers(): Promise<User[]> {
 export async function getNotifications(): Promise<Notification[]> {
     await new Promise(resolve => setTimeout(resolve, 100));
     return notifications;
+}
+
+export async function getReportData(): Promise<Pillar[]> {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return reportData;
 }
