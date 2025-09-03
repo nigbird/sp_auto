@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -536,11 +537,11 @@ const sidebarMenuButtonVariants = cva(
 
 const SidebarMenuButton = React.forwardRef<
   HTMLAnchorElement,
-  React.ComponentProps<"a"> & {
+  Omit<React.ComponentProps<typeof NextLink>, "asChild"> & {
     asChild?: boolean
     isActive?: boolean
     tooltip?: string | React.ComponentProps<typeof TooltipContent>
-  } & VariantProps<typeof sidebarMenuButtonVariants> & { href: string }
+  } & VariantProps<typeof sidebarMenuButtonVariants>
 >(
   (
     {
@@ -555,20 +556,19 @@ const SidebarMenuButton = React.forwardRef<
     },
     ref
   ) => {
-    const Comp = asChild ? Slot : "a"
+    const Comp = asChild ? Slot : NextLink
     const { isMobile, state } = useSidebar()
 
     const button = (
-        <NextLink href={href} passHref legacyBehavior>
-            <Comp
-                ref={ref}
-                data-sidebar="menu-button"
-                data-size={size}
-                data-active={isActive}
-                className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
-                {...props}
-            />
-        </NextLink>
+        <Comp
+            ref={ref}
+            data-sidebar="menu-button"
+            data-size={size}
+            data-active={isActive}
+            className={cn(sidebarMenuButtonVariants({ variant, size, className }))}
+            href={href}
+            {...props}
+        />
     )
 
     if (!tooltip) {
