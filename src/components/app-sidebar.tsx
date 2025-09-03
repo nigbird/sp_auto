@@ -25,6 +25,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 export function AppSidebar() {
   const pathname = usePathname();
 
+  const handleLogout = () => {
+    alert("Log out action triggered!");
+  }
+
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border">
@@ -84,7 +88,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton href="#">
+            <SidebarMenuButton href="/help">
               <CircleHelp />
               Help
             </SidebarMenuButton>
@@ -99,7 +103,7 @@ export function AppSidebar() {
                   <p className="font-medium text-sidebar-foreground">Admin User</p>
                   <p className="text-xs text-sidebar-foreground/70">admin@corp-plan.com</p>
               </div>
-              <LogOut className="ml-auto size-5 text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors" />
+              <LogOut onClick={handleLogout} className="ml-auto size-5 text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors cursor-pointer" />
             </div>
           </SidebarMenuItem>
         </SidebarMenu>
