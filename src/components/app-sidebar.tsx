@@ -1,5 +1,7 @@
+
 "use client";
 
+import { usePathname } from "next/navigation";
 import {
   Sidebar,
   SidebarHeader,
@@ -21,6 +23,8 @@ import { Logo } from "./icons";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 
 export function AppSidebar() {
+  const pathname = usePathname();
+
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border">
@@ -37,8 +41,8 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              href="#"
-              isActive
+              href="/"
+              isActive={pathname === "/"}
               tooltip="Dashboard"
             >
               <LayoutDashboard />
@@ -46,19 +50,31 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton href="#" tooltip="Activities">
+            <SidebarMenuButton
+              href="/activities"
+              isActive={pathname === "/activities"}
+              tooltip="Activities"
+            >
               <ListTodo />
               Activities
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton href="#" tooltip="Reports">
+            <SidebarMenuButton
+              href="/reports"
+              isActive={pathname === "/reports"}
+              tooltip="Reports"
+            >
               <BarChart3 />
               Reports
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton href="#" tooltip="Settings">
+            <SidebarMenuButton
+              href="/settings"
+              isActive={pathname === "/settings"}
+              tooltip="Settings"
+            >
               <Settings />
               Settings
             </SidebarMenuButton>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -89,6 +90,9 @@ export function ActivityTable({ activities, users, departments }: { activities: 
     {
       accessorKey: "department",
       header: "Department",
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
     },
     {
       accessorKey: "responsible",
@@ -103,6 +107,9 @@ export function ActivityTable({ activities, users, departments }: { activities: 
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => <StatusBadge status={row.getValue("status")} />,
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
     },
     {
       accessorKey: "kpis",

@@ -1,3 +1,4 @@
+
 import type { Activity, User, Notification, ActivityStatus } from "./types";
 
 const users: User[] = [
