@@ -81,7 +81,7 @@ const PillarRow = ({ pillar, isOpen, onToggle, ...props }: { pillar: Pillar; isO
   const progress = getPillarProgress(pillar);
   return (
     <Collapsible asChild open={isOpen} onOpenChange={onToggle}>
-      <React.Fragment>
+      <tbody>
         <TableRow className="bg-muted/50 hover:bg-muted/60">
           <TableCell>
             <CollapsibleTrigger asChild>
@@ -104,7 +104,7 @@ const PillarRow = ({ pillar, isOpen, onToggle, ...props }: { pillar: Pillar; isO
           </TableCell>
         </TableRow>
         <CollapsibleContent asChild>
-          <React.Fragment>
+          <>
             {pillar.objectives.map((objective) => (
               <ObjectiveRow
                 key={objective.id}
@@ -116,9 +116,9 @@ const PillarRow = ({ pillar, isOpen, onToggle, ...props }: { pillar: Pillar; isO
                 className="bg-card"
               />
             ))}
-          </React.Fragment>
+          </>
         </CollapsibleContent>
-      </React.Fragment>
+      </tbody>
     </Collapsible>
   );
 };
@@ -127,7 +127,7 @@ const ObjectiveRow = ({ objective, isOpen, onToggle, ...props }: { objective: Ob
   const progress = getObjectiveProgress(objective);
   return (
     <Collapsible asChild open={isOpen} onOpenChange={onToggle}>
-      <React.Fragment>
+      <>
         <TableRow className="hover:bg-accent/10">
           <TableCell>
             <CollapsibleTrigger asChild>
@@ -150,7 +150,7 @@ const ObjectiveRow = ({ objective, isOpen, onToggle, ...props }: { objective: Ob
           </TableCell>
         </TableRow>
         <CollapsibleContent asChild>
-          <React.Fragment>
+          <>
             {objective.initiatives.map((initiative) => (
               <InitiativeRow
                 key={initiative.id}
@@ -159,9 +159,9 @@ const ObjectiveRow = ({ objective, isOpen, onToggle, ...props }: { objective: Ob
                 onToggle={() => props.toggleInitiative(initiative.id)}
               />
             ))}
-          </React.Fragment>
+          </>
         </CollapsibleContent>
-      </React.Fragment>
+      </>
     </Collapsible>
   );
 };
@@ -170,7 +170,7 @@ const InitiativeRow = ({ initiative, isOpen, onToggle }: { initiative: Initiativ
   const progress = getInitiativeProgress(initiative);
   return (
     <Collapsible asChild open={isOpen} onOpenChange={onToggle}>
-      <React.Fragment>
+      <>
         <TableRow className="hover:bg-accent/5">
           <TableCell>
             <CollapsibleTrigger asChild>
@@ -193,13 +193,13 @@ const InitiativeRow = ({ initiative, isOpen, onToggle }: { initiative: Initiativ
           </TableCell>
         </TableRow>
         <CollapsibleContent asChild>
-          <React.Fragment>
+          <>
             {initiative.activities.map((activity) => (
               <ActivityRow key={activity.id} activity={activity} />
             ))}
-          </React.Fragment>
+          </>
         </CollapsibleContent>
-      </React.Fragment>
+      </>
     </Collapsible>
   );
 };
