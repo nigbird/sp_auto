@@ -28,6 +28,7 @@ import {
   getInitiativeProgress,
 } from "@/lib/utils";
 import type { Pillar, Objective, Initiative, Activity } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 export function ReportTable({ data }: { data: Pillar[] }) {
   const [openPillars, setOpenPillars] = React.useState<Record<string, boolean>>({});
@@ -57,6 +58,7 @@ export function ReportTable({ data }: { data: Pillar[] }) {
               <TableHead className="text-right">Progress</TableHead>
             </TableRow>
           </TableHeader>
+          <TableBody>
             {data.map((pillar) => (
               <PillarRow
                 key={pillar.id}
@@ -69,6 +71,7 @@ export function ReportTable({ data }: { data: Pillar[] }) {
                 toggleInitiative={toggleInitiative}
               />
             ))}
+          </TableBody>
         </Table>
       </div>
     </div>
@@ -78,8 +81,8 @@ export function ReportTable({ data }: { data: Pillar[] }) {
 const PillarRow = ({ pillar, isOpen, onToggle, ...props }: { pillar: Pillar; isOpen: boolean; onToggle: () => void; [key: string]: any }) => {
   const progress = getPillarProgress(pillar);
   return (
-    <TableBody>
-      <Collapsible open={isOpen} onOpenChange={onToggle}>
+    <Collapsible asChild open={isOpen} onOpenChange={onToggle} tagName="tbody">
+      <>
         <TableRow className="bg-muted/50 hover:bg-muted/60">
           <TableCell>
             <CollapsibleTrigger asChild>
@@ -101,8 +104,8 @@ const PillarRow = ({ pillar, isOpen, onToggle, ...props }: { pillar: Pillar; isO
             </div>
           </TableCell>
         </TableRow>
-        <CollapsibleContent asChild>
-          <>
+        <CollapsibleContent asChild tagName="tr">
+            <td colSpan={7}>
             {pillar.objectives.map((objective) => (
               <ObjectiveRow
                 key={objective.id}
@@ -114,50 +117,52 @@ const PillarRow = ({ pillar, isOpen, onToggle, ...props }: { pillar: Pillar; isO
                 className="bg-card"
               />
             ))}
-          </>
+            </td>
         </CollapsibleContent>
-      </Collapsible>
-    </TableBody>
+      </>
+    </Collapsible>
   );
 };
 
 const ObjectiveRow = ({ objective, isOpen, onToggle, ...props }: { objective: Objective; isOpen: boolean; onToggle: () => void; [key: string]: any }) => {
   const progress = getObjectiveProgress(objective);
   return (
-    <Collapsible open={isOpen} onOpenChange={onToggle}>
-      <TableRow className="hover:bg-accent/10">
-        <TableCell>
-          <CollapsibleTrigger asChild>
-            <div className="flex items-center gap-2 pl-6 font-semibold cursor-pointer">
-              {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              {objective.title}
+    <Collapsible asChild open={isOpen} onOpenChange={onToggle} tagName="tbody">
+      <>
+        <TableRow className="hover:bg-accent/10">
+          <TableCell>
+            <CollapsibleTrigger asChild>
+              <div className="flex items-center gap-2 pl-6 font-semibold cursor-pointer">
+                {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                {objective.title}
+              </div>
+            </CollapsibleTrigger>
+          </TableCell>
+          <TableCell></TableCell>
+          <TableCell></TableCell>
+          <TableCell></TableCell>
+          <TableCell></TableCell>
+          <TableCell>{objective.weight}%</TableCell>
+          <TableCell className="text-right">
+            <div className="flex items-center justify-end gap-2">
+              <span>{progress}%</span>
+              <div className={`w-3 h-3 rounded-full ${getTrafficLightColor(progress)}`}></div>
             </div>
-          </CollapsibleTrigger>
-        </TableCell>
-        <TableCell></TableCell>
-        <TableCell></TableCell>
-        <TableCell></TableCell>
-        <TableCell></TableCell>
-        <TableCell>{objective.weight}%</TableCell>
-        <TableCell className="text-right">
-          <div className="flex items-center justify-end gap-2">
-            <span>{progress}%</span>
-            <div className={`w-3 h-3 rounded-full ${getTrafficLightColor(progress)}`}></div>
-          </div>
-        </TableCell>
-      </TableRow>
-      <CollapsibleContent asChild>
-        <>
-          {objective.initiatives.map((initiative) => (
-            <InitiativeRow
-              key={initiative.id}
-              initiative={initiative}
-              isOpen={!!props.openInitiatives[initiative.id]}
-              onToggle={() => props.toggleInitiative(initiative.id)}
-            />
-          ))}
-        </>
-      </CollapsibleContent>
+          </TableCell>
+        </TableRow>
+        <CollapsibleContent asChild tagName="tr">
+          <td colSpan={7}>
+            {objective.initiatives.map((initiative) => (
+              <InitiativeRow
+                key={initiative.id}
+                initiative={initiative}
+                isOpen={!!props.openInitiatives[initiative.id]}
+                onToggle={() => props.toggleInitiative(initiative.id)}
+              />
+            ))}
+          </td>
+        </CollapsibleContent>
+      </>
     </Collapsible>
   );
 };
@@ -165,7 +170,8 @@ const ObjectiveRow = ({ objective, isOpen, onToggle, ...props }: { objective: Ob
 const InitiativeRow = ({ initiative, isOpen, onToggle }: { initiative: Initiative; isOpen: boolean; onToggle: () => void }) => {
   const progress = getInitiativeProgress(initiative);
   return (
-     <Collapsible open={isOpen} onOpenChange={onToggle}>
+     <Collapsible asChild open={isOpen} onOpenChange={onToggle} tagName="tbody">
+        <>
         <TableRow className="hover:bg-accent/5">
           <TableCell>
             <CollapsibleTrigger asChild>
@@ -187,13 +193,18 @@ const InitiativeRow = ({ initiative, isOpen, onToggle }: { initiative: Initiativ
             </div>
           </TableCell>
         </TableRow>
-        <CollapsibleContent asChild>
-           <>
-            {initiative.activities.map((activity) => (
-              <ActivityRow key={activity.id} activity={activity} />
-            ))}
-          </>
+        <CollapsibleContent asChild tagName="tr">
+           <td colSpan={7}>
+             <Table>
+                <TableBody>
+                {initiative.activities.map((activity) => (
+                  <ActivityRow key={activity.id} activity={activity} />
+                ))}
+                </TableBody>
+             </Table>
+            </td>
         </CollapsibleContent>
+        </>
       </Collapsible>
   );
 };
