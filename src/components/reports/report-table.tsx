@@ -28,7 +28,6 @@ import {
   getInitiativeProgress,
 } from "@/lib/utils";
 import type { Pillar, Objective, Initiative, Activity } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 export function ReportTable({ data }: { data: Pillar[] }) {
   const [openPillars, setOpenPillars] = React.useState<Record<string, boolean>>({});
@@ -58,7 +57,6 @@ export function ReportTable({ data }: { data: Pillar[] }) {
               <TableHead className="text-right">Progress</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
             {data.map((pillar) => (
               <PillarRow
                 key={pillar.id}
@@ -71,7 +69,6 @@ export function ReportTable({ data }: { data: Pillar[] }) {
                 toggleInitiative={toggleInitiative}
               />
             ))}
-          </TableBody>
         </Table>
       </div>
     </div>
@@ -81,7 +78,7 @@ export function ReportTable({ data }: { data: Pillar[] }) {
 const PillarRow = ({ pillar, isOpen, onToggle, ...props }: { pillar: Pillar; isOpen: boolean; onToggle: () => void; [key: string]: any }) => {
   const progress = getPillarProgress(pillar);
   return (
-    <Collapsible asChild open={isOpen} onOpenChange={onToggle} tagName="tbody">
+     <Collapsible asChild open={isOpen} onOpenChange={onToggle} tagName="tbody">
       <>
         <TableRow className="bg-muted/50 hover:bg-muted/60">
           <TableCell>
@@ -104,20 +101,26 @@ const PillarRow = ({ pillar, isOpen, onToggle, ...props }: { pillar: Pillar; isO
             </div>
           </TableCell>
         </TableRow>
-        <CollapsibleContent asChild tagName="tr">
-            <td colSpan={7}>
-            {pillar.objectives.map((objective) => (
-              <ObjectiveRow
-                key={objective.id}
-                objective={objective}
-                isOpen={!!props.openObjectives[objective.id]}
-                onToggle={() => props.toggleObjective(objective.id)}
-                openInitiatives={props.openInitiatives}
-                toggleInitiative={props.toggleInitiative}
-                className="bg-card"
-              />
-            ))}
-            </td>
+        <CollapsibleContent asChild>
+            <TableRow>
+                <TableCell colSpan={7} className="p-0">
+                    <Table>
+                        <TableBody>
+                        {pillar.objectives.map((objective) => (
+                        <ObjectiveRow
+                            key={objective.id}
+                            objective={objective}
+                            isOpen={!!props.openObjectives[objective.id]}
+                            onToggle={() => props.toggleObjective(objective.id)}
+                            openInitiatives={props.openInitiatives}
+                            toggleInitiative={props.toggleInitiative}
+                            className="bg-card"
+                        />
+                        ))}
+                        </TableBody>
+                    </Table>
+                </TableCell>
+            </TableRow>
         </CollapsibleContent>
       </>
     </Collapsible>
@@ -130,7 +133,7 @@ const ObjectiveRow = ({ objective, isOpen, onToggle, ...props }: { objective: Ob
     <Collapsible asChild open={isOpen} onOpenChange={onToggle} tagName="tbody">
       <>
         <TableRow className="hover:bg-accent/10">
-          <TableCell>
+          <TableCell className="w-[40%]">
             <CollapsibleTrigger asChild>
               <div className="flex items-center gap-2 pl-6 font-semibold cursor-pointer">
                 {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -150,17 +153,23 @@ const ObjectiveRow = ({ objective, isOpen, onToggle, ...props }: { objective: Ob
             </div>
           </TableCell>
         </TableRow>
-        <CollapsibleContent asChild tagName="tr">
-          <td colSpan={7}>
-            {objective.initiatives.map((initiative) => (
-              <InitiativeRow
-                key={initiative.id}
-                initiative={initiative}
-                isOpen={!!props.openInitiatives[initiative.id]}
-                onToggle={() => props.toggleInitiative(initiative.id)}
-              />
-            ))}
-          </td>
+        <CollapsibleContent asChild>
+            <TableRow>
+                <TableCell colSpan={7} className="p-0">
+                    <Table>
+                        <TableBody>
+                        {objective.initiatives.map((initiative) => (
+                        <InitiativeRow
+                            key={initiative.id}
+                            initiative={initiative}
+                            isOpen={!!props.openInitiatives[initiative.id]}
+                            onToggle={() => props.toggleInitiative(initiative.id)}
+                        />
+                        ))}
+                        </TableBody>
+                    </Table>
+                </TableCell>
+            </TableRow>
         </CollapsibleContent>
       </>
     </Collapsible>
@@ -173,7 +182,7 @@ const InitiativeRow = ({ initiative, isOpen, onToggle }: { initiative: Initiativ
      <Collapsible asChild open={isOpen} onOpenChange={onToggle} tagName="tbody">
         <>
         <TableRow className="hover:bg-accent/5">
-          <TableCell>
+          <TableCell className="w-[40%]">
             <CollapsibleTrigger asChild>
                <div className="flex items-center gap-2 pl-12 font-medium cursor-pointer">
                 {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -193,16 +202,18 @@ const InitiativeRow = ({ initiative, isOpen, onToggle }: { initiative: Initiativ
             </div>
           </TableCell>
         </TableRow>
-        <CollapsibleContent asChild tagName="tr">
-           <td colSpan={7}>
-             <Table>
-                <TableBody>
-                {initiative.activities.map((activity) => (
-                  <ActivityRow key={activity.id} activity={activity} />
-                ))}
-                </TableBody>
-             </Table>
-            </td>
+        <CollapsibleContent asChild>
+            <TableRow>
+                <TableCell colSpan={7} className="p-0">
+                    <Table>
+                        <TableBody>
+                        {initiative.activities.map((activity) => (
+                        <ActivityRow key={activity.id} activity={activity} />
+                        ))}
+                        </TableBody>
+                    </Table>
+                </TableCell>
+            </TableRow>
         </CollapsibleContent>
         </>
       </Collapsible>
@@ -212,7 +223,7 @@ const InitiativeRow = ({ initiative, isOpen, onToggle }: { initiative: Initiativ
 const ActivityRow = ({ activity }: { activity: Activity }) => {
   return (
     <TableRow>
-      <TableCell className="pl-20">{activity.title}</TableCell>
+      <TableCell className="w-[40%] pl-20">{activity.title}</TableCell>
       <TableCell>{activity.responsible}</TableCell>
       <TableCell>{format(activity.startDate, "PP")}</TableCell>
       <TableCell>{format(activity.endDate, "PP")}</TableCell>
