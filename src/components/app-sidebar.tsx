@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Logo } from "./icons";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Button } from "./ui/button";
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -88,7 +89,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton href="/help">
+            <SidebarMenuButton href="/help" isActive={pathname === "/help"}>
               <CircleHelp />
               Help
             </SidebarMenuButton>
@@ -103,7 +104,9 @@ export function AppSidebar() {
                   <p className="font-medium text-sidebar-foreground">Admin User</p>
                   <p className="text-xs text-sidebar-foreground/70">admin@corp-plan.com</p>
               </div>
-              <LogOut onClick={handleLogout} className="ml-auto size-5 text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors cursor-pointer" />
+              <Button variant="ghost" size="icon" className="ml-auto h-7 w-7 text-sidebar-foreground/70 hover:text-sidebar-foreground" onClick={handleLogout}>
+                <LogOut className="size-5" />
+              </Button>
             </div>
           </SidebarMenuItem>
         </SidebarMenu>

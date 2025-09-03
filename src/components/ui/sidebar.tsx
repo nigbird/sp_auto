@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import NextLink from "next/link"
 import { Slot } from "@radix-ui/react-slot"
 import { VariantProps, cva } from "class-variance-authority"
 import { PanelLeft } from "lucide-react"
@@ -534,12 +535,12 @@ const sidebarMenuButtonVariants = cva(
 )
 
 const SidebarMenuButton = React.forwardRef<
-  HTMLButtonElement,
-  React.ComponentProps<"button"> & {
+  HTMLAnchorElement,
+  React.ComponentProps<"a"> & {
     asChild?: boolean
     isActive?: boolean
     tooltip?: string | React.ComponentProps<typeof TooltipContent>
-  } & VariantProps<typeof sidebarMenuButtonVariants>
+  } & VariantProps<typeof sidebarMenuButtonVariants> & { href: string }
 >(
   (
     {
@@ -549,22 +550,25 @@ const SidebarMenuButton = React.forwardRef<
       size = "default",
       tooltip,
       className,
+      href,
       ...props
     },
     ref
   ) => {
-    const Comp = asChild ? Slot : "button"
+    const Comp = asChild ? Slot : "a"
     const { isMobile, state } = useSidebar()
 
     const button = (
-      <Comp
-        ref={ref}
-        data-sidebar="menu-button"
-        data-size={size}
-        data-active={isActive}
-        className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
-        {...props}
-      />
+        <NextLink href={href} passHref legacyBehavior>
+            <Comp
+                ref={ref}
+                data-sidebar="menu-button"
+                data-size={size}
+                data-active={isActive}
+                className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
+                {...props}
+            />
+        </NextLink>
     )
 
     if (!tooltip) {
