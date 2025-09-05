@@ -6,7 +6,7 @@ import { Layers, Target, Flag, ListChecks, Percent, AlertOctagon } from "lucide-
 export function ReportSummaryCards({ summary }: { summary: ReportSummary }) {
 
   return (
-    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Pillars</CardTitle>
@@ -50,15 +50,6 @@ export function ReportSummaryCards({ summary }: { summary: ReportSummary }) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{summary.overallProgress}%</div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Overdue Activities</CardTitle>
-          <AlertOctagon className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{summary.overdueActivities}</div>
         </CardContent>
       </Card>
     </div>
