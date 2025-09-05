@@ -1,15 +1,13 @@
 import { getReportData } from "@/lib/data";
 import { generateReportSummary } from "@/lib/utils";
 import { ReportSummaryCards } from "@/components/reports/summary-cards";
-import { ActivityCharts } from "@/components/dashboard/activity-charts";
-import { ActivityTable } from "@/components/dashboard/activity-table";
+import { DashboardClientLayout } from "@/components/dashboard/dashboard-client-layout";
 import type { Activity } from "@/lib/types";
 
 export default async function DashboardPage() {
   const reportData = await getReportData();
   const summary = generateReportSummary(reportData);
   
-  // Extract flat activities list for other components
   const activities: Activity[] = reportData.flatMap(pillar => 
     pillar.objectives.flatMap(objective => 
       objective.initiatives.flatMap(initiative => initiative.activities)
@@ -25,10 +23,11 @@ export default async function DashboardPage() {
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
       </div>
       <ReportSummaryCards summary={summary} />
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-        <ActivityCharts activities={activities} />
-      </div>
-      <ActivityTable activities={activities} users={users} departments={departments} />
+      <DashboardClientLayout 
+        activities={activities}
+        users={users}
+        departments={departments}
+      />
     </div>
   );
 }
