@@ -23,7 +23,7 @@ export default function SettingsPage() {
           </CardHeader>
           <CardFooter className="mt-auto">
             <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-              <Link href="#">
+              <Link href="/settings/user-registration">
                 <UserPlus className="mr-2 h-4 w-4" /> Go to User Registration
               </Link>
             </Button>
@@ -36,7 +36,7 @@ export default function SettingsPage() {
           </CardHeader>
           <CardFooter className="mt-auto">
             <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-              <Link href="#">
+              <Link href="/settings/user-management">
                 <Users className="mr-2 h-4 w-4" /> Go to User Management
               </Link>
             </Button>
@@ -49,7 +49,7 @@ export default function SettingsPage() {
           </CardHeader>
           <CardFooter className="mt-auto">
             <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-              <Link href="#">
+              <Link href="/settings/role-management">
                 <CheckCircle className="mr-2 h-4 w-4" /> Go to Role Management
               </Link>
             </Button>
