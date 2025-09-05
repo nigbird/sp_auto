@@ -7,8 +7,9 @@ import type { Activity, ActivityStatus, ActivityUpdate } from "@/lib/types";
 import { MyActivitySummaryCards } from "@/components/my-activity/my-activity-summary-cards";
 import { MyActivityTaskList } from "@/components/my-activity/my-activity-task-list";
 import { useToast } from "@/hooks/use-toast";
+import { calculateActivityStatus } from "@/lib/utils";
 
-type FilterType = "Delayed" | "Not Started" | "On Track" | "Completed As Per Target";
+type FilterType = "Delayed" | "Not Started" | "On Track" | "Completed As Per Target" | "Overdue";
 
 export default function MyActivityPage() {
   const [allActivities, setAllActivities] = useState<Activity[]>([]);
@@ -31,7 +32,7 @@ export default function MyActivityPage() {
     loadActivities();
   }, []);
 
-  const overdueActivities = useMemo(() => myActivities.filter(a => a.status === 'Delayed'), [myActivities]);
+  const overdueActivities = useMemo(() => myActivities.filter(a => a.status === 'Delayed' || a.status === 'Overdue'), [myActivities]);
   const pendingActivities = useMemo(() => myActivities.filter(a => a.status === 'Not Started'), [myActivities]);
   const activeActivities = useMemo(() => myActivities.filter(a => a.status === 'On Track'), [myActivities]);
   const completedActivities = useMemo(() => myActivities.filter(a => a.status === 'Completed As Per Target'), [myActivities]);
@@ -70,10 +71,11 @@ export default function MyActivityPage() {
     
     const updatedActivities = myActivities.map(activity => {
         if (activity.id === activityId) {
+            const status = calculateActivityStatus({ ...activity, progress: newProgress });
             return {
                 ...activity,
                 progress: newProgress,
-                status: newStatus,
+                status: status,
                 updates: [...activity.updates, newUpdate],
                 lastUpdated: { user: newUpdate.user, date: newUpdate.date }
             };
@@ -94,6 +96,7 @@ export default function MyActivityPage() {
       "Not Started": "Pending",
       "On Track": "Active",
       "Completed As Per Target": "Completed",
+      "Overdue": "Overdue"
     };
     return titles[activeFilter];
   }, [activeFilter]);

@@ -52,7 +52,7 @@ export function generateReportSummary(pillars: Pillar[]): ReportSummary {
       objective.initiatives.forEach(initiative => {
         totalActivities += initiative.activities.length;
         initiative.activities.forEach(activity => {
-          if (activity.status === "Delayed" || (activity.endDate < new Date() && activity.status !== 'Completed')) {
+          if (activity.status === "Delayed" || (activity.endDate < new Date() && activity.status !== 'Completed As Per Target')) {
             overdueActivities++;
           }
         });
@@ -72,4 +72,34 @@ export function generateReportSummary(pillars: Pillar[]): ReportSummary {
     overallProgress,
     overdueActivities,
   };
+}
+
+export function calculateActivityStatus(activity: { progress: number; startDate: Date; endDate: Date }): ActivityStatus {
+  const { progress, startDate, endDate } = activity;
+  const now = new Date();
+
+  if (progress >= 100) {
+    return "Completed As Per Target";
+  }
+
+  if (progress === 0) {
+    if (now > endDate) {
+      return "Overdue";
+    }
+    if (now < startDate) {
+      return "Not Started";
+    }
+    return "Delayed"; // Not started but after start date
+  }
+
+  // progress > 0 and < 100
+  if (now > endDate) {
+    return "Delayed";
+  }
+
+  if (progress < 70) {
+    return "Delayed";
+  }
+
+  return "On Track";
 }

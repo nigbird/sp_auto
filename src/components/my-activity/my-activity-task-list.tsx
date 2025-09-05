@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { Label } from "../ui/label";
+import { calculateActivityStatus } from "@/lib/utils";
 
 type TaskCardProps = { 
   activity: Activity;
@@ -27,16 +28,9 @@ function TaskCard({ activity, onUpdateActivity }: TaskCardProps) {
   const [updateComment, setUpdateComment] = React.useState("");
 
   React.useEffect(() => {
-    if (progress >= 100) {
-      setStatus("Completed As Per Target");
-    } else if (progress >= 70) {
-      setStatus("On Track");
-    } else if (progress > 0) {
-      setStatus("Delayed");
-    } else {
-      setStatus("Not Started");
-    }
-  }, [progress]);
+    const newStatus = calculateActivityStatus({ ...activity, progress });
+    setStatus(newStatus);
+  }, [progress, activity]);
 
   const handleSubmit = () => {
     if (updateComment.trim() === "") {
@@ -44,7 +38,8 @@ function TaskCard({ activity, onUpdateActivity }: TaskCardProps) {
         alert("Please provide an update comment.");
         return;
     }
-    onUpdateActivity(activity.id, progress, status, updateComment);
+    const newStatus = calculateActivityStatus({ ...activity, progress });
+    onUpdateActivity(activity.id, progress, newStatus, updateComment);
     setUpdateComment("");
   };
 
@@ -84,6 +79,7 @@ function TaskCard({ activity, onUpdateActivity }: TaskCardProps) {
                                     <SelectItem value="Completed As Per Target">Completed As Per Target</SelectItem>
                                     <SelectItem value="Delayed">Delayed</SelectItem>
                                     <SelectItem value="Not Started">Not Started</SelectItem>
+                                    <SelectItem value="Overdue">Overdue & Not Started</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
