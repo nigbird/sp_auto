@@ -18,6 +18,7 @@ import {
   Settings,
   CircleHelp,
   LogOut,
+  UserCheck,
 } from "lucide-react";
 import { Logo } from "./icons";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -62,6 +63,16 @@ export function AppSidebar() {
             >
               <ListTodo />
               Activities
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+           <SidebarMenuItem>
+            <SidebarMenuButton
+              href="/my-activity"
+              isActive={pathname === "/my-activity"}
+              tooltip="My Activity"
+            >
+              <UserCheck />
+              My Activity
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
