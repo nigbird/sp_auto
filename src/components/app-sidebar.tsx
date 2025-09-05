@@ -19,7 +19,7 @@ import {
   CircleHelp,
   LogOut,
   UserCheck,
-  Sitemap,
+  Network,
 } from "lucide-react";
 import { Logo } from "./icons";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -92,7 +92,7 @@ export function AppSidebar() {
               isActive={pathname === "/strategic-plan"}
               tooltip="Strategic Plan"
             >
-              <Sitemap />
+              <Network />
               Strategic Plan
             </SidebarMenuButton>
           </SidebarMenuItem>
