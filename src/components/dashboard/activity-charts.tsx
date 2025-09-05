@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Activity } from "@/lib/types";
