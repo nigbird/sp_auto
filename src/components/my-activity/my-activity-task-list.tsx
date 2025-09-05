@@ -42,6 +42,13 @@ function TaskCard({ activity, onUpdateActivity }: TaskCardProps) {
     onUpdateActivity(activity.id, progress, newStatus, updateComment);
     setUpdateComment("");
   };
+  
+  const handleProgressChange = (value: number[]) => {
+      const newProgress = value[0];
+      if (newProgress >= activity.progress) {
+          setProgress(newProgress);
+      }
+  }
 
   return (
     <Card className="bg-card">
@@ -88,7 +95,7 @@ function TaskCard({ activity, onUpdateActivity }: TaskCardProps) {
                              <Slider
                                 id={`progress-${activity.id}`}
                                 value={[progress]}
-                                onValueChange={(value) => setProgress(value[0])}
+                                onValueChange={handleProgressChange}
                                 max={100}
                                 step={1}
                             />

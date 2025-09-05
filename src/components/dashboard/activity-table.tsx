@@ -62,6 +62,9 @@ export function ActivityTable({ activities, users, departments }: { activities: 
         ...values,
         kpis: [],
         lastUpdated: { user: "Admin User", date: new Date() },
+        updates: [],
+        progress: 0,
+        weight: 50,
       };
       setData([newActivity, ...data]);
     }
@@ -104,6 +107,11 @@ export function ActivityTable({ activities, users, departments }: { activities: 
       cell: ({ row }) => format(row.getValue("endDate"), "PPP"),
     },
     {
+      accessorKey: "weight",
+      header: "Weight",
+       cell: ({ row }) => <div>{row.getValue("weight")}%</div>,
+    },
+    {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => <StatusBadge status={row.getValue("status")} />,
@@ -112,15 +120,11 @@ export function ActivityTable({ activities, users, departments }: { activities: 
       },
     },
     {
-      accessorKey: "kpis",
-      header: "KPI Progress",
+      accessorKey: "progress",
+      header: "Progress",
       cell: ({ row }) => {
-        const kpis = row.getValue("kpis") as Activity["kpis"];
-        if (!kpis || kpis.length === 0) return <div className="text-muted-foreground text-xs">No KPIs</div>;
-        const totalProgress =
-          kpis.reduce((acc, kpi) => acc + (kpi.actual / kpi.target) * 100, 0) /
-          kpis.length;
-        return <Progress value={totalProgress} className="h-2" />;
+        const progress = row.getValue("progress") as number;
+        return <Progress value={progress} className="h-2" />;
       },
     },
     {
