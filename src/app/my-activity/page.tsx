@@ -6,10 +6,11 @@ import { getActivities } from "@/lib/data";
 import type { Activity, ActivityStatus, ActivityUpdate } from "@/lib/types";
 import { MyActivitySummaryCards } from "@/components/my-activity/my-activity-summary-cards";
 import { MyActivityTaskList } from "@/components/my-activity/my-activity-task-list";
+import { AllActivityTaskList } from "@/components/my-activity/all-activity-task-list";
 import { useToast } from "@/hooks/use-toast";
 import { calculateActivityStatus } from "@/lib/utils";
 
-type FilterType = "Delayed" | "Not Started" | "On Track" | "Completed As Per Target" | "Overdue";
+type FilterType = "Delayed" | "Not Started" | "On Track" | "Completed As Per Target" | "Overdue" | "All";
 
 export default function MyActivityPage() {
   const [allActivities, setAllActivities] = useState<Activity[]>([]);
@@ -51,10 +52,13 @@ export default function MyActivityPage() {
       case "Completed As Per Target":
         setFilteredActivities(completedActivities);
         break;
+      case "All":
+        setFilteredActivities(myActivities);
+        break;
       default:
         setFilteredActivities(overdueActivities);
     }
-  }, [activeFilter, overdueActivities, pendingActivities, activeActivities, completedActivities]);
+  }, [activeFilter, myActivities, overdueActivities, pendingActivities, activeActivities, completedActivities]);
 
   const handleUpdateActivity = (
     activityId: string,
@@ -96,7 +100,8 @@ export default function MyActivityPage() {
       "Not Started": "Pending",
       "On Track": "Active",
       "Completed As Per Target": "Completed",
-      "Overdue": "Overdue"
+      Overdue: "Overdue",
+      All: "All Activities"
     };
     return titles[activeFilter];
   }, [activeFilter]);
@@ -116,13 +121,22 @@ export default function MyActivityPage() {
         pendingCount={pendingActivities.length}
         activeCount={activeActivities.length}
         completedCount={completedActivities.length}
+        allCount={myActivities.length}
       />
-      <MyActivityTaskList 
-        title={taskListTitle} 
-        count={filteredActivities.length} 
-        activities={filteredActivities} 
-        onUpdateActivity={handleUpdateActivity}
-      />
+      {activeFilter === 'All' ? (
+        <AllActivityTaskList 
+            title={taskListTitle} 
+            count={filteredActivities.length} 
+            activities={filteredActivities}
+        />
+      ) : (
+        <MyActivityTaskList 
+            title={taskListTitle} 
+            count={filteredActivities.length} 
+            activities={filteredActivities} 
+            onUpdateActivity={handleUpdateActivity}
+        />
+      )}
     </div>
   );
 }

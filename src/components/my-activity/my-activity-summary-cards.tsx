@@ -3,11 +3,11 @@
 
 import type { Activity } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, Clock, CheckCircle, Target, Hourglass } from "lucide-react";
+import { AlertTriangle, Clock, CheckCircle, Target, Hourglass, List } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
-type FilterType = "Delayed" | "Not Started" | "On Track" | "Completed As Per Target";
+type FilterType = "Delayed" | "Not Started" | "On Track" | "Completed As Per Target" | "All";
 
 type MyActivitySummaryCardsProps = {
   activities: Activity[];
@@ -16,6 +16,7 @@ type MyActivitySummaryCardsProps = {
   pendingCount: number;
   activeCount: number;
   completedCount: number;
+  allCount: number;
 };
 
 export function MyActivitySummaryCards({ 
@@ -25,8 +26,9 @@ export function MyActivitySummaryCards({
   pendingCount,
   activeCount,
   completedCount,
+  allCount,
 }: MyActivitySummaryCardsProps) {
-  const overdueTasks = activities.filter(a => a.status === 'Delayed').length;
+  const overdueTasks = activities.filter(a => a.status === 'Delayed' || a.status === 'Overdue').length;
   
   const completedTasks = activities.filter(a => a.status === 'Completed As Per Target');
   const onTimePerformance = completedTasks.length > 0
@@ -40,7 +42,7 @@ export function MyActivitySummaryCards({
     );
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
       <Card className={cardClasses("Delayed")} onClick={() => onFilterChange("Delayed")}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Overdue Tasks</CardTitle>
@@ -79,6 +81,16 @@ export function MyActivitySummaryCards({
         <CardContent>
           <div className="text-2xl font-bold">{completedCount}</div>
           <p className="text-xs text-muted-foreground">Tasks you have completed</p>
+        </CardContent>
+      </Card>
+      <Card className={cardClasses("All")} onClick={() => onFilterChange("All")}>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">All Activities</CardTitle>
+          <List className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{allCount}</div>
+          <p className="text-xs text-muted-foreground">All of your assigned tasks</p>
         </CardContent>
       </Card>
     </div>
