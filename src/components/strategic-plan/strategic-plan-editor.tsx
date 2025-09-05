@@ -5,8 +5,14 @@ import * as React from "react";
 import type { Pillar, Objective, Initiative, Activity } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Edit, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { PlusCircle, Edit, Trash2, ChevronDown, ChevronRight, MoreVertical } from "lucide-react";
 import { getPillarProgress, getObjectiveProgress, getInitiativeProgress } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Dummy state management. In a real app, this would use Zustand, Redux, or React Context.
 let state: Pillar[] = [];
@@ -83,6 +89,28 @@ export function StrategicPlanEditor({ initialData }: { initialData: Pillar[] }) 
   );
 }
 
+function ActionMenu() {
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button size="icon" variant="ghost">
+                    <MoreVertical className="h-4 w-4" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuItem>
+                    <Edit className="mr-2 h-4 w-4" />
+                    <span>Edit</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    <span>Delete</span>
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+}
+
 function PillarItem({ pillar, onAddItem }: { pillar: Pillar; onAddItem: Function }) {
   const [isOpen, setIsOpen] = React.useState(true);
   const progress = getPillarProgress(pillar);
@@ -101,8 +129,7 @@ function PillarItem({ pillar, onAddItem }: { pillar: Pillar; onAddItem: Function
           <Button onClick={() => onAddItem("objective", pillar.id)} size="sm" variant="outline">
             <PlusCircle className="mr-2 h-4 w-4" /> Add Objective
           </Button>
-          <Button size="icon" variant="ghost"><Edit className="h-4 w-4" /></Button>
-          <Button size="icon" variant="ghost" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+          <ActionMenu />
         </div>
       </div>
       {isOpen && (
@@ -134,8 +161,7 @@ function ObjectiveItem({ objective, onAddItem }: { objective: Objective; onAddIt
                     <Button onClick={() => onAddItem("initiative", objective.id)} size="sm" variant="outline">
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Initiative
                     </Button>
-                    <Button size="icon" variant="ghost"><Edit className="h-4 w-4" /></Button>
-                    <Button size="icon" variant="ghost" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                    <ActionMenu />
                 </div>
             </div>
             {isOpen && (
@@ -167,8 +193,7 @@ function InitiativeItem({ initiative, onAddItem }: { initiative: Initiative; onA
                     <Button onClick={() => onAddItem("activity", initiative.id)} size="sm" variant="outline">
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
                     </Button>
-                    <Button size="icon" variant="ghost"><Edit className="h-4 w-4" /></Button>
-                    <Button size="icon" variant="ghost" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                   <ActionMenu />
                 </div>
             </div>
              {isOpen && (
@@ -188,8 +213,7 @@ function ActivityItem({ activity }: { activity: Activity; }) {
             <p className="text-sm">{activity.title}</p>
             <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">(Wt: {activity.weight}%, Prog: {activity.progress}%)</span>
-                <Button size="icon" variant="ghost"><Edit className="h-4 w-4" /></Button>
-                <Button size="icon" variant="ghost" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                <ActionMenu />
             </div>
         </div>
     );
