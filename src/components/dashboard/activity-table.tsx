@@ -13,7 +13,7 @@ import {
   ColumnFiltersState,
   getFilteredRowModel,
 } from "@tanstack/react-table";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -43,6 +43,9 @@ import { Progress } from "../ui/progress";
 import { ActivityForm } from "./activity-form";
 import { format } from "date-fns";
 import { Input } from "../ui/input";
+import { DataTableFacetedFilter } from "../data-table-faceted-filter";
+import { DateRangePicker } from "../date-range-picker";
+import { DateRange } from "react-day-picker";
 
 export function ActivityTable({ activities, users, departments }: { activities: Activity[], users: string[], departments: string[] }) {
   const [data, setData] = useState(activities);
@@ -81,6 +84,10 @@ export function ActivityTable({ activities, users, departments }: { activities: 
     setEditingActivity(null);
     setOpen(true);
   };
+  
+  const statuses: ActivityStatus[] = ["Not Started", "On Track", "Completed As Per Target", "Delayed", "Overdue"];
+  const departmentOptions = departments.map(d => ({ label: d, value: d }));
+  const statusOptions = statuses.map(s => ({ label: s, value: s }));
 
   const columns: ColumnDef<Activity>[] = [
     {
@@ -105,6 +112,16 @@ export function ActivityTable({ activities, users, departments }: { activities: 
       accessorKey: "endDate",
       header: "End Date",
       cell: ({ row }) => format(row.getValue("endDate"), "PPP"),
+      filterFn: (row, id, value) => {
+        const date = new Date(row.getValue(id));
+        const { from, to } = value as DateRange;
+        if (from && !to) {
+          return date >= from;
+        } else if (from && to) {
+          return date >= from && date <= to;
+        }
+        return true;
+      }
     },
     {
       accessorKey: "weight",
@@ -166,18 +183,55 @@ export function ActivityTable({ activities, users, departments }: { activities: 
     },
   });
 
+  const isFiltered = table.getState().columnFilters.length > 0
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <div className="w-full">
-        <div className="flex items-center justify-between py-4">
-          <Input
-            placeholder="Filter activities by title..."
-            value={(table.getColumn("title")?.getFilterValue() as string) ?? ""}
-            onChange={(event) =>
-              table.getColumn("title")?.setFilterValue(event.target.value)
-            }
-            className="max-w-sm"
-          />
+        <div className="flex items-center justify-between pb-4">
+            <div className="flex items-center gap-2">
+                <Input
+                    placeholder="Filter activities by title..."
+                    value={(table.getColumn("title")?.getFilterValue() as string) ?? ""}
+                    onChange={(event) =>
+                    table.getColumn("title")?.setFilterValue(event.target.value)
+                    }
+                    className="max-w-sm"
+                />
+                {table.getColumn("department") && (
+                    <DataTableFacetedFilter
+                        column={table.getColumn("department")}
+                        title="Department"
+                        options={departmentOptions}
+                    />
+                )}
+                 {table.getColumn("status") && (
+                    <DataTableFacetedFilter
+                        column={table.getColumn("status")}
+                        title="Status"
+                        options={statusOptions}
+                    />
+                )}
+                {table.getColumn("endDate") && (
+                  <DateRangePicker
+                    onUpdate={(value) => table.getColumn("endDate")?.setFilterValue(value)}
+                    initialDateFrom={new Date()}
+                    align="start"
+                    locale="en-GB"
+                    showCompare={false}
+                  />
+                )}
+                {isFiltered && (
+                    <Button
+                    variant="ghost"
+                    onClick={() => table.resetColumnFilters()}
+                    className="h-9 px-2 lg:px-3"
+                    >
+                    Reset
+                    <X className="ml-2 h-4 w-4" />
+                    </Button>
+                )}
+            </div>
           <DialogTrigger asChild>
             <Button onClick={handleCreateNew} className="bg-accent hover:bg-accent/90 text-accent-foreground">
               <PlusCircle className="mr-2 h-4 w-4" />
