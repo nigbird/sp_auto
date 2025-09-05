@@ -1,3 +1,4 @@
+
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Pillar, Objective, Initiative, Activity, ActivityStatus } from "./types";
@@ -82,21 +83,22 @@ export function calculateActivityStatus(activity: { progress: number; startDate:
     return "Completed As Per Target";
   }
 
-  if (progress === 0) {
-    if (now > endDate) {
-      return "Overdue";
+  if (now > endDate) {
+    if (progress === 0) {
+        return "Overdue";
     }
+    return "Delayed";
+  }
+  
+  if (progress === 0) {
     if (now < startDate) {
       return "Not Started";
     }
-    return "Delayed"; // Not started but after start date
-  }
-
-  // progress > 0 and < 100
-  if (now > endDate) {
+    // after start date but before end date
     return "Delayed";
   }
-
+  
+  // In-progress
   if (progress < 70) {
     return "Delayed";
   }
