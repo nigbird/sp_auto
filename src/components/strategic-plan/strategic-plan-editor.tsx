@@ -13,22 +13,44 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 // Dummy state management. In a real app, this would use Zustand, Redux, or React Context.
 let state: Pillar[] = [];
 
 export function StrategicPlanEditor({ initialData }: { initialData: Pillar[] }) {
   const [data, setData] = useState(initialData);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newItemCode, setNewItemCode] = useState("");
+  const [newItemTitle, setNewItemTitle] = useState("");
+  const [newItemWeight, setNewItemWeight] = useState("50");
+
   state = data;
 
   const forceUpdate = useCallback(() => setData([...state]), []);
 
-  const handleAddItemByCode = () => {
-    const code = prompt("Enter the code for the new item (e.g., P3, O1.2, I1.1.1, A1.1.1.1):");
-    if (!code) return;
+  const handleAddItem = () => {
+    const code = newItemCode;
+    if (!code) {
+        alert("Please enter a code.");
+        return;
+    };
 
-    const title = prompt(`Enter title for new item:`);
-    if (!title) return;
+    const title = newItemTitle;
+    if (!title) {
+        alert("Please enter a title.");
+        return;
+    };
     
     const codeParts = code.trim().toUpperCase().split('.');
     const itemType = codeParts[0][0];
@@ -61,40 +83,75 @@ export function StrategicPlanEditor({ initialData }: { initialData: Pillar[] }) 
             if (!objective) throw new Error(`Objective O${indices[0]+1}.${indices[1]+1} not found.`);
             const initiative = objective.initiatives[indices[2]];
             if (!initiative) throw new Error(`Initiative I${indices[0]+1}.${indices[1]+1}.${indices[2]+1} not found.`);
-             const weight = parseInt(prompt("Enter weight for new activity:", "50") || "50", 10);
-               const newActivity: Activity = {
-                id: `A-${Date.now()}`,
-                title,
-                weight,
-                description: "New Activity",
-                department: "N/A",
-                responsible: "N/A",
-                startDate: new Date(),
-                endDate: new Date(),
-                status: "Not Started",
-                kpis: [],
-                lastUpdated: { user: "Admin", date: new Date() },
-                updates: [],
-                progress: 0,
-              };
-              initiative.activities.splice(indices[3], 0, newActivity);
+            const weight = parseInt(newItemWeight, 10);
+            if (isNaN(weight)) throw new Error("Invalid weight. Please enter a number.");
+            const newActivity: Activity = {
+              id: `A-${Date.now()}`,
+              title,
+              weight,
+              description: "New Activity",
+              department: "N/A",
+              responsible: "N/A",
+              startDate: new Date(),
+              endDate: new Date(),
+              status: "Not Started",
+              kpis: [],
+              lastUpdated: { user: "Admin", date: new Date() },
+              updates: [],
+              progress: 0,
+            };
+            initiative.activities.splice(indices[3], 0, newActivity);
         } else {
             throw new Error("Invalid item type in code. Must start with P, O, I, or A.");
         }
         forceUpdate();
+        setNewItemCode("");
+        setNewItemTitle("");
+        setNewItemWeight("50");
+        setIsDialogOpen(false);
     } catch(e: any) {
         alert(`Error: ${e.message}`);
     }
   }
 
-
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Plan Hierarchy</CardTitle>
-        <Button onClick={handleAddItemByCode} size="sm">
-          <PlusCircle className="mr-2 h-4 w-4" /> Add Item by Code
-        </Button>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm">
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Item by Code
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Plan Item</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="item-code">Code</Label>
+                <Input id="item-code" placeholder="e.g., P3, O1.2, I1.1.1, A1.1.1.1" value={newItemCode} onChange={(e) => setNewItemCode(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="item-title">Title</Label>
+                <Input id="item-title" placeholder="Enter title for the new item" value={newItemTitle} onChange={(e) => setNewItemTitle(e.target.value)} />
+              </div>
+              {newItemCode.trim().toUpperCase().startsWith('A') && (
+                <div className="space-y-2">
+                  <Label htmlFor="item-weight">Weight (%)</Label>
+                  <Input id="item-weight" type="number" placeholder="Enter weight" value={newItemWeight} onChange={(e) => setNewItemWeight(e.target.value)} />
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+                <DialogClose asChild>
+                    <Button variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button onClick={handleAddItem}>Add Item</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardHeader>
       <CardContent className="space-y-4">
         {data.map((pillar, pillarIndex) => (
