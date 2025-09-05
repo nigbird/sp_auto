@@ -38,15 +38,27 @@ function ReadOnlyTaskCard({ activity }: { activity: Activity }) {
                 <CardContent className="space-y-6">
                     <p className="text-sm">{activity.description}</p>
                     
-                    <div className="grid grid-cols-2 gap-6">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                         <div className="space-y-2">
                            <p className="text-sm font-medium">Status</p>
                            <StatusBadge status={activity.status} />
                         </div>
-                        <div className="space-y-2">
-                             <p className="text-sm font-medium">Progress</p>
-                             <Progress value={activity.progress} />
+                         <div className="space-y-2">
+                             <p className="text-sm font-medium">Start Date</p>
+                             <p className="text-sm">{format(activity.startDate, "PP")}</p>
                         </div>
+                        <div className="space-y-2">
+                             <p className="text-sm font-medium">End Date</p>
+                             <p className="text-sm">{format(activity.endDate, "PP")}</p>
+                        </div>
+                        <div className="space-y-2">
+                             <p className="text-sm font-medium">Weight</p>
+                             <p className="text-sm">{activity.weight}%</p>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <p className="text-sm font-medium">Progress</p>
+                        <Progress value={activity.progress} />
                     </div>
                 </CardContent>
             </CollapsibleContent>
