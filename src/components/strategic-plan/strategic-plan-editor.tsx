@@ -5,8 +5,9 @@ import { useState, useCallback } from "react";
 import type { Pillar, Objective, Initiative, Activity } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Edit, Trash2, ChevronDown, ChevronRight, MoreVertical } from "lucide-react";
+import { PlusCircle, Edit, Trash2, ChevronDown, ChevronRight, MoreVertical, AlertCircle } from "lucide-react";
 import { getPillarProgress, getObjectiveProgress, getInitiativeProgress } from "@/lib/utils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,10 +35,19 @@ export function StrategicPlanEditor({ initialData }: { initialData: Pillar[] }) 
   const [newItemCode, setNewItemCode] = useState("");
   const [newItemTitle, setNewItemTitle] = useState("");
   const [newItemWeight, setNewItemWeight] = useState("50");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   state = data;
 
   const forceUpdate = useCallback(() => setData([...state]), []);
+  
+  const resetDialog = () => {
+    setIsDialogOpen(false);
+    setNewItemCode("");
+    setNewItemTitle("");
+    setNewItemWeight("50");
+    setErrorMessage(null);
+  };
 
   const codeExists = (codeToFind: string): boolean => {
     const codeParts = codeToFind.trim().toUpperCase().split('.');
@@ -61,7 +71,7 @@ export function StrategicPlanEditor({ initialData }: { initialData: Pillar[] }) 
       if (indices.length !== 4) return false;
       const pillar = state[indices[0]];
       const objective = pillar?.objectives[indices[1]];
-      const initiative = objective?.initiatives[indices[2]];
+      const initiative = objective?.initiatives[indexe_s[2]];
       return !!initiative && initiative.activities.length > indices[3];
     }
     return false;
@@ -70,18 +80,18 @@ export function StrategicPlanEditor({ initialData }: { initialData: Pillar[] }) 
   const handleAddItem = () => {
     const code = newItemCode;
     if (!code) {
-        alert("Please enter a code.");
+        setErrorMessage("Please enter a code.");
         return;
     };
 
     if (codeExists(code)) {
-      alert(`The code ${code} is already taken. Please enter a unique code.`);
+      setErrorMessage(`The code ${code} is already taken. Please enter a unique code.`);
       return;
     }
 
     const title = newItemTitle;
     if (!title) {
-        alert("Please enter a title.");
+        setErrorMessage("Please enter a title.");
         return;
     };
     
@@ -138,12 +148,9 @@ export function StrategicPlanEditor({ initialData }: { initialData: Pillar[] }) 
             throw new Error("Invalid item type in code. Must start with P, O, I, or A.");
         }
         forceUpdate();
-        setNewItemCode("");
-        setNewItemTitle("");
-        setNewItemWeight("50");
-        setIsDialogOpen(false);
+        resetDialog();
     } catch(e: any) {
-        alert(`Error: ${e.message}`);
+        setErrorMessage(`Error: ${e.message}`);
     }
   }
 
@@ -151,7 +158,12 @@ export function StrategicPlanEditor({ initialData }: { initialData: Pillar[] }) 
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Plan Hierarchy</CardTitle>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+                resetDialog();
+            }
+        }}>
           <DialogTrigger asChild>
             <Button size="sm">
               <PlusCircle className="mr-2 h-4 w-4" /> Add Item by Code
@@ -162,13 +174,21 @@ export function StrategicPlanEditor({ initialData }: { initialData: Pillar[] }) 
               <DialogTitle>Add New Plan Item</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
+              {errorMessage && (
+                  <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                          {errorMessage}
+                      </AlertDescription>
+                  </Alert>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="item-code">Code</Label>
-                <Input id="item-code" placeholder="e.g., P3, O1.2, I1.1.1, A1.1.1.1" value={newItemCode} onChange={(e) => setNewItemCode(e.target.value)} />
+                <Input id="item-code" placeholder="e.g., P3, O1.2, I1.1.1, A1.1.1.1" value={newItemCode} onChange={(e) => { setNewItemCode(e.target.value); setErrorMessage(null); }} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="item-title">Title</Label>
-                <Input id="item-title" placeholder="Enter title for the new item" value={newItemTitle} onChange={(e) => setNewItemTitle(e.target.value)} />
+                <Input id="item-title" placeholder="Enter title for the new item" value={newItemTitle} onChange={(e) => { setNewItemTitle(e.target.value); setErrorMessage(null); }} />
               </div>
               {newItemCode.trim().toUpperCase().startsWith('A') && (
                 <div className="space-y-2">
@@ -178,9 +198,7 @@ export function StrategicPlanEditor({ initialData }: { initialData: Pillar[] }) 
               )}
             </div>
             <DialogFooter>
-                <DialogClose asChild>
-                    <Button variant="outline">Cancel</Button>
-                </DialogClose>
+                <Button variant="outline" onClick={resetDialog}>Cancel</Button>
                 <Button onClick={handleAddItem}>Add Item</Button>
             </DialogFooter>
           </DialogContent>
