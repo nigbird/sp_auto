@@ -39,12 +39,45 @@ export function StrategicPlanEditor({ initialData }: { initialData: Pillar[] }) 
 
   const forceUpdate = useCallback(() => setData([...state]), []);
 
+  const codeExists = (codeToFind: string): boolean => {
+    const codeParts = codeToFind.trim().toUpperCase().split('.');
+    const itemType = codeParts[0][0];
+    const indices = codeParts.map(p => parseInt(p.substring(1), 10) - 1);
+    
+    if (indices.some(isNaN)) return false;
+
+    if (itemType === 'P') {
+      return indices.length === 1 && state.length > indices[0];
+    } else if (itemType === 'O') {
+      if (indices.length !== 2) return false;
+      const pillar = state[indices[0]];
+      return !!pillar && pillar.objectives.length > indices[1];
+    } else if (itemType === 'I') {
+      if (indices.length !== 3) return false;
+      const pillar = state[indices[0]];
+      const objective = pillar?.objectives[indices[1]];
+      return !!objective && objective.initiatives.length > indices[2];
+    } else if (itemType === 'A') {
+      if (indices.length !== 4) return false;
+      const pillar = state[indices[0]];
+      const objective = pillar?.objectives[indices[1]];
+      const initiative = objective?.initiatives[indices[2]];
+      return !!initiative && initiative.activities.length > indices[3];
+    }
+    return false;
+  };
+
   const handleAddItem = () => {
     const code = newItemCode;
     if (!code) {
         alert("Please enter a code.");
         return;
     };
+
+    if (codeExists(code)) {
+      alert(`The code ${code} is already taken. Please enter a unique code.`);
+      return;
+    }
 
     const title = newItemTitle;
     if (!title) {
