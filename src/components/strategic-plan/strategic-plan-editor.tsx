@@ -81,8 +81,8 @@ export function StrategicPlanEditor({ initialData }: { initialData: Pillar[] }) 
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
-        {data.map((pillar) => (
-          <PillarItem key={pillar.id} pillar={pillar} onAddItem={handleAddItem} />
+        {data.map((pillar, pillarIndex) => (
+          <PillarItem key={pillar.id} pillar={pillar} pillarIndex={pillarIndex} onAddItem={handleAddItem} />
         ))}
       </CardContent>
     </Card>
@@ -111,9 +111,10 @@ function ActionMenu() {
     );
 }
 
-function PillarItem({ pillar, onAddItem }: { pillar: Pillar; onAddItem: Function }) {
+function PillarItem({ pillar, pillarIndex, onAddItem }: { pillar: Pillar; pillarIndex: number, onAddItem: Function }) {
   const [isOpen, setIsOpen] = React.useState(true);
   const progress = getPillarProgress(pillar);
+  const pillarCode = `P${pillarIndex + 1}`;
 
   return (
     <div className="space-y-2 rounded-lg border bg-muted/20 p-4">
@@ -122,7 +123,7 @@ function PillarItem({ pillar, onAddItem }: { pillar: Pillar; onAddItem: Function
           <button onClick={() => setIsOpen(!isOpen)} className="focus:outline-none">
             {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
           </button>
-          <h3 className="text-lg font-semibold">{pillar.title}</h3>
+          <h3 className="text-lg font-semibold"><span className="text-muted-foreground">{pillarCode}:</span> {pillar.title}</h3>
            <span className="text-sm font-bold text-muted-foreground">({progress}%)</span>
         </div>
         <div className="flex items-center gap-2">
@@ -134,8 +135,8 @@ function PillarItem({ pillar, onAddItem }: { pillar: Pillar; onAddItem: Function
       </div>
       {isOpen && (
         <div className="ml-8 space-y-2 border-l pl-4">
-          {pillar.objectives.map((objective) => (
-            <ObjectiveItem key={objective.id} objective={objective} onAddItem={onAddItem} />
+          {pillar.objectives.map((objective, objectiveIndex) => (
+            <ObjectiveItem key={objective.id} objective={objective} pillarCode={pillarCode} objectiveIndex={objectiveIndex} onAddItem={onAddItem} />
           ))}
         </div>
       )}
@@ -143,9 +144,10 @@ function PillarItem({ pillar, onAddItem }: { pillar: Pillar; onAddItem: Function
   );
 }
 
-function ObjectiveItem({ objective, onAddItem }: { objective: Objective; onAddItem: Function }) {
+function ObjectiveItem({ objective, pillarCode, objectiveIndex, onAddItem }: { objective: Objective; pillarCode: string; objectiveIndex: number; onAddItem: Function }) {
     const [isOpen, setIsOpen] = React.useState(false);
     const progress = getObjectiveProgress(objective);
+    const objectiveCode = `${pillarCode.replace('P', 'O')}.${objectiveIndex + 1}`;
 
     return (
         <div className="space-y-2 rounded-md border bg-background/70 p-3">
@@ -154,7 +156,7 @@ function ObjectiveItem({ objective, onAddItem }: { objective: Objective; onAddIt
                     <button onClick={() => setIsOpen(!isOpen)} className="focus:outline-none">
                        {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
                     </button>
-                    <h4 className="font-semibold">{objective.title}</h4>
+                    <h4 className="font-semibold"><span className="text-muted-foreground">{objectiveCode}:</span> {objective.title}</h4>
                     <span className="text-sm font-medium text-muted-foreground">(Wt: {objective.weight}%, Prog: {progress}%)</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -166,8 +168,8 @@ function ObjectiveItem({ objective, onAddItem }: { objective: Objective; onAddIt
             </div>
             {isOpen && (
                  <div className="ml-8 space-y-2 border-l pl-4">
-                    {objective.initiatives.map((initiative) => (
-                        <InitiativeItem key={initiative.id} initiative={initiative} onAddItem={onAddItem} />
+                    {objective.initiatives.map((initiative, initiativeIndex) => (
+                        <InitiativeItem key={initiative.id} initiative={initiative} objectiveCode={objectiveCode} initiativeIndex={initiativeIndex} onAddItem={onAddItem} />
                     ))}
                 </div>
             )}
@@ -175,9 +177,10 @@ function ObjectiveItem({ objective, onAddItem }: { objective: Objective; onAddIt
     );
 }
 
-function InitiativeItem({ initiative, onAddItem }: { initiative: Initiative; onAddItem: Function }) {
+function InitiativeItem({ initiative, objectiveCode, initiativeIndex, onAddItem }: { initiative: Initiative; objectiveCode: string; initiativeIndex: number; onAddItem: Function }) {
     const [isOpen, setIsOpen] = React.useState(false);
     const progress = getInitiativeProgress(initiative);
+    const initiativeCode = `${objectiveCode.replace('O', 'I')}.${initiativeIndex + 1}`;
 
     return (
         <div className="space-y-2 rounded-md border bg-background p-3">
@@ -186,7 +189,7 @@ function InitiativeItem({ initiative, onAddItem }: { initiative: Initiative; onA
                      <button onClick={() => setIsOpen(!isOpen)} className="focus:outline-none">
                        {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
                     </button>
-                    <h5 className="font-medium">{initiative.title}</h5>
+                    <h5 className="font-medium"><span className="text-muted-foreground">{initiativeCode}:</span> {initiative.title}</h5>
                     <span className="text-xs text-muted-foreground">(Wt: {initiative.weight}%, Prog: {progress}%)</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -198,8 +201,8 @@ function InitiativeItem({ initiative, onAddItem }: { initiative: Initiative; onA
             </div>
              {isOpen && (
                 <div className="ml-8 space-y-2 border-l pl-4">
-                    {initiative.activities.map((activity) => (
-                        <ActivityItem key={activity.id} activity={activity} />
+                    {initiative.activities.map((activity, activityIndex) => (
+                        <ActivityItem key={activity.id} activity={activity} initiativeCode={initiativeCode} activityIndex={activityIndex} />
                     ))}
                 </div>
             )}
@@ -207,10 +210,11 @@ function InitiativeItem({ initiative, onAddItem }: { initiative: Initiative; onA
     );
 }
 
-function ActivityItem({ activity }: { activity: Activity; }) {
+function ActivityItem({ activity, initiativeCode, activityIndex }: { activity: Activity; initiativeCode: string; activityIndex: number; }) {
+    const activityCode = `${initiativeCode.replace('I', 'A')}.${activityIndex + 1}`;
     return (
         <div className="flex items-center justify-between rounded-md bg-muted/40 p-2">
-            <p className="text-sm">{activity.title}</p>
+            <p className="text-sm"><span className="text-muted-foreground">{activityCode}:</span> {activity.title}</p>
             <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">(Wt: {activity.weight}%, Prog: {activity.progress}%)</span>
                 <ActionMenu />
