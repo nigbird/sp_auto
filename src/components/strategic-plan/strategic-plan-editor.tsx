@@ -23,30 +23,45 @@ export function StrategicPlanEditor({ initialData }: { initialData: Pillar[] }) 
 
   const forceUpdate = React.useCallback(() => setData([...state]), []);
 
-  const handleAddItem = (type: "pillar" | "objective" | "initiative" | "activity", parentId?: string) => {
-    const title = prompt(`Enter title for new ${type}:`);
-    if (!title) return;
+  const handleAddItemByCode = () => {
+    const code = prompt("Enter the code for the new item (e.g., P3, O1.2, I1.1.1, A1.1.1.1):");
+    if (!code) return;
 
-    if (type === "pillar") {
-      const newPillar: Pillar = { id: `P-${Date.now()}`, title, objectives: [] };
-      state.push(newPillar);
-    } else if (parentId) {
-      // simplified logic to find and update parent
-      for (const pillar of state) {
-        if (type === "objective" && pillar.id === parentId) {
-          const newObjective: Objective = { id: `O-${Date.now()}`, title, weight: 0, initiatives: [] };
-          pillar.objectives.push(newObjective);
-          break;
-        }
-        for (const objective of pillar.objectives) {
-          if (type === "initiative" && objective.id === parentId) {
+    const title = prompt(`Enter title for new item:`);
+    if (!title) return;
+    
+    const codeParts = code.trim().toUpperCase().split('.');
+    const itemType = codeParts[0][0];
+    const indices = codeParts.map(p => parseInt(p.substring(1), 10) - 1);
+
+    try {
+        if (itemType === 'P') {
+            if (indices.length !== 1 || isNaN(indices[0])) throw new Error("Invalid Pillar code. Format: P<number>");
+            const newPillar: Pillar = { id: `P-${Date.now()}`, title, objectives: [] };
+            state.splice(indices[0], 0, newPillar);
+        } else if (itemType === 'O') {
+            if (indices.length !== 2 || indices.some(isNaN)) throw new Error("Invalid Objective code. Format: O<p_idx>.<o_idx>");
+            const pillar = state[indices[0]];
+            if (!pillar) throw new Error(`Pillar P${indices[0]+1} not found.`);
+            const newObjective: Objective = { id: `O-${Date.now()}`, title, weight: 0, initiatives: [] };
+            pillar.objectives.splice(indices[1], 0, newObjective);
+        } else if (itemType === 'I') {
+            if (indices.length !== 3 || indices.some(isNaN)) throw new Error("Invalid Initiative code. Format: I<p_idx>.<o_idx>.<i_idx>");
+            const pillar = state[indices[0]];
+            if (!pillar) throw new Error(`Pillar P${indices[0]+1} not found.`);
+            const objective = pillar.objectives[indices[1]];
+            if (!objective) throw new Error(`Objective O${indices[0]+1}.${indices[1]+1} not found.`);
             const newInitiative: Initiative = { id: `I-${Date.now()}`, title, weight: 0, activities: [] };
-            objective.initiatives.push(newInitiative);
-            break;
-          }
-          for (const initiative of objective.initiatives) {
-            if (type === "activity" && initiative.id === parentId) {
-              const weight = parseInt(prompt("Enter weight for new activity:", "50") || "50", 10);
+            objective.initiatives.splice(indices[2], 0, newInitiative);
+        } else if (itemType === 'A') {
+             if (indices.length !== 4 || indices.some(isNaN)) throw new Error("Invalid Activity code. Format: A<p_idx>.<o_idx>.<i_idx>.<a_idx>");
+            const pillar = state[indices[0]];
+            if (!pillar) throw new Error(`Pillar P${indices[0]+1} not found.`);
+            const objective = pillar.objectives[indices[1]];
+            if (!objective) throw new Error(`Objective O${indices[0]+1}.${indices[1]+1} not found.`);
+            const initiative = objective.initiatives[indices[2]];
+            if (!initiative) throw new Error(`Initiative I${indices[0]+1}.${indices[1]+1}.${indices[2]+1} not found.`);
+             const weight = parseInt(prompt("Enter weight for new activity:", "50") || "50", 10);
                const newActivity: Activity = {
                 id: `A-${Date.now()}`,
                 title,
@@ -62,27 +77,28 @@ export function StrategicPlanEditor({ initialData }: { initialData: Pillar[] }) 
                 updates: [],
                 progress: 0,
               };
-              initiative.activities.push(newActivity);
-              break;
-            }
-          }
+              initiative.activities.splice(indices[3], 0, newActivity);
+        } else {
+            throw new Error("Invalid item type in code. Must start with P, O, I, or A.");
         }
-      }
+        forceUpdate();
+    } catch(e: any) {
+        alert(`Error: ${e.message}`);
     }
-    forceUpdate();
-  };
+  }
+
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Plan Hierarchy</CardTitle>
-        <Button onClick={() => handleAddItem("pillar")} size="sm">
-          <PlusCircle className="mr-2 h-4 w-4" /> Add Pillar
+        <Button onClick={handleAddItemByCode} size="sm">
+          <PlusCircle className="mr-2 h-4 w-4" /> Add Item by Code
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
         {data.map((pillar, pillarIndex) => (
-          <PillarItem key={pillar.id} pillar={pillar} pillarIndex={pillarIndex} onAddItem={handleAddItem} />
+          <PillarItem key={pillar.id} pillar={pillar} pillarIndex={pillarIndex} />
         ))}
       </CardContent>
     </Card>
@@ -111,7 +127,7 @@ function ActionMenu() {
     );
 }
 
-function PillarItem({ pillar, pillarIndex, onAddItem }: { pillar: Pillar; pillarIndex: number, onAddItem: Function }) {
+function PillarItem({ pillar, pillarIndex }: { pillar: Pillar; pillarIndex: number }) {
   const [isOpen, setIsOpen] = React.useState(true);
   const progress = getPillarProgress(pillar);
   const pillarCode = `P${pillarIndex + 1}`;
@@ -127,16 +143,13 @@ function PillarItem({ pillar, pillarIndex, onAddItem }: { pillar: Pillar; pillar
            <span className="text-sm font-bold text-muted-foreground">({progress}%)</span>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={() => onAddItem("objective", pillar.id)} size="sm" variant="outline">
-            <PlusCircle className="mr-2 h-4 w-4" /> Add Objective
-          </Button>
           <ActionMenu />
         </div>
       </div>
       {isOpen && (
         <div className="ml-8 space-y-2 border-l pl-4">
           {pillar.objectives.map((objective, objectiveIndex) => (
-            <ObjectiveItem key={objective.id} objective={objective} pillarCode={pillarCode} objectiveIndex={objectiveIndex} onAddItem={onAddItem} />
+            <ObjectiveItem key={objective.id} objective={objective} pillarCode={pillarCode} objectiveIndex={objectiveIndex} />
           ))}
         </div>
       )}
@@ -144,7 +157,7 @@ function PillarItem({ pillar, pillarIndex, onAddItem }: { pillar: Pillar; pillar
   );
 }
 
-function ObjectiveItem({ objective, pillarCode, objectiveIndex, onAddItem }: { objective: Objective; pillarCode: string; objectiveIndex: number; onAddItem: Function }) {
+function ObjectiveItem({ objective, pillarCode, objectiveIndex }: { objective: Objective; pillarCode: string; objectiveIndex: number; }) {
     const [isOpen, setIsOpen] = React.useState(false);
     const progress = getObjectiveProgress(objective);
     const objectiveCode = `${pillarCode.replace('P', 'O')}.${objectiveIndex + 1}`;
@@ -160,16 +173,13 @@ function ObjectiveItem({ objective, pillarCode, objectiveIndex, onAddItem }: { o
                     <span className="text-sm font-medium text-muted-foreground">(Wt: {objective.weight}%, Prog: {progress}%)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button onClick={() => onAddItem("initiative", objective.id)} size="sm" variant="outline">
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Initiative
-                    </Button>
                     <ActionMenu />
                 </div>
             </div>
             {isOpen && (
                  <div className="ml-8 space-y-2 border-l pl-4">
                     {objective.initiatives.map((initiative, initiativeIndex) => (
-                        <InitiativeItem key={initiative.id} initiative={initiative} objectiveCode={objectiveCode} initiativeIndex={initiativeIndex} onAddItem={onAddItem} />
+                        <InitiativeItem key={initiative.id} initiative={initiative} objectiveCode={objectiveCode} initiativeIndex={initiativeIndex} />
                     ))}
                 </div>
             )}
@@ -177,7 +187,7 @@ function ObjectiveItem({ objective, pillarCode, objectiveIndex, onAddItem }: { o
     );
 }
 
-function InitiativeItem({ initiative, objectiveCode, initiativeIndex, onAddItem }: { initiative: Initiative; objectiveCode: string; initiativeIndex: number; onAddItem: Function }) {
+function InitiativeItem({ initiative, objectiveCode, initiativeIndex }: { initiative: Initiative; objectiveCode: string; initiativeIndex: number; }) {
     const [isOpen, setIsOpen] = React.useState(false);
     const progress = getInitiativeProgress(initiative);
     const initiativeCode = `${objectiveCode.replace('O', 'I')}.${initiativeIndex + 1}`;
@@ -193,9 +203,6 @@ function InitiativeItem({ initiative, objectiveCode, initiativeIndex, onAddItem 
                     <span className="text-xs text-muted-foreground">(Wt: {initiative.weight}%, Prog: {progress}%)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button onClick={() => onAddItem("activity", initiative.id)} size="sm" variant="outline">
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
-                    </Button>
                    <ActionMenu />
                 </div>
             </div>
