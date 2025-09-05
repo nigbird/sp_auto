@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { Pillar, Objective, Initiative, Activity } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,10 +65,46 @@ export function StrategicPlanEditor({ initialData }: { initialData: Pillar[] }) 
   const [itemToDelete, setItemToDelete] = useState<{ path: number[], type: ItemType} | null>(null);
 
 
-  state = data;
+  useEffect(() => {
+    state = data;
+  }, [data]);
 
   const forceUpdate = useCallback(() => setData([...state]), []);
   
+  useEffect(() => {
+    const handleExport = () => {
+      const jsonData = JSON.stringify(state, null, 2);
+      const blob = new Blob([jsonData], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "strategic-plan.json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
+
+    const handleImport = (event: Event) => {
+        const customEvent = event as CustomEvent;
+        const importedData = customEvent.detail;
+        // Basic validation for imported data
+        if (Array.isArray(importedData)) {
+            setData(importedData);
+        } else {
+            alert("Invalid file format. Please import a valid strategic plan JSON file.");
+        }
+    };
+
+    window.addEventListener('export-strategic-plan', handleExport);
+    window.addEventListener('import-strategic-plan', handleImport);
+
+    return () => {
+      window.removeEventListener('export-strategic-plan', handleExport);
+      window.removeEventListener('import-strategic-plan', handleImport);
+    };
+  }, [data]);
+
   const resetAddDialog = () => {
     setIsAddDialogOpen(false);
     setNewItemCode("");

@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -16,7 +17,7 @@ import {
 } from "@/components/ui/popover";
 import { getNotifications } from "@/lib/data";
 import type { Notification } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
 
 function Notifications() {
@@ -57,13 +58,43 @@ function Notifications() {
 
 
 export function Header() {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = () => {
+    window.dispatchEvent(new CustomEvent('export-strategic-plan'));
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const content = e.target?.result as string;
+          const jsonData = JSON.parse(content);
+          window.dispatchEvent(new CustomEvent('import-strategic-plan', { detail: jsonData }));
+        } catch (error) {
+          console.error("Failed to parse JSON file", error);
+          alert("Error: Could not parse the imported file. Please ensure it is a valid JSON file.");
+        }
+      };
+      reader.readAsText(file);
+    }
+     // Reset file input to allow re-uploading the same file
+    event.target.value = '';
+  };
+
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
       <div className="flex items-center gap-2">
         <SidebarTrigger className="md:hidden" />
       </div>
 
-      <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
+      <div className="flex w-full items-center gap-4 md:ml_auto md:gap-2 lg:gap-4">
         <form className="ml-auto flex-1 sm:flex-initial">
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -74,11 +105,18 @@ export function Header() {
             />
           </div>
         </form>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" onClick={handleImportClick}>
           <Upload className="mr-2 h-4 w-4" />
           Import
         </Button>
-        <Button variant="outline" size="sm">
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept=".json"
+          className="hidden"
+        />
+        <Button variant="outline" size="sm" onClick={handleExport}>
           <Download className="mr-2 h-4 w-4" />
           Export
         </Button>
