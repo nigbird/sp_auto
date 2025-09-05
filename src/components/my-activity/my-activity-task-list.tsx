@@ -2,39 +2,53 @@
 "use client"
 
 import * as React from "react"
-import type { Activity } from "@/lib/types";
+import type { Activity, ActivityStatus } from "@/lib/types";
 import { format, formatDistanceToNow } from "date-fns";
 import { AlertTriangle, ChevronDown, ChevronUp, Hourglass, Clock, CheckCircle } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "../ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
-import { Progress } from "../ui/progress";
+import { Slider } from "../ui/slider";
 import { Badge } from "../ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Button } from "../ui/button";
+import { Textarea } from "../ui/textarea";
+import { Label } from "../ui/label";
 
-function TaskCard({ activity }: { activity: Activity }) {
-  const [isOpen, setIsOpen] = React.useState(true);
-  
+type TaskCardProps = { 
+  activity: Activity;
+  onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string) => void;
+};
+
+function TaskCard({ activity, onUpdateActivity }: TaskCardProps) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [progress, setProgress] = React.useState(activity.progress);
+  const [status, setStatus] = React.useState(activity.status);
+  const [updateComment, setUpdateComment] = React.useState("");
+
+  const handleSubmit = () => {
+    if (updateComment.trim() === "") {
+        // Maybe show a toast notification here
+        alert("Please provide an update comment.");
+        return;
+    }
+    onUpdateActivity(activity.id, progress, status, updateComment);
+    setUpdateComment("");
+  };
+
   return (
     <Card className="bg-card">
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-row items-start justify-between">
                 <div>
                     <h3 className="font-semibold">{activity.title}</h3>
-                    <p className="text-sm text-muted-foreground">In Project: Pillar / Objective / Initiative</p>
+                    <p className="text-sm text-muted-foreground">Due: {format(activity.endDate, "PP")}</p>
                 </div>
                  <div className="flex items-center gap-4">
-                    <Select defaultValue="Pending review">
-                        <SelectTrigger className="w-[180px] bg-background">
-                            <SelectValue placeholder="Status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Pending review">Pending review</SelectItem>
-                            <SelectItem value="In Progress">In Progress</SelectItem>
-                            <SelectItem value="Completed">Completed</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <div className="text-right">
+                      <p className="font-bold text-lg">{activity.progress}%</p>
+                      <p className="text-xs text-muted-foreground">Complete</p>
+                    </div>
                      <CollapsibleTrigger asChild>
                         <Button variant="ghost" size="icon">
                          {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
@@ -45,25 +59,63 @@ function TaskCard({ activity }: { activity: Activity }) {
             <CollapsibleContent>
                 <CardContent className="space-y-6">
                     <p className="text-sm">{activity.description}</p>
-                    <div className="flex items-center gap-4 text-sm">
-                       <Badge variant="outline">Due: {format(activity.endDate, "PP")}</Badge>
-                       <Badge variant="outline">Weight: {activity.weight}%</Badge>
-                       <Progress value={activity.progress} className="w-[40%]" />
-                       <span className="text-muted-foreground">{activity.progress}% Complete</span>
+                    
+                    <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <Label htmlFor={`status-${activity.id}`}>Status</Label>
+                            <Select value={status} onValueChange={(value) => setStatus(value as ActivityStatus)}>
+                                <SelectTrigger id={`status-${activity.id}`} className="bg-background">
+                                    <SelectValue placeholder="Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="In Progress">In Progress</SelectItem>
+                                    <SelectItem value="Completed">Completed</SelectItem>
+                                    <SelectItem value="Delayed">Delayed</SelectItem>
+                                    <SelectItem value="Planned">Planned</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                             <Label htmlFor={`progress-${activity.id}`}>Progress: {progress}%</Label>
+                             <Slider
+                                id={`progress-${activity.id}`}
+                                value={[progress]}
+                                onValueChange={(value) => setProgress(value[0])}
+                                max={100}
+                                step={1}
+                            />
+                        </div>
                     </div>
+                     <div className="space-y-2">
+                         <Label htmlFor={`update-${activity.id}`}>Provide an update</Label>
+                        <Textarea
+                            id={`update-${activity.id}`}
+                            placeholder="E.g., 'Completed the initial draft of the proposal...'"
+                            value={updateComment}
+                            onChange={(e) => setUpdateComment(e.target.value)}
+                        />
+                     </div>
+                     <div className="flex justify-end">
+                        <Button onClick={handleSubmit}>Submit Update</Button>
+                    </div>
+
                     <div className="space-y-4">
-                        <h4 className="font-medium">Updates</h4>
-                        <div className="flex items-start gap-4">
-                            <Avatar className="h-9 w-9">
-                                <AvatarFallback>{activity.lastUpdated.user.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div className="w-full">
-                                <div className="flex justify-between items-center">
-                                    <p className="font-semibold">{activity.lastUpdated.user}</p>
-                                    <p className="text-xs text-muted-foreground">{formatDistanceToNow(activity.lastUpdated.date, { addSuffix: true })}</p>
+                        <h4 className="font-medium">Update History</h4>
+                        <div className="space-y-4 max-h-48 overflow-y-auto pr-2">
+                        {[...activity.updates].reverse().map((update, index) => (
+                            <div key={index} className="flex items-start gap-4">
+                                <Avatar className="h-9 w-9">
+                                    <AvatarFallback>{update.user.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div className="w-full">
+                                    <div className="flex justify-between items-center">
+                                        <p className="font-semibold">{update.user}</p>
+                                        <p className="text-xs text-muted-foreground">{formatDistanceToNow(update.date, { addSuffix: true })}</p>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">{update.comment}</p>
                                 </div>
-                                <p className="text-sm text-muted-foreground">Progress reported: {activity.progress}%</p>
                             </div>
+                        ))}
                         </div>
                     </div>
                 </CardContent>
@@ -74,7 +126,7 @@ function TaskCard({ activity }: { activity: Activity }) {
 }
 
 
-export function MyActivityTaskList({ title, count, activities }: { title: string, count: number, activities: Activity[] }) {
+export function MyActivityTaskList({ title, count, activities, onUpdateActivity }: { title: string, count: number, activities: Activity[], onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string) => void }) {
   
   const titleIcon = {
     Overdue: <AlertTriangle className="text-destructive" />,
@@ -107,7 +159,7 @@ export function MyActivityTaskList({ title, count, activities }: { title: string
       </h2>
       <div className="space-y-4">
         {activities.map(activity => (
-          <TaskCard key={activity.id} activity={activity} />
+          <TaskCard key={activity.id} activity={activity} onUpdateActivity={onUpdateActivity} />
         ))}
       </div>
     </div>

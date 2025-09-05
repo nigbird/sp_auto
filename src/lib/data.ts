@@ -24,6 +24,7 @@ const activities: Activity[] = [
       { name: "Website Traffic Increase", target: 20, actual: 15 },
     ],
     lastUpdated: { user: "Olivia Smith", date: new Date("2024-07-20T10:00:00Z") },
+    updates: [{ user: "Olivia Smith", date: new Date("2024-07-20T10:00:00Z"), comment: "Initial progress report. Social media campaign is live." }],
     weight: 40,
     progress: 56,
   },
@@ -41,6 +42,7 @@ const activities: Activity[] = [
       { name: "Data Migration Complete", target: 100, actual: 80 },
     ],
     lastUpdated: { user: "Liam Johnson", date: new Date("2024-07-18T14:30:00Z") },
+    updates: [{ user: "Liam Johnson", date: new Date("2024-07-18T14:30:00Z"), comment: "Data migration is on track. User training scheduled." }],
     weight: 30,
     progress: 72
   },
@@ -58,6 +60,7 @@ const activities: Activity[] = [
       { name: "Mobile Bounce Rate (%)", target: 40, actual: 35 },
     ],
     lastUpdated: { user: "Noah Williams", date: new Date("2024-07-25T11:00:00Z") },
+    updates: [{ user: "Noah Williams", date: new Date("2024-07-25T11:00:00Z"), comment: "Project complete and deployed." }],
     weight: 30,
     progress: 100
   },
@@ -74,6 +77,7 @@ const activities: Activity[] = [
       { name: "Participation Rate", target: 60, actual: 0 },
     ],
     lastUpdated: { user: "Admin", date: new Date("2024-07-15T09:00:00Z") },
+    updates: [{ user: "Admin", date: new Date("2024-07-15T09:00:00Z"), comment: "Activity created." }],
     weight: 50,
     progress: 0
   },
@@ -90,6 +94,7 @@ const activities: Activity[] = [
         { name: "Staff Certified", target: 100, actual: 50 },
     ],
     lastUpdated: { user: "Oliver Jones", date: new Date("2024-07-22T16:00:00Z") },
+    updates: [{ user: "Oliver Jones", date: new Date("2024-07-22T16:00:00Z"), comment: "Training delayed due to unforeseen circumstances." }],
     weight: 50,
     progress: 50,
   },
@@ -107,6 +112,7 @@ const activities: Activity[] = [
       { name: "Initial Prototyping", target: 100, actual: 0 },
     ],
     lastUpdated: { user: "Admin", date: new Date("2024-07-28T11:00:00Z") },
+    updates: [{ user: "Admin", date: new Date("2024-07-28T11:00:00Z"), comment: "Activity created." }],
     weight: 60,
     progress: 0,
   },
@@ -123,6 +129,7 @@ const activities: Activity[] = [
       { name: "Documents Prepared", target: 100, actual: 10 },
     ],
     lastUpdated: { user: "Liam Johnson", date: new Date("2024-07-30T15:00:00Z") },
+    updates: [{ user: "Liam Johnson", date: new Date("2024-07-30T15:00:00Z"), comment: "Initial document gathering started." }],
     weight: 40,
     progress: 10
   },

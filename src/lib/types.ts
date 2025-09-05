@@ -6,6 +6,12 @@ export type KPI = {
   actual: number;
 };
 
+export type ActivityUpdate = {
+  user: string;
+  date: Date;
+  comment: string;
+};
+
 export type Activity = {
   id: string;
   title: string;
@@ -20,6 +26,7 @@ export type Activity = {
     user: string;
     date: Date;
   };
+  updates: ActivityUpdate[];
   weight: number;
   progress: number;
 };
