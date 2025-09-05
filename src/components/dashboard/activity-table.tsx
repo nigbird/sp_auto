@@ -1,7 +1,7 @@
 
 "use client";
 
-import * as React from "react";
+import { useState } from "react";
 import {
   ColumnDef,
   flexRender,
@@ -45,11 +45,11 @@ import { format } from "date-fns";
 import { Input } from "../ui/input";
 
 export function ActivityTable({ activities, users, departments }: { activities: Activity[], users: string[], departments: string[] }) {
-  const [data, setData] = React.useState(activities);
-  const [open, setOpen] = React.useState(false);
-  const [editingActivity, setEditingActivity] = React.useState<Activity | null>(null);
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [data, setData] = useState(activities);
+  const [open, setOpen] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
   const handleFormSubmit = (values: any) => {
     if(editingActivity) {
