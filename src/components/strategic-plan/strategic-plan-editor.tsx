@@ -144,7 +144,7 @@ function PillarItem({ pillar, onAddItem }: { pillar: Pillar; onAddItem: Function
 }
 
 function ObjectiveItem({ objective, onAddItem }: { objective: Objective; onAddItem: Function }) {
-    const [isOpen, setIsOpen] = React.useState(true);
+    const [isOpen, setIsOpen] = React.useState(false);
     const progress = getObjectiveProgress(objective);
 
     return (
@@ -176,7 +176,7 @@ function ObjectiveItem({ objective, onAddItem }: { objective: Objective; onAddIt
 }
 
 function InitiativeItem({ initiative, onAddItem }: { initiative: Initiative; onAddItem: Function }) {
-    const [isOpen, setIsOpen] = React.useState(true);
+    const [isOpen, setIsOpen] = React.useState(false);
     const progress = getInitiativeProgress(initiative);
 
     return (
