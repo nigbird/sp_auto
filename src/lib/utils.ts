@@ -105,3 +105,34 @@ export function calculateActivityStatus(activity: { progress: number; startDate:
 
   return "On Track";
 }
+
+function sumWeights(items: { weight: number }[]): number {
+    return items.reduce((sum, item) => sum + item.weight, 0) / 100;
+}
+
+function sumActual(items: { weight: number, progress: number }[]): number {
+    const totalWeight = items.reduce((sum, item) => sum + item.weight, 0);
+    if(totalWeight === 0) return 0;
+    const weightedSum = items.reduce((sum, item) => sum + (item.progress/100 * item.weight), 0);
+    return weightedSum / 100;
+}
+
+export function getPillarPlan(pillar: Pillar): number {
+    let totalPlan = 0;
+    pillar.objectives.forEach(objective => {
+        objective.initiatives.forEach(initiative => {
+            totalPlan += sumWeights(initiative.activities);
+        });
+    });
+    return totalPlan;
+}
+
+export function getPillarActual(pillar: Pillar): number {
+    let totalActual = 0;
+    pillar.objectives.forEach(objective => {
+        objective.initiatives.forEach(initiative => {
+            totalActual += sumActual(initiative.activities);
+        });
+    });
+    return totalActual;
+}

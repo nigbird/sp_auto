@@ -4,6 +4,7 @@ import { generateReportSummary } from "@/lib/utils";
 import { ReportSummaryCards } from "@/components/reports/summary-cards";
 import { ActivityCharts } from "@/components/dashboard/activity-charts";
 import type { Pillar, Activity } from "@/lib/types";
+import { PillarTable } from "@/components/dashboard/pillar-table";
 
 function extractActivitiesFromPillars(pillars: Pillar[]): Activity[] {
     const activities: Activity[] = [];
@@ -30,6 +31,7 @@ export default async function DashboardPage() {
       <ReportSummaryCards summary={summary} />
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
         <ActivityCharts activities={activities} />
+        <PillarTable pillars={reportData} />
       </div>
     </div>
   );
