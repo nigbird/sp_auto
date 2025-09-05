@@ -1,71 +1,84 @@
 
+"use client";
+
 import type { Activity } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, Clock, CheckCircle, Target } from "lucide-react";
+import { AlertTriangle, Clock, CheckCircle, Target, Hourglass } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import Link from "next/link";
+import { cn } from "@/lib/utils";
 
-export function MyActivitySummaryCards({ activities }: { activities: Activity[] }) {
+type FilterType = "Overdue" | "Pending" | "Active" | "Completed";
+
+type MyActivitySummaryCardsProps = {
+  activities: Activity[];
+  activeFilter: FilterType;
+  onFilterChange: (filter: FilterType) => void;
+  pendingCount: number;
+  activeCount: number;
+  completedCount: number;
+};
+
+export function MyActivitySummaryCards({ 
+  activities,
+  activeFilter,
+  onFilterChange,
+  pendingCount,
+  activeCount,
+  completedCount,
+}: MyActivitySummaryCardsProps) {
   const overdueTasks = activities.filter(a => a.status === 'Delayed').length;
-  const activeTasks = activities.filter(a => a.status === 'In Progress' || a.status === 'Planned').length;
-  const accomplishedLast30Days = activities.filter(a => {
-    if (a.status !== 'Completed') return false;
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    return a.endDate > thirtyDaysAgo;
-  }).length;
-
+  
   const completedTasks = activities.filter(a => a.status === 'Completed');
   const onTimePerformance = completedTasks.length > 0
     ? Math.round((completedTasks.filter(a => a.status !== 'Delayed').length / completedTasks.length) * 100)
-    : 0;
+    : 100;
+
+  const cardClasses = (filter: FilterType) =>
+    cn(
+      "cursor-pointer hover:bg-muted/50 transition-colors",
+      activeFilter === filter && "bg-muted ring-2 ring-primary"
+    );
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Link href="/my-activity?filter=overdue">
-        <Card className="hover:bg-muted/50 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Overdue Tasks</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{overdueTasks}</div>
-            <p className="text-xs text-muted-foreground">Tasks past their due date</p>
-          </CardContent>
-        </Card>
-      </Link>
-      <Link href="/my-activity?filter=active">
-        <Card className="hover:bg-muted/50 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Tasks</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activeTasks}</div>
-           <p className="text-xs text-muted-foreground">Upcoming or in-progress tasks</p>
-          </CardContent>
-        </Card>
-      </Link>
-      <Link href="/my-activity?filter=accomplished">
-        <Card className="hover:bg-muted/50 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Accomplished (Month)</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{accomplishedLast30Days}</div>
-            <p className="text-xs text-muted-foreground">Tasks completed in the last 30 days</p>
-          </CardContent>
-        </Card>
-      </Link>
-      <Card>
+      <Card className={cardClasses("Overdue")} onClick={() => onFilterChange("Overdue")}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">On-Time Performance</CardTitle>
-          <Target className="h-4 w-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-medium">Overdue Tasks</CardTitle>
+          <AlertTriangle className="h-4 w-4 text-destructive" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{onTimePerformance}%</div>
-          <Progress value={onTimePerformance} className="h-2 mt-2" />
+          <div className="text-2xl font-bold">{overdueTasks}</div>
+          <p className="text-xs text-muted-foreground">Tasks past their due date</p>
+        </CardContent>
+      </Card>
+      <Card className={cardClasses("Pending")} onClick={() => onFilterChange("Pending")}>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
+          <Hourglass className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{pendingCount}</div>
+         <p className="text-xs text-muted-foreground">Tasks not yet started</p>
+        </CardContent>
+      </Card>
+      <Card className={cardClasses("Active")} onClick={() => onFilterChange("Active")}>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Active Tasks</CardTitle>
+          <Clock className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{activeCount}</div>
+           <p className="text-xs text-muted-foreground">Tasks currently in-progress</p>
+        </CardContent>
+      </Card>
+      <Card className={cardClasses("Completed")} onClick={() => onFilterChange("Completed")}>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Completed Tasks</CardTitle>
+          <CheckCircle className="h-4 w-4 text-green-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{completedCount}</div>
+          <p className="text-xs text-muted-foreground">Tasks you have completed</p>
         </CardContent>
       </Card>
     </div>

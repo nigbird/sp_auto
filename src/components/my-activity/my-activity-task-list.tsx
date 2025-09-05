@@ -4,7 +4,7 @@
 import * as React from "react"
 import type { Activity } from "@/lib/types";
 import { format, formatDistanceToNow } from "date-fns";
-import { AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, Hourglass, Clock, CheckCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
 import { Progress } from "../ui/progress";
@@ -75,10 +75,34 @@ function TaskCard({ activity }: { activity: Activity }) {
 
 
 export function MyActivityTaskList({ title, count, activities }: { title: string, count: number, activities: Activity[] }) {
+  
+  const titleIcon = {
+    Overdue: <AlertTriangle className="text-destructive" />,
+    Pending: <Hourglass className="text-muted-foreground" />,
+    Active: <Clock className="text-muted-foreground" />,
+    Completed: <CheckCircle className="text-green-500" />,
+  }[title] || <AlertTriangle className="text-destructive" />;
+
+  if (activities.length === 0) {
+    return (
+        <div className="space-y-4">
+            <h2 className="flex items-center gap-2 text-xl font-bold">
+                {titleIcon}
+                {title} (0)
+            </h2>
+            <Card>
+                <CardContent className="pt-6">
+                    <p className="text-center text-muted-foreground">No tasks in this category.</p>
+                </CardContent>
+            </Card>
+        </div>
+    )
+  }
+  
   return (
     <div className="space-y-4">
       <h2 className="flex items-center gap-2 text-xl font-bold">
-        <AlertTriangle className="text-destructive" />
+        {titleIcon}
         {title} ({count})
       </h2>
       <div className="space-y-4">
