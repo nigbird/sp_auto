@@ -19,6 +19,7 @@ import {
   CircleHelp,
   LogOut,
   UserCheck,
+  Sitemap,
 } from "lucide-react";
 import { Logo } from "./icons";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -83,6 +84,16 @@ export function AppSidebar() {
             >
               <BarChart3 />
               Reports
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              href="/strategic-plan"
+              isActive={pathname === "/strategic-plan"}
+              tooltip="Strategic Plan"
+            >
+              <Sitemap />
+              Strategic Plan
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
