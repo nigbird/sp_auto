@@ -18,7 +18,7 @@ const activities: Activity[] = [
     responsible: "Olivia Smith",
     startDate: new Date("2024-07-01"),
     endDate: new Date("2024-09-30"),
-    status: "In Progress",
+    status: "Delayed",
     kpis: [
       { name: "Leads Generated", target: 5000, actual: 2800 },
       { name: "Website Traffic Increase", target: 20, actual: 15 },
@@ -36,7 +36,7 @@ const activities: Activity[] = [
     responsible: "Liam Johnson",
     startDate: new Date("2024-06-15"),
     endDate: new Date("2024-08-31"),
-    status: "In Progress",
+    status: "On Track",
     kpis: [
       { name: "System Adoption Rate", target: 90, actual: 65 },
       { name: "Data Migration Complete", target: 100, actual: 80 },
@@ -54,7 +54,7 @@ const activities: Activity[] = [
     responsible: "Noah Williams",
     startDate: new Date("2024-05-01"),
     endDate: new Date("2024-07-31"),
-    status: "Completed",
+    status: "Completed As Per Target",
     kpis: [
       { name: "Page Load Speed (s)", target: 2, actual: 1.8 },
       { name: "Mobile Bounce Rate (%)", target: 40, actual: 35 },
@@ -72,7 +72,7 @@ const activities: Activity[] = [
     responsible: "Emma Brown",
     startDate: new Date("2024-08-01"),
     endDate: new Date("2024-10-31"),
-    status: "Planned",
+    status: "Not Started",
     kpis: [
       { name: "Participation Rate", target: 60, actual: 0 },
     ],
@@ -106,7 +106,7 @@ const activities: Activity[] = [
     responsible: "Noah Williams",
     startDate: new Date("2024-09-01"),
     endDate: new Date("2024-12-15"),
-    status: "Planned",
+    status: "Not Started",
     kpis: [
       { name: "Feature Specs Defined", target: 100, actual: 0 },
       { name: "Initial Prototyping", target: 100, actual: 0 },
@@ -124,7 +124,7 @@ const activities: Activity[] = [
     responsible: "Liam Johnson",
     startDate: new Date("2024-08-15"),
     endDate: new Date("2024-09-15"),
-    status: "Planned",
+    status: "Delayed",
     kpis: [
       { name: "Documents Prepared", target: 100, actual: 10 },
     ],
@@ -149,7 +149,7 @@ const reportData: Pillar[] = [
                         id: "INIT-01",
                         title: "Aggressive Marketing & Sales",
                         weight: 100,
-                        activities: [activities[0], activities[1]]
+                        activities: [activities.find(a=>a.id==='ACT-001')!, activities.find(a=>a.id==='ACT-002')!]
                     }
                 ]
             },
@@ -162,7 +162,7 @@ const reportData: Pillar[] = [
                         id: "INIT-02",
                         title: "Digital Presence Overhaul",
                         weight: 100,
-                        activities: [activities[2]]
+                        activities: [activities.find(a=>a.id==='ACT-003')!]
                     }
                 ]
             }
@@ -181,7 +181,7 @@ const reportData: Pillar[] = [
                         id: "INIT-03",
                         title: "Workplace Wellness",
                         weight: 100,
-                        activities: [activities[3]]
+                        activities: [activities.find(a=>a.id==='ACT-004')!]
                     }
                 ]
             },
@@ -194,7 +194,7 @@ const reportData: Pillar[] = [
                         id: "INIT-04",
                         title: "Support Enhancement",
                         weight: 100,
-                        activities: [activities[4]]
+                        activities: [activities.find(a=>a.id==='ACT-005')!]
                     }
                 ]
             }
@@ -213,7 +213,7 @@ const reportData: Pillar[] = [
                         id: "INIT-05",
                         title: "Core Product Updates",
                         weight: 100,
-                        activities: [activities[5]]
+                        activities: [activities.find(a=>a.id==='ACT-006')!]
                     }
                 ]
             },
@@ -226,7 +226,7 @@ const reportData: Pillar[] = [
                         id: "INIT-06",
                         title: "Audit and Compliance Readiness",
                         weight: 100,
-                        activities: [activities[6]]
+                        activities: [activities.find(a=>a.id==='ACT-007')!]
                     }
                 ]
             }

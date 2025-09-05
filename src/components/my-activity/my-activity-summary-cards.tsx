@@ -7,7 +7,7 @@ import { AlertTriangle, Clock, CheckCircle, Target, Hourglass } from "lucide-rea
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
-type FilterType = "Overdue" | "Pending" | "Active" | "Completed";
+type FilterType = "Delayed" | "Not Started" | "On Track" | "Completed As Per Target";
 
 type MyActivitySummaryCardsProps = {
   activities: Activity[];
@@ -28,7 +28,7 @@ export function MyActivitySummaryCards({
 }: MyActivitySummaryCardsProps) {
   const overdueTasks = activities.filter(a => a.status === 'Delayed').length;
   
-  const completedTasks = activities.filter(a => a.status === 'Completed');
+  const completedTasks = activities.filter(a => a.status === 'Completed As Per Target');
   const onTimePerformance = completedTasks.length > 0
     ? Math.round((completedTasks.filter(a => a.status !== 'Delayed').length / completedTasks.length) * 100)
     : 100;
@@ -41,7 +41,7 @@ export function MyActivitySummaryCards({
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card className={cardClasses("Overdue")} onClick={() => onFilterChange("Overdue")}>
+      <Card className={cardClasses("Delayed")} onClick={() => onFilterChange("Delayed")}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Overdue Tasks</CardTitle>
           <AlertTriangle className="h-4 w-4 text-destructive" />
@@ -51,7 +51,7 @@ export function MyActivitySummaryCards({
           <p className="text-xs text-muted-foreground">Tasks past their due date</p>
         </CardContent>
       </Card>
-      <Card className={cardClasses("Pending")} onClick={() => onFilterChange("Pending")}>
+      <Card className={cardClasses("Not Started")} onClick={() => onFilterChange("Not Started")}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
           <Hourglass className="h-4 w-4 text-muted-foreground" />
@@ -61,7 +61,7 @@ export function MyActivitySummaryCards({
          <p className="text-xs text-muted-foreground">Tasks not yet started</p>
         </CardContent>
       </Card>
-      <Card className={cardClasses("Active")} onClick={() => onFilterChange("Active")}>
+      <Card className={cardClasses("On Track")} onClick={() => onFilterChange("On Track")}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Active Tasks</CardTitle>
           <Clock className="h-4 w-4 text-muted-foreground" />
@@ -71,7 +71,7 @@ export function MyActivitySummaryCards({
            <p className="text-xs text-muted-foreground">Tasks currently in-progress</p>
         </CardContent>
       </Card>
-      <Card className={cardClasses("Completed")} onClick={() => onFilterChange("Completed")}>
+      <Card className={cardClasses("Completed As Per Target")} onClick={() => onFilterChange("Completed As Per Target")}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Completed Tasks</CardTitle>
           <CheckCircle className="h-4 w-4 text-green-500" />

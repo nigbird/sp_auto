@@ -16,19 +16,19 @@ const chartConfig = {
   progress: {
     label: "Progress",
   },
-  Planned: {
-    label: "Planned",
+  "Not Started": {
+    label: "Not Started",
     color: "hsl(var(--chart-2))",
   },
-  "In Progress": {
-    label: "In Progress",
+  "On Track": {
+    label: "On Track",
     color: "hsl(var(--chart-3))",
   },
-  Completed: {
+  "Completed As Per Target": {
     label: "Completed",
     color: "hsl(var(--chart-1))",
   },
-  Delayed: {
+  "Delayed": {
     label: "Delayed",
     color: "hsl(var(--chart-4))",
   },
@@ -40,7 +40,7 @@ export function ActivityCharts({ activities }: { activities: Activity[] }) {
     return departments.map((dept) => {
       const deptActivities = activities.filter((a) => a.department === dept);
       const completed = deptActivities.filter(
-        (a) => a.status === "Completed"
+        (a) => a.status === "Completed As Per Target"
       ).length;
       return {
         department: dept,
@@ -50,14 +50,16 @@ export function ActivityCharts({ activities }: { activities: Activity[] }) {
   }, [activities]);
 
   const activityStatusDistribution = useMemo(() => {
-    const statuses = {
-      Planned: 0,
-      "In Progress": 0,
-      Completed: 0,
-      Delayed: 0,
+    const statuses: Record<string, number> = {
+      "Not Started": 0,
+      "On Track": 0,
+      "Completed As Per Target": 0,
+      "Delayed": 0,
     };
     activities.forEach((activity) => {
-      statuses[activity.status]++;
+      if (activity.status in statuses) {
+        statuses[activity.status]++;
+      }
     });
     return Object.entries(statuses).map(([name, value]) => ({ name, value, fill: chartConfig[name as keyof typeof chartConfig].color }));
   }, [activities]);

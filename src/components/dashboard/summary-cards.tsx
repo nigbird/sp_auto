@@ -5,8 +5,8 @@ import Link from "next/link";
 
 export function SummaryCards({ activities }: { activities: Activity[] }) {
   const totalActivities = activities.length;
-  const inProgress = activities.filter(a => a.status === 'In Progress').length;
-  const completed = activities.filter(a => a.status === 'Completed').length;
+  const inProgress = activities.filter(a => a.status === 'On Track').length;
+  const completed = activities.filter(a => a.status === 'Completed As Per Target').length;
   const delayed = activities.filter(a => a.status === 'Delayed').length;
 
   return (
@@ -22,10 +22,10 @@ export function SummaryCards({ activities }: { activities: Activity[] }) {
           </CardContent>
         </Card>
       </Link>
-      <Link href="/activities?status=In+Progress">
+      <Link href="/activities?status=On+Track">
         <Card className="hover:bg-muted/50 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+            <CardTitle className="text-sm font-medium">On Track</CardTitle>
             <Loader className="h-4 w-4 text-muted-foreground animate-spin" />
           </CardHeader>
           <CardContent>
@@ -33,7 +33,7 @@ export function SummaryCards({ activities }: { activities: Activity[] }) {
           </CardContent>
         </Card>
       </Link>
-      <Link href="/activities?status=Completed">
+      <Link href="/activities?status=Completed+As+Per+Target">
         <Card className="hover:bg-muted/50 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Completed</CardTitle>

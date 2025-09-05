@@ -26,6 +26,18 @@ function TaskCard({ activity, onUpdateActivity }: TaskCardProps) {
   const [status, setStatus] = React.useState(activity.status);
   const [updateComment, setUpdateComment] = React.useState("");
 
+  React.useEffect(() => {
+    if (progress >= 100) {
+      setStatus("Completed As Per Target");
+    } else if (progress >= 70) {
+      setStatus("On Track");
+    } else if (progress > 0) {
+      setStatus("Delayed");
+    } else {
+      setStatus("Not Started");
+    }
+  }, [progress]);
+
   const handleSubmit = () => {
     if (updateComment.trim() === "") {
         // Maybe show a toast notification here
@@ -63,15 +75,15 @@ function TaskCard({ activity, onUpdateActivity }: TaskCardProps) {
                     <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <Label htmlFor={`status-${activity.id}`}>Status</Label>
-                            <Select value={status} onValueChange={(value) => setStatus(value as ActivityStatus)}>
+                            <Select value={status} onValueChange={(value) => setStatus(value as ActivityStatus)} disabled>
                                 <SelectTrigger id={`status-${activity.id}`} className="bg-background">
                                     <SelectValue placeholder="Status" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="In Progress">In Progress</SelectItem>
-                                    <SelectItem value="Completed">Completed</SelectItem>
+                                    <SelectItem value="On Track">On Track</SelectItem>
+                                    <SelectItem value="Completed As Per Target">Completed As Per Target</SelectItem>
                                     <SelectItem value="Delayed">Delayed</SelectItem>
-                                    <SelectItem value="Planned">Planned</SelectItem>
+                                    <SelectItem value="Not Started">Not Started</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

@@ -1,4 +1,4 @@
-export type ActivityStatus = "Planned" | "In Progress" | "Completed" | "Delayed";
+export type ActivityStatus = "Not Started" | "On Track" | "Completed As Per Target" | "Delayed";
 
 export type KPI = {
   name: string;

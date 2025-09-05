@@ -8,13 +8,13 @@ import { MyActivitySummaryCards } from "@/components/my-activity/my-activity-sum
 import { MyActivityTaskList } from "@/components/my-activity/my-activity-task-list";
 import { useToast } from "@/hooks/use-toast";
 
-type FilterType = "Overdue" | "Pending" | "Active" | "Completed";
+type FilterType = "Delayed" | "Not Started" | "On Track" | "Completed As Per Target";
 
 export default function MyActivityPage() {
   const [allActivities, setAllActivities] = useState<Activity[]>([]);
   const [myActivities, setMyActivities] = useState<Activity[]>([]);
   const [filteredActivities, setFilteredActivities] = useState<Activity[]>([]);
-  const [activeFilter, setActiveFilter] = useState<FilterType>("Overdue");
+  const [activeFilter, setActiveFilter] = useState<FilterType>("Delayed");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -32,22 +32,22 @@ export default function MyActivityPage() {
   }, []);
 
   const overdueActivities = useMemo(() => myActivities.filter(a => a.status === 'Delayed'), [myActivities]);
-  const pendingActivities = useMemo(() => myActivities.filter(a => a.status === 'Planned'), [myActivities]);
-  const activeActivities = useMemo(() => myActivities.filter(a => a.status === 'In Progress'), [myActivities]);
-  const completedActivities = useMemo(() => myActivities.filter(a => a.status === 'Completed'), [myActivities]);
+  const pendingActivities = useMemo(() => myActivities.filter(a => a.status === 'Not Started'), [myActivities]);
+  const activeActivities = useMemo(() => myActivities.filter(a => a.status === 'On Track'), [myActivities]);
+  const completedActivities = useMemo(() => myActivities.filter(a => a.status === 'Completed As Per Target'), [myActivities]);
 
   useEffect(() => {
     switch (activeFilter) {
-      case "Overdue":
+      case "Delayed":
         setFilteredActivities(overdueActivities);
         break;
-      case "Pending":
+      case "Not Started":
         setFilteredActivities(pendingActivities);
         break;
-      case "Active":
+      case "On Track":
         setFilteredActivities(activeActivities);
         break;
-      case "Completed":
+      case "Completed As Per Target":
         setFilteredActivities(completedActivities);
         break;
       default:
@@ -90,10 +90,10 @@ export default function MyActivityPage() {
 
   const taskListTitle = useMemo(() => {
     const titles: Record<FilterType, string> = {
-      Overdue: "Overdue",
-      Pending: "Pending",
-      Active: "Active",
-      Completed: "Completed",
+      Delayed: "Overdue",
+      "Not Started": "Pending",
+      "On Track": "Active",
+      "Completed As Per Target": "Completed",
     };
     return titles[activeFilter];
   }, [activeFilter]);
