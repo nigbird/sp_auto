@@ -1,7 +1,7 @@
 
 "use client";
 
-import * as React from "react";
+import { useState, useCallback } from "react";
 import type { Pillar, Objective, Initiative, Activity } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,10 +18,10 @@ import {
 let state: Pillar[] = [];
 
 export function StrategicPlanEditor({ initialData }: { initialData: Pillar[] }) {
-  const [data, setData] = React.useState(initialData);
+  const [data, setData] = useState(initialData);
   state = data;
 
-  const forceUpdate = React.useCallback(() => setData([...state]), []);
+  const forceUpdate = useCallback(() => setData([...state]), []);
 
   const handleAddItemByCode = () => {
     const code = prompt("Enter the code for the new item (e.g., P3, O1.2, I1.1.1, A1.1.1.1):");
@@ -128,7 +128,7 @@ function ActionMenu() {
 }
 
 function PillarItem({ pillar, pillarIndex }: { pillar: Pillar; pillarIndex: number }) {
-  const [isOpen, setIsOpen] = React.useState(true);
+  const [isOpen, setIsOpen] = useState(true);
   const progress = getPillarProgress(pillar);
   const pillarCode = `P${pillarIndex + 1}`;
 
@@ -158,7 +158,7 @@ function PillarItem({ pillar, pillarIndex }: { pillar: Pillar; pillarIndex: numb
 }
 
 function ObjectiveItem({ objective, pillarCode, objectiveIndex }: { objective: Objective; pillarCode: string; objectiveIndex: number; }) {
-    const [isOpen, setIsOpen] = React.useState(false);
+    const [isOpen, setIsOpen] = useState(false);
     const progress = getObjectiveProgress(objective);
     const objectiveCode = `${pillarCode.replace('P', 'O')}.${objectiveIndex + 1}`;
 
@@ -188,7 +188,7 @@ function ObjectiveItem({ objective, pillarCode, objectiveIndex }: { objective: O
 }
 
 function InitiativeItem({ initiative, objectiveCode, initiativeIndex }: { initiative: Initiative; objectiveCode: string; initiativeIndex: number; }) {
-    const [isOpen, setIsOpen] = React.useState(false);
+    const [isOpen, setIsOpen] = useState(false);
     const progress = getInitiativeProgress(initiative);
     const initiativeCode = `${objectiveCode.replace('O', 'I')}.${initiativeIndex + 1}`;
 
