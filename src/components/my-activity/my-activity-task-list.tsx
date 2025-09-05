@@ -15,6 +15,7 @@ import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { Label } from "../ui/label";
 import { calculateActivityStatus } from "@/lib/utils";
+import { Progress } from "../ui/progress";
 
 type TaskCardProps = { 
   activity: Activity;
@@ -56,7 +57,7 @@ function TaskCard({ activity, onUpdateActivity }: TaskCardProps) {
             <CardHeader className="flex flex-row items-start justify-between">
                 <div>
                     <h3 className="font-semibold">{activity.title}</h3>
-                    <p className="text-sm text-muted-foreground">Due: {format(activity.endDate, "PP")}</p>
+                    <p className="text-sm text-muted-foreground">{activity.description}</p>
                 </div>
                  <div className="flex items-center gap-4">
                     <div className="text-right">
@@ -70,10 +71,15 @@ function TaskCard({ activity, onUpdateActivity }: TaskCardProps) {
                     </CollapsibleTrigger>
                 </div>
             </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex items-center gap-4">
+                    <Badge variant="outline">Due: {format(activity.endDate, "PP")}</Badge>
+                    <Badge variant="outline">Weight: {activity.weight}%</Badge>
+                    <Progress value={activity.progress} className="h-2 flex-1" />
+                </div>
+            </CardContent>
             <CollapsibleContent>
-                <CardContent className="space-y-6">
-                    <p className="text-sm">{activity.description}</p>
-                    
+                <CardContent className="space-y-6 pt-6">
                     <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <Label htmlFor={`status-${activity.id}`}>Status</Label>
