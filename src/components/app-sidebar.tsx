@@ -1,7 +1,7 @@
 
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Sidebar,
@@ -36,9 +36,10 @@ import {
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
 
   const handleLogout = () => {
-    alert("Log out action triggered!");
+    router.push("/login");
   }
 
   return (
