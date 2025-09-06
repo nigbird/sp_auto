@@ -1,7 +1,9 @@
+
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Eye,
@@ -13,9 +15,27 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoginLogo } from "@/components/login-logo";
+import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
+  const [phone, setPhone] = useState("0912345678");
+  const [password, setPassword] = useState("Admin@123");
   const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (phone === "0912345678" && password === "Admin@123") {
+      router.push("/");
+    } else {
+      toast({
+        title: "Login Failed",
+        description: "Invalid phone number or password.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -27,7 +47,7 @@ export default function LoginPage() {
           Login
         </h1>
 
-        <form className="space-y-8">
+        <form className="space-y-8" onSubmit={handleLogin}>
           <div className="space-y-2">
             <Label
               htmlFor="phone"
@@ -41,7 +61,8 @@ export default function LoginPage() {
               type="tel"
               placeholder="0912345678"
               className="border-0 border-b border-gray-300 bg-transparent px-1 pb-2 focus-visible:ring-0 focus-visible:ring-offset-0"
-              defaultValue="0912345678"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
             />
           </div>
 
@@ -66,7 +87,8 @@ export default function LoginPage() {
                 id="password"
                 type={showPassword ? "text" : "password"}
                 className="border-0 border-b border-gray-300 bg-transparent px-1 pb-2 pr-10 focus-visible:ring-0 focus-visible:ring-offset-0"
-                defaultValue="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
               <button
                 type="button"
