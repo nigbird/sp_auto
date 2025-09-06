@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -48,10 +49,6 @@ export default function UserRegistrationPage() {
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" placeholder="john.doe@example.com" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="nib-account">NIB Account</Label>
-              <Input id="nib-account" placeholder="700***********" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
