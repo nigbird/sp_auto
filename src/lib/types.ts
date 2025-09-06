@@ -15,7 +15,7 @@ export type ActivityUpdate = {
 export type Activity = {
   id: string;
   title: string;
-  description: string;
+  description:string;
   department: string;
   responsible: string;
   startDate: Date;
@@ -35,6 +35,9 @@ export type User = {
   name: string;
   email: string;
   avatar: string;
+  role: "Administrator" | "Manager" | "User";
+  status: "Active" | "Inactive";
+  createdAt: Date;
 };
 
 export type Notification = {

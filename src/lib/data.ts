@@ -2,12 +2,14 @@
 import type { Activity, User, Notification, ActivityStatus, Pillar } from "./types";
 
 const users: User[] = [
-  { name: "Liam Johnson", email: "liam@example.com", avatar: "/avatars/01.png" },
-  { name: "Olivia Smith", email: "olivia@example.com", avatar: "/avatars/02.png" },
-  { name: "Noah Williams", email: "noah@example.com", avatar: "/avatars/03.png" },
-  { name: "Emma Brown", email: "emma@example.com", avatar: "/avatars/04.png" },
-  { name: "Oliver Jones", email: "oliver@example.com", avatar: "/avatars/05.png" },
+  { name: "Liam Johnson", email: "liam@corp-plan.com", avatar: "https://picsum.photos/id/1005/100", role: "Manager", status: "Active", createdAt: new Date("2023-10-01") },
+  { name: "Olivia Smith", email: "olivia@corp-plan.com", avatar: "https://picsum.photos/id/1011/100", role: "User", status: "Active", createdAt: new Date("2023-10-05") },
+  { name: "Noah Williams", email: "noah@corp-plan.com", avatar: "https://picsum.photos/id/1012/100", role: "User", status: "Active", createdAt: new Date("2023-10-12") },
+  { name: "Emma Brown", email: "emma@corp-plan.com", avatar: "https://picsum.photos/id/1013/100", role: "User", status: "Active", createdAt: new Date("2023-10-15") },
+  { name: "Oliver Jones", email: "oliver@corp-plan.com", avatar: "https://picsum.photos/id/1014/100", role: "User", status: "Inactive", createdAt: new Date("2023-11-01") },
+  { name: "Admin User", email: "admin@corp-plan.com", avatar: "https://picsum.photos/id/1/100", role: "Administrator", status: "Active", createdAt: new Date("2023-09-01") },
 ];
+
 
 const activities: Activity[] = [
   {
@@ -244,7 +246,8 @@ const notifications: Notification[] = [
 export async function getActivities(): Promise<Activity[]> {
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 500));
-  return activities;
+  const responsibleUsers = users.map(u => u.name);
+  return activities.map(a => ({...a, responsible: responsibleUsers.includes(a.responsible) ? a.responsible : 'Admin User' }));
 }
 
 export async function getUsers(): Promise<User[]> {
