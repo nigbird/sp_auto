@@ -2,9 +2,8 @@
 import { getReportData } from "@/lib/data";
 import { generateReportSummary } from "@/lib/utils";
 import { ReportSummaryCards } from "@/components/reports/summary-cards";
-import { ActivityCharts } from "@/components/dashboard/activity-charts";
 import type { Pillar, Activity } from "@/lib/types";
-import { PillarTable } from "@/components/dashboard/pillar-table";
+import { DashboardClientLayout } from "@/components/dashboard/dashboard-client-layout";
 
 function extractActivitiesFromPillars(pillars: Pillar[]): Activity[] {
     const activities: Activity[] = [];
@@ -22,6 +21,7 @@ export default async function DashboardPage() {
   const reportData = await getReportData();
   const summary = generateReportSummary(reportData);
   const activities = extractActivitiesFromPillars(reportData);
+  const departments = [...new Set(activities.map((a) => a.department))];
 
   return (
     <div className="flex-1 space-y-6">
@@ -29,10 +29,11 @@ export default async function DashboardPage() {
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
       </div>
       <ReportSummaryCards summary={summary} />
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-        <ActivityCharts activities={activities} />
-        <PillarTable pillars={reportData} />
-      </div>
+      <DashboardClientLayout 
+        initialReportData={reportData}
+        allActivities={activities}
+        departments={departments}
+      />
     </div>
   );
 }

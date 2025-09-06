@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Activity } from "@/lib/types";
@@ -34,11 +35,18 @@ const chartConfig = {
   },
 };
 
-export function ActivityCharts({ activities }: { activities: Activity[] }) {
+type ActivityChartsProps = { 
+    activities: Activity[], 
+    allActivities: Activity[],
+    onDepartmentSelect: (department: string | null) => void;
+    selectedDepartment: string | null;
+};
+
+export function ActivityCharts({ activities, allActivities, onDepartmentSelect, selectedDepartment }: ActivityChartsProps) {
   const departmentProgress = useMemo(() => {
-    const departments = [...new Set(activities.map((a) => a.department))];
+    const departments = [...new Set(allActivities.map((a) => a.department))];
     return departments.map((dept) => {
-      const deptActivities = activities.filter((a) => a.department === dept);
+      const deptActivities = allActivities.filter((a) => a.department === dept);
       const completed = deptActivities.filter(
         (a) => a.status === "Completed As Per Target"
       ).length;
@@ -47,7 +55,7 @@ export function ActivityCharts({ activities }: { activities: Activity[] }) {
         progress: deptActivities.length > 0 ? (completed / deptActivities.length) * 100 : 0,
       };
     });
-  }, [activities]);
+  }, [allActivities]);
 
   const activityStatusDistribution = useMemo(() => {
     const statuses: Record<string, number> = {
@@ -76,6 +84,7 @@ export function ActivityCharts({ activities }: { activities: Activity[] }) {
               data={departmentProgress}
               layout="vertical"
               margin={{ left: 20 }}
+              onClick={(e) => e && onDepartmentSelect(e.activePayload?.[0]?.payload.department)}
             >
               <CartesianGrid horizontal={false} />
               <YAxis
@@ -91,7 +100,15 @@ export function ActivityCharts({ activities }: { activities: Activity[] }) {
                 cursor={false}
                 content={<ChartTooltipContent formatter={(value) => `${Math.round(Number(value))}%`} />}
               />
-              <Bar dataKey="progress" fill="hsl(var(--chart-1))" radius={5} />
+              <Bar dataKey="progress" radius={5}>
+                {departmentProgress.map((entry) => (
+                    <Cell 
+                        key={`cell-${entry.department}`} 
+                        fill={entry.department === selectedDepartment ? "hsl(var(--chart-3))" : "hsl(var(--chart-1))"}
+                        className="cursor-pointer"
+                    />
+                ))}
+              </Bar>
             </BarChart>
           </ChartContainer>
         </CardContent>
