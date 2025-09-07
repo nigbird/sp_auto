@@ -37,6 +37,14 @@ export default function UserManagementPage() {
     fetchData();
   }, []);
 
+  const handleToggleStatus = (email: string) => {
+    setUsers(users.map(user => 
+      user.email === email 
+        ? { ...user, status: user.status === 'Active' ? 'Inactive' : 'Active' }
+        : user
+    ));
+  };
+
   return (
     <div className="flex-1 space-y-6">
       <div className="flex items-center justify-between gap-4">
@@ -107,7 +115,9 @@ export default function UserManagementPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>Delete</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleToggleStatus(user.email)}>
+                          {user.status === 'Active' ? 'Deactivate' : 'Activate'}
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
