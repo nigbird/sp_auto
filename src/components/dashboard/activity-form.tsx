@@ -31,7 +31,7 @@ const activitySchema = z.object({
   responsible: z.string({ required_error: "Please select a responsible person." }),
   startDate: z.date({ required_error: "A start date is required." }),
   endDate: z.date({ required_error: "An end date is required." }),
-  status: z.enum(["Not Started", "On Track", "Completed As Per Target", "Delayed"]),
+  status: z.enum(["Not Started", "On Track", "Completed As Per Target", "Delayed", "Overdue"]),
 })
 
 type ActivityFormProps = {
@@ -217,7 +217,7 @@ export function ActivityForm({ onSubmit, activity, users, departments }: Activit
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {(["Not Started", "On Track", "Completed As Per Target", "Delayed"] as ActivityStatus[]).map(status => (
+                  {(["Not Started", "On Track", "Completed As Per Target", "Delayed", "Overdue"] as ActivityStatus[]).map(status => (
                     <SelectItem key={status} value={status}>{status}</SelectItem>
                   ))}
                 </SelectContent>

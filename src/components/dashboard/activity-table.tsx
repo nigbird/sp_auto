@@ -244,8 +244,7 @@ export function ActivityTable({ activities, users, departments }: { activities: 
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => {
-                    return (
+                  {headerGroup.headers.map((header) => (
                       <TableHead key={header.id}>
                         {header.isPlaceholder
                           ? null
@@ -254,8 +253,7 @@ export function ActivityTable({ activities, users, departments }: { activities: 
                               header.getContext()
                             )}
                       </TableHead>
-                    );
-                  })}
+                    ))}
                 </TableRow>
               ))}
             </TableHeader>
