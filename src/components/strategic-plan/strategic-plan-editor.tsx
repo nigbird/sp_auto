@@ -288,10 +288,10 @@ export function StrategicPlanEditor({ initialData }: { initialData: Pillar[] }) 
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Plan Hierarchy</CardTitle>
         <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
-            setIsAddDialogOpen(open);
             if (!open) {
                 resetAddDialog();
             }
+            setIsAddDialogOpen(open);
         }}>
           <DialogTrigger asChild>
             <Button size="sm">
@@ -319,7 +319,7 @@ export function StrategicPlanEditor({ initialData }: { initialData: Pillar[] }) 
                 <Label htmlFor="item-title">Title</Label>
                 <Input id="item-title" placeholder="Enter title for the new item" value={newItemTitle} onChange={(e) => { setNewItemTitle(e.target.value); setErrorMessage(null); }} />
               </div>
-              {newItemCode.trim().toUpperCase().startsWith('A') && (
+              {(newItemCode.trim().toUpperCase().startsWith('A') || newItemCode.trim().toUpperCase().startsWith('I') || newItemCode.trim().toUpperCase().startsWith('O')) && (
                 <div className="space-y-2">
                   <Label htmlFor="item-weight">Weight (%)</Label>
                   <Input id="item-weight" type="number" placeholder="Enter weight" value={newItemWeight} onChange={(e) => setNewItemWeight(e.target.value)} />
@@ -446,7 +446,7 @@ function PillarItem({ pillar, pillarIndex, onEdit, onDelete }: { pillar: Pillar;
 }
 
 function ObjectiveItem({ objective, pillarCode, objectiveIndex, onEdit, onDelete, pillarIndex }: { objective: Objective; pillarCode: string; objectiveIndex: number; onEdit: Function; onDelete: Function; pillarIndex: number; }) {
-    const [isOpen, setIsOpen] = useState(false);
+    const [isOpen, setIsOpen] = useState(true);
     const progress = getObjectiveProgress(objective);
     const objectiveCode = `${pillarCode.replace('P', 'O')}.${objectiveIndex + 1}`;
 
@@ -479,7 +479,7 @@ function ObjectiveItem({ objective, pillarCode, objectiveIndex, onEdit, onDelete
 }
 
 function InitiativeItem({ initiative, objectiveCode, initiativeIndex, onEdit, onDelete, pillarIndex, objectiveIndex }: { initiative: Initiative; objectiveCode: string; initiativeIndex: number; onEdit: Function; onDelete: Function; pillarIndex: number; objectiveIndex: number;}) {
-    const [isOpen, setIsOpen] = useState(false);
+    const [isOpen, setIsOpen] = useState(true);
     const progress = getInitiativeProgress(initiative);
     const initiativeCode = `${objectiveCode.replace('O', 'I')}.${initiativeIndex + 1}`;
 

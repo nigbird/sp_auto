@@ -32,6 +32,7 @@ const activitySchema = z.object({
   startDate: z.date({ required_error: "A start date is required." }),
   endDate: z.date({ required_error: "An end date is required." }),
   status: z.enum(["Not Started", "On Track", "Completed As Per Target", "Delayed", "Overdue"]),
+  weight: z.coerce.number().min(0).max(100),
 })
 
 type ActivityFormProps = {
@@ -52,6 +53,7 @@ export function ActivityForm({ onSubmit, activity, users, departments }: Activit
       startDate: activity?.startDate,
       endDate: activity?.endDate,
       status: activity?.status ?? "Not Started",
+      weight: activity?.weight ?? 50,
     },
   })
 
@@ -204,28 +206,43 @@ export function ActivityForm({ onSubmit, activity, users, departments }: Activit
             )}
             />
         </div>
-         <FormField
-          control={form.control}
-          name="status"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Status</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {(["Not Started", "On Track", "Completed As Per Target", "Delayed", "Overdue"] as ActivityStatus[]).map(status => (
-                    <SelectItem key={status} value={status}>{status}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {(["Not Started", "On Track", "Completed As Per Target", "Delayed", "Overdue"] as ActivityStatus[]).map(status => (
+                            <SelectItem key={status} value={status}>{status}</SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+             <FormField
+                control={form.control}
+                name="weight"
+                render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Weight (%)</FormLabel>
+                        <FormControl>
+                            <Input type="number" placeholder="50" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )}
+                />
+         </div>
         <div className="flex justify-end pt-4">
             <Button type="submit" className="bg-primary hover:bg-primary/90">Save changes</Button>
         </div>

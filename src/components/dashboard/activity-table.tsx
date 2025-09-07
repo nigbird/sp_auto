@@ -67,7 +67,6 @@ export function ActivityTable({ activities, users, departments }: { activities: 
         lastUpdated: { user: "Admin User", date: new Date() },
         updates: [],
         progress: 0,
-        weight: 50,
       };
       setData([newActivity, ...data]);
     }
@@ -186,6 +185,7 @@ export function ActivityTable({ activities, users, departments }: { activities: 
   const isFiltered = table.getState().columnFilters.length > 0
 
   return (
+    <div>
     <Dialog open={open} onOpenChange={setOpen}>
       <div className="w-full">
         <div className="flex items-center justify-between pb-4">
@@ -318,5 +318,6 @@ export function ActivityTable({ activities, users, departments }: { activities: 
         />
       </DialogContent>
     </Dialog>
+    </div>
   );
 }
