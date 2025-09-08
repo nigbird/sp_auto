@@ -1,3 +1,4 @@
+
 export type ActivityStatus = "Not Started" | "On Track" | "Completed As Per Target" | "Delayed" | "Overdue";
 
 export type KPI = {
@@ -17,7 +18,9 @@ export type Activity = {
   title: string;
   description:string;
   department: string;
-  responsible: string;
+  responsible: string; // This is the owner
+  owner?: string;
+  collaborators?: string[];
   startDate: Date;
   endDate: Date;
   status: ActivityStatus;
@@ -52,6 +55,8 @@ export type Initiative = {
     title: string;
     weight: number;
     activities: Activity[];
+    owner?: string;
+    collaborators?: string[];
 }
 
 export type Objective = {
@@ -66,3 +71,5 @@ export type Pillar = {
     title: string;
     objectives: Objective[];
 }
+
+    

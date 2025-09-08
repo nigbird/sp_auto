@@ -18,6 +18,7 @@ import { Stepper } from "@/components/ui/stepper";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { MultiSelect } from "@/components/ui/multi-select";
 
 const activitySchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -27,7 +28,8 @@ const activitySchema = z.object({
   target: z.coerce.number().min(0, "Target must be positive"),
   baseline: z.coerce.number().optional(),
   deadline: z.string().min(1, "Deadline is required"),
-  responsible: z.string().min(1, "Responsible person/dept is required"),
+  owner: z.string().min(1, "Owner is required"),
+  collaborators: z.array(z.string()).optional(),
 });
 
 const formSchema = z.object({
@@ -46,6 +48,8 @@ const formSchema = z.object({
   initiativeTitle: z.string().min(1, "Initiative Title is required"),
   initiativeDescription: z.string().optional(),
   initiativeWeight: z.coerce.number().min(0).max(100),
+  initiativeOwner: z.string().min(1, "Owner is required"),
+  initiativeCollaborators: z.array(z.string()).optional(),
 
 
   activities: z.array(activitySchema).min(1, "At least one activity is required"),
@@ -73,6 +77,7 @@ const steps = [
 
 const users = ["Liam Johnson", "Olivia Smith", "Noah Williams", "Emma Brown", "Oliver Jones", "Admin User"];
 const departments = ["Marketing", "Sales", "Engineering", "Human Resources", "Support", "Finance"];
+const peopleOptions = [...users, ...departments].map(p => ({ value: p, label: p }));
 
 
 export default function CreateStrategicPlanPage() {
@@ -93,7 +98,9 @@ export default function CreateStrategicPlanPage() {
             initiativeTitle: "",
             initiativeDescription: "",
             initiativeWeight: 100,
-            activities: [{ title: '', deliverable: '', uom: '', weight: 100, target: 100, baseline: 0, deadline: '', responsible: '' }]
+            initiativeOwner: "",
+            initiativeCollaborators: [],
+            activities: [{ title: '', deliverable: '', uom: '', weight: 100, target: 100, baseline: 0, deadline: '', owner: '', collaborators: [] }]
         },
     });
 
@@ -119,7 +126,7 @@ export default function CreateStrategicPlanPage() {
                 isValid = await triggerValidation(["objectiveStatement", "objectiveWeight"]);
                 break;
             case 3:
-                isValid = await triggerValidation(["initiativeTitle", "initiativeWeight"]);
+                isValid = await triggerValidation(["initiativeTitle", "initiativeWeight", "initiativeOwner"]);
                 break;
             case 4:
                 isValid = await triggerValidation(["activities"]);
@@ -294,10 +301,47 @@ export default function CreateStrategicPlanPage() {
                             <Label htmlFor="initiativeDescription">Initiative Description</Label>
                             <Textarea id="initiativeDescription" {...form.register("initiativeDescription")} />
                         </div>
-                         <div className="space-y-2">
-                             <Label htmlFor="initiativeWeight">Initiative Weight (%)</Label>
-                             <Input id="initiativeWeight" type="number" {...form.register("initiativeWeight")} />
-                             {form.formState.errors.initiativeWeight && <p className="text-sm text-destructive">{form.formState.errors.initiativeWeight.message}</p>}
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="initiativeWeight">Initiative Weight (%)</Label>
+                                <Input id="initiativeWeight" type="number" {...form.register("initiativeWeight")} />
+                                {form.formState.errors.initiativeWeight && <p className="text-sm text-destructive">{form.formState.errors.initiativeWeight.message}</p>}
+                            </div>
+                         </div>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Controller
+                                control={form.control}
+                                name="initiativeOwner"
+                                render={({ field }) => (
+                                    <div className="space-y-2">
+                                        <Label>Lead/Owner</Label>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {peopleOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                        {form.formState.errors.initiativeOwner && <p className="text-sm text-destructive">{form.formState.errors.initiativeOwner.message}</p>}
+                                    </div>
+                                )}
+                            />
+                             <Controller
+                                control={form.control}
+                                name="initiativeCollaborators"
+                                render={({ field }) => (
+                                    <div className="space-y-2">
+                                        <Label>Collaborators</Label>
+                                        <MultiSelect
+                                            options={peopleOptions}
+                                            selected={field.value ?? []}
+                                            onChange={field.onChange}
+                                            placeholder="Select..."
+                                        />
+                                    </div>
+                                )}
+                            />
                          </div>
                     </div>
                 </div>
@@ -329,7 +373,8 @@ export default function CreateStrategicPlanPage() {
                                     <TableHead>Target</TableHead>
                                     <TableHead>Baseline</TableHead>
                                     <TableHead>Deadline</TableHead>
-                                    <TableHead>Responsible</TableHead>
+                                    <TableHead>Lead/Owner</TableHead>
+                                    <TableHead>Collaborators</TableHead>
                                     <TableHead></TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -347,17 +392,31 @@ export default function CreateStrategicPlanPage() {
                                         <TableCell>
                                             <Controller
                                                 control={form.control}
-                                                name={`activities.${index}.responsible`}
+                                                name={`activities.${index}.owner`}
                                                 render={({ field }) => (
                                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                         <SelectTrigger className="min-w-[150px]">
                                                             <SelectValue placeholder="Select..." />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            {users.map(user => <SelectItem key={user} value={user}>{user}</SelectItem>)}
-                                                            {departments.map(dept => <SelectItem key={dept} value={dept}>{dept}</SelectItem>)}
+                                                            {peopleOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                                                         </SelectContent>
                                                     </Select>
+                                                )}
+                                            />
+                                        </TableCell>
+                                        <TableCell>
+                                             <Controller
+                                                control={form.control}
+                                                name={`activities.${index}.collaborators`}
+                                                render={({ field }) => (
+                                                    <MultiSelect
+                                                        options={peopleOptions}
+                                                        selected={field.value ?? []}
+                                                        onChange={field.onChange}
+                                                        className="min-w-[200px]"
+                                                        placeholder="Select..."
+                                                    />
                                                 )}
                                             />
                                         </TableCell>
@@ -371,7 +430,7 @@ export default function CreateStrategicPlanPage() {
                             </TableBody>
                         </Table>
                     </div>
-                     <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ title: '', deliverable: '', uom: '', weight: 0, target: 100, baseline: 0, deadline: '', responsible: '' })}>Add Activity</Button>
+                     <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ title: '', deliverable: '', uom: '', weight: 0, target: 100, baseline: 0, deadline: '', owner: '', collaborators: [] })}>Add Activity</Button>
                      {form.formState.errors.activities?.message && <p className="text-sm text-destructive mt-2">{form.formState.errors.activities.message}</p>}
                      {form.formState.errors.activities?.root?.message && <p className="text-sm text-destructive mt-2">{form.formState.errors.activities.root.message}</p>}
                 </div>
@@ -395,12 +454,16 @@ export default function CreateStrategicPlanPage() {
                                             {/* Initiative */}
                                             <div className="ml-4 mt-2 space-y-2 border-l pl-4">
                                                 <div>
-                                                    <h6 className="font-medium italic">(1.1.1) {form.watch('initiativeTitle')} (Weight: {form.watch('initiativeWeight')}%)</h6>
+                                                    <h6 className="font-medium italic">(1.1.1) {form.watch('initiativeTitle')} (Wt: {form.watch('initiativeWeight')}%, Owner: {form.watch('initiativeOwner')})</h6>
                                                      <p className="text-sm text-muted-foreground">{form.watch('initiativeDescription')}</p>
+                                                     {form.watch('initiativeCollaborators') && form.watch('initiativeCollaborators')!.length > 0 && <p className="text-xs text-muted-foreground">Collaborators: {form.watch('initiativeCollaborators')?.join(', ')}</p>}
                                                     {/* Activities */}
                                                     <ul className="ml-4 mt-2 list-disc pl-4 space-y-1">
                                                         {form.watch('activities').map((act, i) => (
-                                                            <li key={i} className="text-sm">(1.1.1.{i+1}) {act.title} (Weight: {act.weight}%, Responsible: {act.responsible})</li>
+                                                            <li key={i} className="text-sm">
+                                                                (1.1.1.{i+1}) {act.title} (Wt: {act.weight}%, Owner: {act.owner})
+                                                                {act.collaborators && act.collaborators.length > 0 && <span className="text-xs text-muted-foreground"> / Collabs: {act.collaborators.join(', ')}</span>}
+                                                            </li>
                                                         ))}
                                                     </ul>
                                                 </div>
@@ -430,3 +493,5 @@ export default function CreateStrategicPlanPage() {
     </div>
   );
 }
+
+    
