@@ -1,3 +1,4 @@
+
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -22,7 +23,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import type { Activity, ActivityStatus } from "@/lib/types"
+import type { Activity } from "@/lib/types"
 
 const activitySchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters." }),
@@ -31,7 +32,7 @@ const activitySchema = z.object({
   responsible: z.string({ required_error: "Please select a responsible person." }),
   startDate: z.date({ required_error: "A start date is required." }),
   endDate: z.date({ required_error: "An end date is required." }),
-  status: z.enum(["Not Started", "On Track", "Completed As Per Target", "Delayed", "Overdue"]),
+  status: z.string({ required_error: "Please select a status." }),
   weight: z.coerce.number().min(0).max(100),
 })
 
@@ -40,9 +41,10 @@ type ActivityFormProps = {
   activity?: Activity | null;
   users: string[];
   departments: string[];
+  statuses: string[];
 }
 
-export function ActivityForm({ onSubmit, activity, users, departments }: ActivityFormProps) {
+export function ActivityForm({ onSubmit, activity, users, departments, statuses }: ActivityFormProps) {
   const form = useForm<z.infer<typeof activitySchema>>({
     resolver: zodResolver(activitySchema),
     defaultValues: {
@@ -220,7 +222,7 @@ export function ActivityForm({ onSubmit, activity, users, departments }: Activit
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                        {(["Not Started", "On Track", "Completed As Per Target", "Delayed", "Overdue"] as ActivityStatus[]).map(status => (
+                        {statuses.map(status => (
                             <SelectItem key={status} value={status}>{status}</SelectItem>
                         ))}
                         </SelectContent>

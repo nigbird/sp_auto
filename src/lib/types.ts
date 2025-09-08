@@ -1,5 +1,5 @@
 
-export type ActivityStatus = "Not Started" | "On Track" | "Completed As Per Target" | "Delayed" | "Overdue";
+export type ActivityStatus = "Not Started" | "On Track" | "Completed As Per Target" | "Delayed" | "Overdue" | string;
 
 export type KPI = {
   name: string;
@@ -53,6 +53,7 @@ export type Notification = {
 export type Initiative = {
     id: string;
     title: string;
+    description?: string;
     weight: number;
     activities: Activity[];
     owner?: string;
@@ -62,6 +63,7 @@ export type Initiative = {
 export type Objective = {
     id: string;
     title: string;
+    statement?: string;
     weight: number;
     initiatives: Initiative[];
 }
@@ -69,7 +71,16 @@ export type Objective = {
 export type Pillar = {
     id: string;
     title: string;
+    description?: string;
     objectives: Objective[];
 }
 
-    
+export type Rule = {
+  id: string;
+  status: string;
+  description: string;
+  min: number;
+  max: number;
+  isSystem: boolean;
+  condition?: (activity: Activity) => boolean;
+};

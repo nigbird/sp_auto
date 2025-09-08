@@ -1,26 +1,25 @@
 
 "use client";
 
-import { useState } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
-import { ArrowLeft, Trash2, Info } from "lucide-react";
+import { ArrowLeft, Trash2, PlusCircle, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Stepper } from "@/components/ui/stepper";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Separator } from "@/components/ui/separator";
 
 const activitySchema = z.object({
+  id: z.string(),
   title: z.string().min(1, "Title is required"),
   deliverable: z.string().optional(),
   uom: z.string().optional(),
@@ -32,56 +31,48 @@ const activitySchema = z.object({
   collaborators: z.array(z.string()).optional(),
 });
 
+const initiativeSchema = z.object({
+  id: z.string(),
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  weight: z.coerce.number().min(0).max(100),
+  owner: z.string().min(1, "Owner is required"),
+  collaborators: z.array(z.string()).optional(),
+  activities: z.array(activitySchema),
+});
+
+const objectiveSchema = z.object({
+  id: z.string(),
+  statement: z.string().min(1, "Objective Statement is required"),
+  weight: z.coerce.number().min(0).max(100),
+  initiatives: z.array(initiativeSchema),
+});
+
+const pillarSchema = z.object({
+  id: z.string(),
+  title: z.string().min(1, "Pillar Title is required"),
+  description: z.string().optional(),
+  objectives: z.array(objectiveSchema),
+});
+
 const formSchema = z.object({
   planTitle: z.string().min(1, "Plan Title is required"),
   startYear: z.coerce.number().min(2000),
   endYear: z.coerce.number().min(2000),
   version: z.string().min(1, "Version is required"),
-
-  pillarTitle: z.string().min(1, "Pillar Title is required"),
-  pillarDescription: z.string().optional(),
-
-  objectiveStatement: z.string().min(1, "Objective Statement is required"),
-  objectiveWeight: z.coerce.number().min(0).max(100),
-
-
-  initiativeTitle: z.string().min(1, "Initiative Title is required"),
-  initiativeDescription: z.string().optional(),
-  initiativeWeight: z.coerce.number().min(0).max(100),
-  initiativeOwner: z.string().min(1, "Owner is required"),
-  initiativeCollaborators: z.array(z.string()).optional(),
-
-
-  activities: z.array(activitySchema).min(1, "At least one activity is required"),
+  pillars: z.array(pillarSchema).min(1, "At least one pillar is required"),
 }).refine(data => data.endYear >= data.startYear, {
     message: "End year must be greater than or equal to start year",
     path: ["endYear"],
-}).refine(data => {
-    const totalWeight = data.activities.reduce((sum, act) => sum + act.weight, 0);
-    return totalWeight === 100;
-}, {
-    message: "The weights of all activities must add up to 100%",
-    path: ["activities"],
 });
 
 type FormValues = z.infer<typeof formSchema>;
-
-const steps = [
-    { title: "Plan Info" },
-    { title: "Pillar" },
-    { title: "Objective" },
-    { title: "Initiative" },
-    { title: "Activities" },
-    { title: "Review & Save" },
-];
 
 const users = ["Liam Johnson", "Olivia Smith", "Noah Williams", "Emma Brown", "Oliver Jones", "Admin User"];
 const departments = ["Marketing", "Sales", "Engineering", "Human Resources", "Support", "Finance"];
 const peopleOptions = [...users, ...departments].map(p => ({ value: p, label: p }));
 
-
 export default function CreateStrategicPlanPage() {
-    const [currentStep, setCurrentStep] = useState(0);
     const { toast } = useToast();
 
     const form = useForm<FormValues>({
@@ -91,79 +82,17 @@ export default function CreateStrategicPlanPage() {
             startYear: new Date().getFullYear(),
             endYear: new Date().getFullYear() + 4,
             version: "1.0",
-            pillarTitle: "",
-            pillarDescription: "",
-            objectiveStatement: "",
-            objectiveWeight: 100,
-            initiativeTitle: "",
-            initiativeDescription: "",
-            initiativeWeight: 100,
-            initiativeOwner: "",
-            initiativeCollaborators: [],
-            activities: [{ title: '', deliverable: '', uom: '', weight: 100, target: 100, baseline: 0, deadline: '', owner: '', collaborators: [] }]
+            pillars: []
         },
     });
 
-    const { fields, append, remove } = useFieldArray({
+    const { fields: pillarFields, append: appendPillar, remove: removePillar } = useFieldArray({
         control: form.control,
-        name: "activities"
+        name: "pillars"
     });
 
-    const triggerValidation = async (fields: (keyof FormValues)[]) => {
-        return await form.trigger(fields);
-    };
-
-    const handleNext = async () => {
-        let isValid = false;
-        switch (currentStep) {
-            case 0:
-                isValid = await triggerValidation(["planTitle", "startYear", "endYear", "version"]);
-                break;
-            case 1:
-                isValid = await triggerValidation(["pillarTitle"]);
-                break;
-            case 2:
-                isValid = await triggerValidation(["objectiveStatement", "objectiveWeight"]);
-                break;
-            case 3:
-                isValid = await triggerValidation(["initiativeTitle", "initiativeWeight", "initiativeOwner"]);
-                break;
-            case 4:
-                isValid = await triggerValidation(["activities"]);
-                 const totalWeight = form.getValues('activities').reduce((sum, a) => sum + a.weight, 0);
-                 if (totalWeight !== 100) {
-                     form.setError("activities", { type: "manual", message: "Total weight of all activities must be exactly 100%." });
-                     isValid = false;
-                 }
-                break;
-            default:
-                isValid = true;
-        }
-
-        if (isValid) {
-            setCurrentStep(s => s + 1);
-        }
-    };
-    
-    const handleBack = () => {
-        setCurrentStep(s => s - 1);
-    };
-
     const onSubmit = (data: FormValues) => {
-        // Here you would transform the data to include the generated codes
-        // before sending to your backend.
-        const finalData = {
-            ...data,
-            pillarCode: "1",
-            objectiveCode: "1.1",
-            initiativeCode: "1.1.1",
-            activities: data.activities.map((act, index) => ({
-                ...act,
-                code: `1.1.1.${index + 1}`
-            }))
-        };
-
-        console.log(finalData);
+        console.log(data);
         toast({
             title: "Plan Published!",
             description: "The new strategic plan has been successfully published.",
@@ -176,49 +105,34 @@ export default function CreateStrategicPlanPage() {
             description: "Your strategic plan has been saved as a draft.",
         });
     }
-    
-    const handleClearForm = () => {
-        form.reset();
-        setCurrentStep(0);
-         toast({
-            title: "Form Cleared",
-            description: "All fields have been reset.",
-            variant: "destructive"
-        });
-    }
 
-    const stepperState = steps.map((step, index) => ({
-        ...step,
-        isCompleted: index < currentStep,
-        isCurrent: index === currentStep,
-    }));
-
-  return (
-    <div className="flex-1 space-y-6">
-       <div className="flex items-center gap-4">
-        <Button asChild variant="outline" size="icon">
-          <Link href="/strategic-plan">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <div>
-            <h1 className="text-3xl font-bold tracking-tight">Create Strategic Plan</h1>
-            <p className="text-muted-foreground">
-                Follow the steps to create a new strategic plan for your organization.
-            </p>
-        </div>
-      </div>
-      <Card>
-        <CardHeader>
-            <Stepper steps={stepperState} onStepClick={setCurrentStep} />
-        </CardHeader>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-            <CardContent>
-                <div className={currentStep === 0 ? 'block' : 'hidden'}>
-                    <CardTitle className="mb-1">Step 1: Plan Information</CardTitle>
-                    <CardDescription className="mb-4">Provide the basic details for this strategic plan.</CardDescription>
-                     <div className="space-y-4">
-                        <div className="space-y-2">
+    return (
+        <div className="flex-1 space-y-6">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <Button asChild variant="outline" size="icon">
+                    <Link href="/strategic-plan">
+                        <ArrowLeft className="h-4 w-4" />
+                    </Link>
+                    </Button>
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight">Create Strategic Plan</h1>
+                        <p className="text-muted-foreground">Build your organization's strategic plan from pillars to activities.</p>
+                    </div>
+                </div>
+                 <div className="flex gap-2">
+                    <Button variant="outline" onClick={handleSaveDraft}>Save Draft</Button>
+                    <Button onClick={form.handleSubmit(onSubmit)}>Publish Plan</Button>
+                </div>
+            </div>
+            
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Plan Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                         <div className="space-y-2">
                             <Label htmlFor="planTitle">Plan Title</Label>
                             <Input id="planTitle" {...form.register("planTitle")} />
                             {form.formState.errors.planTitle && <p className="text-sm text-destructive">{form.formState.errors.planTitle.message}</p>}
@@ -240,159 +154,194 @@ export default function CreateStrategicPlanPage() {
                                 {form.formState.errors.version && <p className="text-sm text-destructive">{form.formState.errors.version.message}</p>}
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </CardContent>
+                </Card>
 
-                <div className={currentStep === 1 ? 'block' : 'hidden'}>
-                     <CardTitle className="mb-1">Step 2: Define Pillar</CardTitle>
-                    <CardDescription className="mb-4">A Pillar is a high-level strategic focus area.</CardDescription>
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Pillar Code</Label>
-                            <p className="font-mono text-muted-foreground p-2 rounded-md border border-dashed">1</p>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Plan Structure</CardTitle>
+                        <CardDescription>Define the pillars, objectives, initiatives, and activities for your plan.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {pillarFields.map((pillar, pIndex) => (
+                           <PillarAccordion key={pillar.id} pIndex={pIndex} removePillar={removePillar} form={form} />
+                        ))}
+                         <Button type="button" variant="outline" onClick={() => appendPillar({ id: `p-${Date.now()}`, title: "", description: "", objectives: []})}>
+                           <PlusCircle className="mr-2 h-4 w-4" /> Add Pillar
+                        </Button>
+                    </CardContent>
+                </Card>
+            </form>
+        </div>
+    );
+}
+
+
+function PillarAccordion({ pIndex, removePillar, form }: { pIndex: number; removePillar: Function; form: any }) {
+    const { control, register } = form;
+    const { fields: objectiveFields, append: appendObjective, remove: removeObjective } = useFieldArray({ control, name: `pillars.${pIndex}.objectives` });
+    
+    return (
+        <Card className="bg-muted/30">
+            <div className="flex items-center p-4">
+                <GripVertical className="h-5 w-5 text-muted-foreground mr-2"/>
+                <div className="flex-1 space-y-2">
+                    <Label>Pillar {pIndex + 1}</Label>
+                    <Input {...register(`pillars.${pIndex}.title`)} placeholder="Pillar Title" />
+                    <Textarea {...register(`pillars.${pIndex}.description`)} placeholder="Pillar Description" />
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => removePillar(pIndex)} className="ml-4">
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+            </div>
+            <CardContent className="pl-12 pr-4 pb-4">
+                <div className="space-y-4">
+                    {objectiveFields.map((objective, oIndex) => (
+                        <ObjectiveAccordion key={objective.id} pIndex={pIndex} oIndex={oIndex} removeObjective={removeObjective} form={form} />
+                    ))}
+                    <Button type="button" variant="outline" size="sm" onClick={() => appendObjective({ id: `o-${Date.now()}`, statement: "", weight: 0, initiatives: [] })}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Objective
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
+
+function ObjectiveAccordion({ pIndex, oIndex, removeObjective, form }: { pIndex: number; oIndex: number; removeObjective: Function; form: any }) {
+    const { control, register } = form;
+    const { fields: initiativeFields, append: appendInitiative, remove: removeInitiative } = useFieldArray({ control, name: `pillars.${pIndex}.objectives.${oIndex}.initiatives` });
+
+    return (
+         <Accordion type="single" collapsible className="w-full bg-background border rounded-md p-4">
+            <AccordionItem value={`objective-${oIndex}`} className="border-none">
+                <div className="flex items-center">
+                    <AccordionTrigger className="flex-1">
+                        <div className="flex items-center gap-2">
+                           <span className="font-semibold">Objective {pIndex + 1}.{oIndex + 1}</span>
+                        </div>
+                    </AccordionTrigger>
+                     <Button variant="ghost" size="icon" onClick={() => removeObjective(oIndex)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                </div>
+                <AccordionContent className="pt-4 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="space-y-2 col-span-3">
+                            <Label>Objective Statement</Label>
+                            <Textarea {...register(`pillars.${pIndex}.objectives.${oIndex}.statement`)} placeholder="e.g., Increase Market Share" />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="pillarTitle">Pillar Title</Label>
-                            <Input id="pillarTitle" {...form.register("pillarTitle")} />
-                            {form.formState.errors.pillarTitle && <p className="text-sm text-destructive">{form.formState.errors.pillarTitle.message}</p>}
-                        </div>
-                         <div className="space-y-2">
-                            <Label htmlFor="pillarDescription">Pillar Description</Label>
-                            <Textarea id="pillarDescription" {...form.register("pillarDescription")} />
+                            <Label>Weight (%)</Label>
+                            <Input type="number" {...register(`pillars.${pIndex}.objectives.${oIndex}.weight`)} placeholder="100" />
                         </div>
                     </div>
-                </div>
-
-                <div className={currentStep === 2 ? 'block' : 'hidden'}>
-                     <CardTitle className="mb-1">Step 3: Define Objective</CardTitle>
-                    <CardDescription className="mb-4">An Objective is a specific, measurable goal that supports a Pillar.</CardDescription>
+                     <Separator />
+                     <h4 className="font-medium text-muted-foreground">Initiatives</h4>
                      <div className="space-y-4">
-                         <div className="space-y-2">
-                            <Label>Objective Code</Label>
-                            <p className="font-mono text-muted-foreground p-2 rounded-md border border-dashed">1.1</p>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="objectiveStatement">Objective Statement</Label>
-                            <Textarea id="objectiveStatement" {...form.register("objectiveStatement")} />
-                             {form.formState.errors.objectiveStatement && <p className="text-sm text-destructive">{form.formState.errors.objectiveStatement.message}</p>}
-                        </div>
-                        <div className="space-y-2">
-                             <Label htmlFor="objectiveWeight">Objective Weight (%)</Label>
-                             <Input id="objectiveWeight" type="number" {...form.register("objectiveWeight")} />
-                             {form.formState.errors.objectiveWeight && <p className="text-sm text-destructive">{form.formState.errors.objectiveWeight.message}</p>}
-                         </div>
+                        {initiativeFields.map((initiative, iIndex) => (
+                           <InitiativeAccordion key={initiative.id} pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} removeInitiative={removeInitiative} form={form} />
+                        ))}
+                        <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ id: `i-${Date.now()}`, title: "", description: "", weight: 100, owner: "", collaborators: [], activities: [] })}>
+                           <PlusCircle className="mr-2 h-4 w-4" /> Add Initiative
+                        </Button>
                     </div>
-                </div>
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
+    )
+}
 
-                <div className={currentStep === 3 ? 'block' : 'hidden'}>
-                     <CardTitle className="mb-1">Step 4: Define Initiative</CardTitle>
-                    <CardDescription className="mb-4">An Initiative is a project or program designed to achieve an Objective.</CardDescription>
-                     <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Initiative Code</Label>
-                            <p className="font-mono text-muted-foreground p-2 rounded-md border border-dashed">1.1.1</p>
+
+function InitiativeAccordion({ pIndex, oIndex, iIndex, removeInitiative, form }: { pIndex: number; oIndex: number; iIndex: number; removeInitiative: Function; form: any }) {
+    const { control, register } = form;
+    const { fields: activityFields, append: appendActivity, remove: removeActivity } = useFieldArray({ control, name: `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities` });
+
+    return (
+         <Accordion type="single" collapsible className="w-full bg-muted/30 border rounded-md p-4">
+            <AccordionItem value={`initiative-${iIndex}`} className="border-none">
+                <div className="flex items-center">
+                    <AccordionTrigger className="flex-1">
+                        <div className="flex items-center gap-2">
+                           <span className="font-semibold">Initiative {pIndex + 1}.{oIndex + 1}.{iIndex + 1}</span>
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="initiativeTitle">Initiative Title</Label>
-                            <Input id="initiativeTitle" {...form.register("initiativeTitle")} />
-                            {form.formState.errors.initiativeTitle && <p className="text-sm text-destructive">{form.formState.errors.initiativeTitle.message}</p>}
-                        </div>
-                         <div className="space-y-2">
-                            <Label htmlFor="initiativeDescription">Initiative Description</Label>
-                            <Textarea id="initiativeDescription" {...form.register("initiativeDescription")} />
-                        </div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="initiativeWeight">Initiative Weight (%)</Label>
-                                <Input id="initiativeWeight" type="number" {...form.register("initiativeWeight")} />
-                                {form.formState.errors.initiativeWeight && <p className="text-sm text-destructive">{form.formState.errors.initiativeWeight.message}</p>}
-                            </div>
-                         </div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <Controller
-                                control={form.control}
-                                name="initiativeOwner"
-                                render={({ field }) => (
-                                    <div className="space-y-2">
-                                        <Label>Lead/Owner</Label>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {peopleOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                        {form.formState.errors.initiativeOwner && <p className="text-sm text-destructive">{form.formState.errors.initiativeOwner.message}</p>}
-                                    </div>
-                                )}
-                            />
-                             <Controller
-                                control={form.control}
-                                name="initiativeCollaborators"
-                                render={({ field }) => (
-                                    <div className="space-y-2">
-                                        <Label>Collaborators</Label>
-                                        <MultiSelect
-                                            options={peopleOptions}
-                                            selected={field.value ?? []}
-                                            onChange={field.onChange}
-                                            placeholder="Select..."
-                                        />
-                                    </div>
-                                )}
-                            />
-                         </div>
+                    </AccordionTrigger>
+                     <Button variant="ghost" size="icon" onClick={() => removeInitiative(iIndex)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                </div>
+                <AccordionContent className="pt-4 space-y-4">
+                    <div className="space-y-2">
+                        <Label>Initiative Title</Label>
+                        <Input {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.title`)} placeholder="Initiative Title" />
                     </div>
-                </div>
-
-                <div className={currentStep === 4 ? 'block' : 'hidden'}>
-                     <CardTitle className="mb-1">Step 5: Define Activities</CardTitle>
-                    <CardDescription className="mb-4 flex items-center">
-                        Activities are the specific tasks required to complete an Initiative. Weights must add up to 100%.
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Info className="h-4 w-4 ml-2 cursor-pointer"/>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Each activity's weight represents its contribution to the initiative. The sum of all activity weights for one initiative must be exactly 100%.</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    </CardDescription>
-                    <div className="w-full overflow-x-auto">
+                    <div className="space-y-2">
+                        <Label>Initiative Description</Label>
+                        <Textarea {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.description`)} placeholder="Initiative Description" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Controller
+                            control={control}
+                            name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.owner`}
+                            render={({ field }) => (
+                                <div className="space-y-2">
+                                    <Label>Lead/Owner</Label>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {peopleOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+                        />
+                         <Controller
+                            control={control}
+                            name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.collaborators`}
+                            render={({ field }) => (
+                                <div className="space-y-2">
+                                    <Label>Collaborators</Label>
+                                    <MultiSelect
+                                        options={peopleOptions}
+                                        selected={field.value ?? []}
+                                        onChange={field.onChange}
+                                        placeholder="Select..."
+                                    />
+                                </div>
+                            )}
+                        />
+                    </div>
+                     <Separator />
+                     <h4 className="font-medium text-muted-foreground">Activities</h4>
+                     <div className="space-y-2">
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Code</TableHead>
-                                    <TableHead>Title/Description</TableHead>
-                                    <TableHead>Deliverable</TableHead>
-                                    <TableHead>UoM</TableHead>
+                                    <TableHead>Title</TableHead>
                                     <TableHead>Weight (%)</TableHead>
-                                    <TableHead>Target</TableHead>
-                                    <TableHead>Baseline</TableHead>
                                     <TableHead>Deadline</TableHead>
-                                    <TableHead>Lead/Owner</TableHead>
-                                    <TableHead>Collaborators</TableHead>
-                                    <TableHead></TableHead>
+                                    <TableHead>Owner</TableHead>
+                                    <TableHead>Action</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {fields.map((field, index) => (
-                                    <TableRow key={field.id}>
-                                        <TableCell><p className="font-mono text-sm text-muted-foreground">1.1.1.{index + 1}</p></TableCell>
-                                        <TableCell><Input {...form.register(`activities.${index}.title`)} className="min-w-[150px]"/></TableCell>
-                                        <TableCell><Input {...form.register(`activities.${index}.deliverable`)} className="min-w-[150px]"/></TableCell>
-                                        <TableCell><Input {...form.register(`activities.${index}.uom`)} className="min-w-[80px]"/></TableCell>
-                                        <TableCell><Input type="number" {...form.register(`activities.${index}.weight`)} className="min-w-[80px]"/></TableCell>
-                                        <TableCell><Input type="number" {...form.register(`activities.${index}.target`)} className="min-w-[80px]"/></TableCell>
-                                        <TableCell><Input type="number" {...form.register(`activities.${index}.baseline`)} className="min-w-[80px]"/></TableCell>
-                                        <TableCell><Input type="date" {...form.register(`activities.${index}.deadline`)} className="min-w-[150px]"/></TableCell>
+                                {activityFields.map((activity, aIndex) => (
+                                    <TableRow key={activity.id}>
                                         <TableCell>
+                                            <Input {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.title`)} placeholder="Activity Title"/>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Input type="number" {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.weight`)} placeholder="100"/>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Input type="date" {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.deadline`)} />
+                                        </TableCell>
+                                         <TableCell>
                                             <Controller
-                                                control={form.control}
-                                                name={`activities.${index}.owner`}
+                                                control={control}
+                                                name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.owner`}
                                                 render={({ field }) => (
                                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                         <SelectTrigger className="min-w-[150px]">
@@ -406,22 +355,7 @@ export default function CreateStrategicPlanPage() {
                                             />
                                         </TableCell>
                                         <TableCell>
-                                             <Controller
-                                                control={form.control}
-                                                name={`activities.${index}.collaborators`}
-                                                render={({ field }) => (
-                                                    <MultiSelect
-                                                        options={peopleOptions}
-                                                        selected={field.value ?? []}
-                                                        onChange={field.onChange}
-                                                        className="min-w-[200px]"
-                                                        placeholder="Select..."
-                                                    />
-                                                )}
-                                            />
-                                        </TableCell>
-                                        <TableCell>
-                                            <Button variant="ghost" size="icon" onClick={() => remove(index)}>
+                                            <Button variant="ghost" size="icon" onClick={() => removeActivity(aIndex)}>
                                                 <Trash2 className="h-4 w-4 text-destructive"/>
                                             </Button>
                                         </TableCell>
@@ -429,69 +363,12 @@ export default function CreateStrategicPlanPage() {
                                 ))}
                             </TableBody>
                         </Table>
+                         <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: `a-${Date.now()}`, title: '', deliverable: '', uom: '', weight: 100, target: 100, baseline: 0, deadline: '', owner: '', collaborators: [] })}>
+                             <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
+                        </Button>
                     </div>
-                     <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ title: '', deliverable: '', uom: '', weight: 0, target: 100, baseline: 0, deadline: '', owner: '', collaborators: [] })}>Add Activity</Button>
-                     {form.formState.errors.activities?.message && <p className="text-sm text-destructive mt-2">{form.formState.errors.activities.message}</p>}
-                     {form.formState.errors.activities?.root?.message && <p className="text-sm text-destructive mt-2">{form.formState.errors.activities.root.message}</p>}
-                </div>
-                
-                <div className={currentStep === 5 ? 'block' : 'hidden'}>
-                     <CardTitle className="mb-1">Step 6: Review & Save</CardTitle>
-                     <CardDescription className="mb-4">Review the full strategic plan hierarchy before saving or publishing.</CardDescription>
-                     <div className="space-y-4 rounded-md border p-4">
-                        {/* Plan */}
-                        <div>
-                            <h3 className="font-bold text-lg">{form.watch('planTitle')} ({form.watch('startYear')}-{form.watch('endYear')}) - v{form.watch('version')}</h3>
-                            {/* Pillar */}
-                            <div className="ml-4 mt-2 space-y-2 border-l pl-4">
-                                <div>
-                                    <h4 className="font-semibold">(1) {form.watch('pillarTitle')}</h4>
-                                    <p className="text-sm text-muted-foreground">{form.watch('pillarDescription')}</p>
-                                    {/* Objective */}
-                                    <div className="ml-4 mt-2 space-y-2 border-l pl-4">
-                                        <div>
-                                            <h5 className="font-medium">(1.1) {form.watch('objectiveStatement')} (Weight: {form.watch('objectiveWeight')}%)</h5>
-                                            {/* Initiative */}
-                                            <div className="ml-4 mt-2 space-y-2 border-l pl-4">
-                                                <div>
-                                                    <h6 className="font-medium italic">(1.1.1) {form.watch('initiativeTitle')} (Wt: {form.watch('initiativeWeight')}%, Owner: {form.watch('initiativeOwner')})</h6>
-                                                     <p className="text-sm text-muted-foreground">{form.watch('initiativeDescription')}</p>
-                                                     {form.watch('initiativeCollaborators') && form.watch('initiativeCollaborators')!.length > 0 && <p className="text-xs text-muted-foreground">Collaborators: {form.watch('initiativeCollaborators')?.join(', ')}</p>}
-                                                    {/* Activities */}
-                                                    <ul className="ml-4 mt-2 list-disc pl-4 space-y-1">
-                                                        {form.watch('activities').map((act, i) => (
-                                                            <li key={i} className="text-sm">
-                                                                (1.1.1.{i+1}) {act.title} (Wt: {act.weight}%, Owner: {act.owner})
-                                                                {act.collaborators && act.collaborators.length > 0 && <span className="text-xs text-muted-foreground"> / Collabs: {act.collaborators.join(', ')}</span>}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                     </div>
-                </div>
-
-            </CardContent>
-            <CardFooter className="justify-end gap-2 pt-6">
-                {currentStep > 0 && <Button type="button" variant="outline" onClick={handleBack}>Back</Button>}
-                {currentStep < steps.length - 1 && <Button type="button" onClick={handleNext}>Next</Button>}
-                {currentStep === steps.length - 1 && (
-                    <>
-                        <Button type="button" variant="outline" onClick={handleClearForm}>Clear Form</Button>
-                        <Button type="button" variant="secondary" onClick={handleSaveDraft}>Save Draft</Button>
-                        <Button type="submit">Publish Plan</Button>
-                    </>
-                )}
-            </CardFooter>
-        </form>
-      </Card>
-    </div>
-  );
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
+    )
 }
-
-    

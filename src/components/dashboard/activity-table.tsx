@@ -37,7 +37,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import type { Activity, ActivityStatus } from "@/lib/types";
+import type { Activity } from "@/lib/types";
 import { StatusBadge } from "../status-badge";
 import { Progress } from "../ui/progress";
 import { ActivityForm } from "./activity-form";
@@ -47,7 +47,7 @@ import { DataTableFacetedFilter } from "../data-table-faceted-filter";
 import { DateRangePicker } from "../date-range-picker";
 import { DateRange } from "react-day-picker";
 
-export function ActivityTable({ activities, users, departments }: { activities: Activity[], users: string[], departments: string[] }) {
+export function ActivityTable({ activities, users, departments, statuses }: { activities: Activity[], users: string[], departments: string[], statuses: string[] }) {
   const [data, setData] = useState(activities);
   const [open, setOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
@@ -84,7 +84,6 @@ export function ActivityTable({ activities, users, departments }: { activities: 
     setOpen(true);
   };
   
-  const statuses: ActivityStatus[] = ["Not Started", "On Track", "Completed As Per Target", "Delayed", "Overdue"];
   const departmentOptions = departments.map(d => ({ label: d, value: d }));
   const statusOptions = statuses.map(s => ({ label: s, value: s }));
 
@@ -315,6 +314,7 @@ export function ActivityTable({ activities, users, departments }: { activities: 
           activity={editingActivity}
           users={users}
           departments={departments}
+          statuses={statuses}
         />
       </DialogContent>
     </Dialog>

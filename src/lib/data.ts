@@ -1,5 +1,5 @@
 
-import type { Activity, User, Notification, ActivityStatus, Pillar } from "./types";
+import type { Activity, User, Notification, ActivityStatus, Pillar, Rule } from "./types";
 
 const users: User[] = [
   { name: "Liam Johnson", email: "liam@corp-plan.com", avatar: "https://picsum.photos/id/1005/100", role: "Manager", status: "Active", createdAt: new Date("2023-10-01") },
@@ -243,6 +243,14 @@ const notifications: Notification[] = [
     { id: "3", message: "Deadline for 'New CRM System Implementation' is approaching.", date: new Date(Date.now() - 1000 * 60 * 60 * 24), read: true },
 ];
 
+const rules: Rule[] = [
+  { id: "1", status: "Completed As Per Target", description: "Performance against target is >= 100%", min: 100, max: Infinity, isSystem: true },
+  { id: "2", status: "On Track", description: "Performance against target is from 70% up to 99.99%", min: 70, max: 99.99, isSystem: false },
+  { id: "3", status: "Delayed", description: "Performance against target is above 0% but less than 70%", min: 0.01, max: 69.99, isSystem: false },
+  { id: "4", status: "Not Started", description: "Performance against target is 0%", min: 0, max: 0, isSystem: true },
+  { id: "5", status: "Overdue", description: "Past deadline and not completed", min: 0, max: 99.99, isSystem: true, condition: (a: Activity) => a.endDate < new Date() && a.progress < 100 },
+];
+
 export async function getActivities(): Promise<Activity[]> {
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 500));
@@ -263,4 +271,11 @@ export async function getNotifications(): Promise<Notification[]> {
 export async function getReportData(): Promise<Pillar[]> {
     await new Promise(resolve => setTimeout(resolve, 500));
     return reportData;
+}
+
+export async function getRules(): Promise<Rule[]> {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    // In a real app, this would fetch from a database.
+    // For now, we return a copy of the hardcoded rules.
+    return JSON.parse(JSON.stringify(rules));
 }
