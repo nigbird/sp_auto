@@ -40,18 +40,29 @@ const initiativeSchema = z.object({
   description: z.string().optional(),
   owner: z.string().min(1, "Owner is required"),
   collaborators: z.array(z.string()).optional(),
-  activities: z.array(activitySchema).min(1, "At least one activity is required."),
+  weight: z.coerce.number().min(0, "Weight must be positive").max(100, "Weight cannot exceed 100"),
+  activities: z.array(activitySchema).min(1, "At least one activity is required.").refine(
+    (activities) => activities.reduce((sum, a) => sum + a.weight, 0) === 100,
+    { message: "Activity weights must sum to 100% for each initiative." }
+  ),
 });
 
 const objectiveSchema = z.object({
   statement: z.string().min(1, "Objective Statement is required"),
-  initiatives: z.array(initiativeSchema).min(1, "At least one initiative is required."),
+  weight: z.coerce.number().min(0, "Weight must be positive").max(100, "Weight cannot exceed 100"),
+  initiatives: z.array(initiativeSchema).min(1, "At least one initiative is required.").refine(
+    (initiatives) => initiatives.reduce((sum, i) => sum + i.weight, 0) === 100,
+    { message: "Initiative weights must sum to 100% for each objective." }
+  ),
 });
 
 const pillarSchema = z.object({
   title: z.string().min(1, "Pillar Title is required"),
   description: z.string().optional(),
-  objectives: z.array(objectiveSchema).min(1, "At least one objective is required."),
+  objectives: z.array(objectiveSchema).min(1, "At least one objective is required.").refine(
+    (objectives) => objectives.reduce((sum, o) => sum + o.weight, 0) === 100,
+    { message: "Objective weights must sum to 100% for each pillar." }
+  ),
 });
 
 const formSchema = z.object({
@@ -100,12 +111,14 @@ export default function CreateStrategicPlanPage() {
                     objectives: [
                         { 
                             statement: "Objective 1.1", 
+                            weight: 100,
                             initiatives: [
                                 {
                                     title: "Initiative 1.1.1",
                                     description: "",
                                     owner: "Liam Johnson",
                                     collaborators: [],
+                                    weight: 100,
                                     activities: [
                                         { title: "Activity 1.1.1.1", weight: 100, deadline: "", owner: "", collaborators: [] },
                                     ]
@@ -377,15 +390,19 @@ function PillarObjectiveAccordion({ pIndex, form }: { pIndex: number; form: any 
                                 <Trash2 className="h-4 w-4" />
                             </Button>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="space-y-4">
                              <div className="space-y-2">
                                 <Label>Objective Statement</Label>
                                 <Textarea {...register(`pillars.${pIndex}.objectives.${oIndex}.statement`)} placeholder="e.g., Increase Market Share" />
                             </div>
+                            <div className="space-y-2">
+                                <Label>Weight (%)</Label>
+                                <Input type="number" {...register(`pillars.${pIndex}.objectives.${oIndex}.weight`)} placeholder="e.g., 60"/>
+                            </div>
                         </CardContent>
                     </Card>
                  ))}
-                 <Button type="button" variant="outline" size="sm" onClick={() => appendObjective({ statement: `Objective ${pIndex + 1}.${objectiveFields.length + 1}`, initiatives: [] })}>
+                 <Button type="button" variant="outline" size="sm" onClick={() => appendObjective({ statement: `Objective ${pIndex + 1}.${objectiveFields.length + 1}`, weight: 0, initiatives: [] })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Objective
                 </Button>
             </AccordionContent>
@@ -438,6 +455,10 @@ function ObjectiveInitiativeAccordion({ pIndex, oIndex, form }: { pIndex: number
                                 <Label>Initiative Description</Label>
                                 <Textarea {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.description`)} placeholder="Initiative Description" rows={2}/>
                             </div>
+                             <div className="space-y-2">
+                                <Label>Weight (%)</Label>
+                                <Input type="number" {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.weight`)} placeholder="e.g., 100"/>
+                            </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <Controller
                                     control={control}
@@ -475,7 +496,7 @@ function ObjectiveInitiativeAccordion({ pIndex, oIndex, form }: { pIndex: number
                         </CardContent>
                     </Card>
                 ))}
-                <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ title: `Initiative ${pIndex+1}.${oIndex+1}.${initiativeFields.length+1}`, description: "", owner: "", collaborators: [], activities: [] })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ title: `Initiative ${pIndex+1}.${oIndex+1}.${initiativeFields.length+1}`, description: "", owner: "", collaborators: [], weight: 0, activities: [] })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Initiative
                 </Button>
             </AccordionContent>
@@ -620,10 +641,10 @@ function ReviewSection({ form }: { form: any }) {
                     <h4 className="font-bold text-lg">Pillar {pIndex+1}: {pillar.title}</h4>
                     {pillar.objectives.map((objective: any, oIndex: number) => (
                         <div key={oIndex} className="p-3 border rounded-md space-y-2 bg-background/50 ml-4">
-                            <h5 className="font-semibold">Objective {pIndex+1}.{oIndex+1}: {objective.statement}</h5>
+                            <h5 className="font-semibold">Objective {pIndex+1}.{oIndex+1}: {objective.statement} (Weight: {objective.weight}%)</h5>
                             {objective.initiatives.map((initiative: any, iIndex: number) => (
                                  <div key={iIndex} className="p-2 border rounded-md space-y-2 bg-muted/20 ml-4">
-                                     <h6 className="font-medium">Initiative {pIndex+1}.{oIndex+1}.{iIndex+1}: {initiative.title}</h6>
+                                     <h6 className="font-medium">Initiative {pIndex+1}.{oIndex+1}.{iIndex+1}: {initiative.title} (Weight: {initiative.weight}%)</h6>
                                      <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
                                         {initiative.activities.map((activity: any, aIndex: number) => (
                                             <li key={aIndex}>
@@ -640,5 +661,3 @@ function ReviewSection({ form }: { form: any }) {
         </div>
     )
 }
-
-    

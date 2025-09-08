@@ -43,12 +43,12 @@ export function ObjectiveItem({ objective, objectiveIndex, onEdit, onDelete, pil
                     <button onClick={() => setIsOpen(!isOpen)} className="focus:outline-none">
                        {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
                     </button>
-                    <h4 className="font-semibold">{objective.title}</h4>
+                    <h4 className="font-semibold">{objective.statement}</h4>
                     <span className="text-sm font-medium text-muted-foreground">(Wt: {objective.weight}%, Prog: {progress}%)</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <ActionMenu 
-                        onEdit={() => onEdit([pillarIndex, objectiveIndex], "Objective", objective.title, objective.weight)}
+                        onEdit={() => onEdit([pillarIndex, objectiveIndex], "Objective", objective.statement, objective.weight)}
                         onDelete={() => onDelete([pillarIndex, objectiveIndex], "Objective")}
                     />
                 </div>

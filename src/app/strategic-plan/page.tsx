@@ -129,7 +129,11 @@ export default function StrategicPlanPage() {
     }
     
     if(item) {
-        item.title = editTitle;
+        if(type === 'Pillar') {
+            item.title = editTitle;
+        } else {
+            item.statement = editTitle;
+        }
         if (type === 'Activity' || type === 'Objective' || type === 'Initiative') {
             const newWeight = parseInt(editWeight, 10);
             if (!isNaN(newWeight)) {
@@ -232,7 +236,7 @@ export default function StrategicPlanPage() {
             </DialogHeader>
             <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                    <Label htmlFor="edit-title">Title</Label>
+                    <Label htmlFor="edit-title">{itemToEdit?.type === 'Pillar' ? 'Title' : 'Statement'}</Label>
                     <Input id="edit-title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
                 </div>
                 {(itemToEdit?.type !== 'Pillar') && (

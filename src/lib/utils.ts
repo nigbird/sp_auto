@@ -1,4 +1,5 @@
 
+
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Pillar, Objective, Initiative, Activity, ActivityStatus } from "./types";
@@ -22,13 +23,13 @@ function sumActivityWeights(activities: Activity[]): number {
 
 function sumInitiativeWeights(initiatives: Initiative[]): number {
     return initiatives.reduce((sum, initiative) => {
-        return sum + sumActivityWeights(initiative.activities);
+        return sum + initiative.weight;
     }, 0);
 }
 
 function sumObjectiveWeights(objectives: Objective[]): number {
     return objectives.reduce((sum, objective) => {
-        return sum + sumInitiativeWeights(objective.initiatives);
+        return sum + objective.weight;
     }, 0);
 }
 
@@ -38,11 +39,10 @@ export const getInitiativeProgress = (initiative: Initiative): number => {
 
 export const getObjectiveProgress = (objective: Objective): number => {
     const progressWithCalculatedWeights = objective.initiatives.map(i => {
-        const initiativeWeight = sumActivityWeights(i.activities);
         return {
             ...i,
             progress: getInitiativeProgress(i),
-            weight: initiativeWeight
+            weight: i.weight
         };
     });
     return calculateWeightedProgress(progressWithCalculatedWeights);
@@ -50,11 +50,10 @@ export const getObjectiveProgress = (objective: Objective): number => {
 
 export const getPillarProgress = (pillar: Pillar): number => {
     const progressWithCalculatedWeights = pillar.objectives.map(o => {
-        const objectiveWeight = sumInitiativeWeights(o.initiatives);
         return {
             ...o,
             progress: getObjectiveProgress(o),
-            weight: objectiveWeight
+            weight: o.weight
         };
     });
     return calculateWeightedProgress(progressWithCalculatedWeights);

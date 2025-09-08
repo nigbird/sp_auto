@@ -55,7 +55,7 @@ export type Initiative = {
     id?: string;
     title: string;
     description?: string;
-    weight?: number; // Weight will be calculated
+    weight: number;
     activities: Activity[];
     owner?: string;
     collaborators?: string[];
@@ -65,7 +65,7 @@ export type Objective = {
     id?: string;
     title?: string; // title is now statement
     statement: string;
-    weight?: number; // Weight will be calculated
+    weight: number;
     initiatives: Initiative[];
 }
 
@@ -85,6 +85,3 @@ export type Rule = {
   isSystem: boolean;
   condition?: (activity: Activity) => boolean;
 };
-
-    
-    
