@@ -21,21 +21,15 @@ import { Separator } from "@/components/ui/separator";
 const activitySchema = z.object({
   id: z.string(),
   title: z.string().min(1, "Title is required"),
-  deliverable: z.string().optional(),
-  uom: z.string().optional(),
   weight: z.coerce.number().min(0, "Weight must be positive").max(100, "Weight cannot exceed 100"),
-  target: z.coerce.number().min(0, "Target must be positive"),
-  baseline: z.coerce.number().optional(),
   deadline: z.string().min(1, "Deadline is required"),
   owner: z.string().min(1, "Owner is required"),
-  collaborators: z.array(z.string()).optional(),
 });
 
 const initiativeSchema = z.object({
   id: z.string(),
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
-  weight: z.coerce.number().min(0).max(100),
   owner: z.string().min(1, "Owner is required"),
   collaborators: z.array(z.string()).optional(),
   activities: z.array(activitySchema),
@@ -44,7 +38,6 @@ const initiativeSchema = z.object({
 const objectiveSchema = z.object({
   id: z.string(),
   statement: z.string().min(1, "Objective Statement is required"),
-  weight: z.coerce.number().min(0).max(100),
   initiatives: z.array(initiativeSchema),
 });
 
@@ -199,7 +192,7 @@ function PillarAccordion({ pIndex, removePillar, form }: { pIndex: number; remov
                     {objectiveFields.map((objective, oIndex) => (
                         <ObjectiveAccordion key={objective.id} pIndex={pIndex} oIndex={oIndex} removeObjective={removeObjective} form={form} />
                     ))}
-                    <Button type="button" variant="outline" size="sm" onClick={() => appendObjective({ id: `o-${Date.now()}`, statement: "", weight: 0, initiatives: [] })}>
+                    <Button type="button" variant="outline" size="sm" onClick={() => appendObjective({ id: `o-${Date.now()}`, statement: "", initiatives: [] })}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Objective
                     </Button>
                 </div>
@@ -226,15 +219,9 @@ function ObjectiveAccordion({ pIndex, oIndex, removeObjective, form }: { pIndex:
                     </Button>
                 </div>
                 <AccordionContent className="pt-4 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div className="space-y-2 col-span-3">
-                            <Label>Objective Statement</Label>
-                            <Textarea {...register(`pillars.${pIndex}.objectives.${oIndex}.statement`)} placeholder="e.g., Increase Market Share" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Weight (%)</Label>
-                            <Input type="number" {...register(`pillars.${pIndex}.objectives.${oIndex}.weight`)} placeholder="100" />
-                        </div>
+                    <div className="space-y-2">
+                        <Label>Objective Statement</Label>
+                        <Textarea {...register(`pillars.${pIndex}.objectives.${oIndex}.statement`)} placeholder="e.g., Increase Market Share" />
                     </div>
                      <Separator />
                      <h4 className="font-medium text-muted-foreground">Initiatives</h4>
@@ -242,7 +229,7 @@ function ObjectiveAccordion({ pIndex, oIndex, removeObjective, form }: { pIndex:
                         {initiativeFields.map((initiative, iIndex) => (
                            <InitiativeAccordion key={initiative.id} pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} removeInitiative={removeInitiative} form={form} />
                         ))}
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ id: `i-${Date.now()}`, title: "", description: "", weight: 100, owner: "", collaborators: [], activities: [] })}>
+                        <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ id: `i-${Date.now()}`, title: "", description: "", owner: "", collaborators: [], activities: [] })}>
                            <PlusCircle className="mr-2 h-4 w-4" /> Add Initiative
                         </Button>
                     </div>
@@ -319,6 +306,7 @@ function InitiativeAccordion({ pIndex, oIndex, iIndex, removeInitiative, form }:
                         <Table>
                             <TableHeader>
                                 <TableRow>
+                                    <TableHead className="w-[10%]">Code</TableHead>
                                     <TableHead>Title</TableHead>
                                     <TableHead>Weight (%)</TableHead>
                                     <TableHead>Deadline</TableHead>
@@ -329,6 +317,9 @@ function InitiativeAccordion({ pIndex, oIndex, iIndex, removeInitiative, form }:
                             <TableBody>
                                 {activityFields.map((activity, aIndex) => (
                                     <TableRow key={activity.id}>
+                                        <TableCell>
+                                           <span className="text-sm text-muted-foreground">{pIndex + 1}.{oIndex + 1}.{iIndex + 1}.{aIndex + 1}</span>
+                                        </TableCell>
                                         <TableCell>
                                             <Input {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.title`)} placeholder="Activity Title"/>
                                         </TableCell>
@@ -363,7 +354,7 @@ function InitiativeAccordion({ pIndex, oIndex, iIndex, removeInitiative, form }:
                                 ))}
                             </TableBody>
                         </Table>
-                         <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: `a-${Date.now()}`, title: '', deliverable: '', uom: '', weight: 100, target: 100, baseline: 0, deadline: '', owner: '', collaborators: [] })}>
+                         <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: `a-${Date.now()}`, title: '', weight: 100, deadline: '', owner: '' })}>
                              <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
                         </Button>
                     </div>
