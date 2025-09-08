@@ -139,28 +139,65 @@ export default function CreateStrategicPlanPage() {
     }
 
     const handleNext = async () => {
-      const currentTabIndex = TABS.findIndex(t => t.value === currentTab);
-      let isValid = false;
+        const currentTabIndex = TABS.findIndex(t => t.value === currentTab);
+        let isValid = false;
 
-      switch(currentTabIndex) {
-          case 0:
-              isValid = await form.trigger(["planTitle", "startYear", "endYear", "version"]);
-              break;
-          case 1:
-          case 2:
-          case 3:
-          case 4:
-              isValid = await form.trigger("pillars");
-              break;
-          case 5:
-              isValid = true;
-              break;
-      }
-     
-      if (isValid && currentTabIndex < TABS.length - 1) {
-          setHighestCompletedStep(Math.max(highestCompletedStep, currentTabIndex + 1));
-          setCurrentTab(TABS[currentTabIndex + 1].value);
-      }
+        switch (currentTabIndex) {
+            case 0: // Plan Info
+                isValid = await form.trigger(["planTitle", "startYear", "endYear", "version"]);
+                break;
+            case 1: // Pillars
+                isValid = await form.trigger("pillars");
+                const pillars = form.getValues("pillars");
+                if (pillars.length > 0 && pillars.every(p => p.title)) {
+                    isValid = true;
+                } else {
+                    form.setError("pillars", { type: "manual", message: "At least one pillar with a title is required." });
+                    isValid = false;
+                }
+                break;
+            case 2: // Objectives
+                isValid = await form.trigger("pillars");
+                 const pillarsForObjectives = form.getValues("pillars");
+                if (pillarsForObjectives.every(p => p.objectives.length > 0 && p.objectives.every(o => o.statement))) {
+                    isValid = true;
+                } else {
+                    form.setError("pillars", { type: "manual", message: "Each pillar must have at least one objective with a statement." });
+                    isValid = false;
+                }
+                break;
+            case 3: // Initiatives
+                isValid = await form.trigger("pillars");
+                const pillarsForInitiatives = form.getValues("pillars");
+                if (pillarsForInitiatives.every(p => p.objectives.every(o => o.initiatives.length > 0 && o.initiatives.every(i => i.title && i.owner)))) {
+                    isValid = true;
+                } else {
+                    form.setError("pillars", { type: "manual", message: "Each objective must have at least one initiative with a title and owner." });
+                    isValid = false;
+                }
+                break;
+            case 4: // Activities
+                isValid = await form.trigger("pillars");
+                 const pillarsForActivities = form.getValues("pillars");
+                if (pillarsForActivities.every(p => p.objectives.every(o => o.initiatives.every(i => i.activities.length > 0 && i.activities.every(a => a.title && a.owner && a.deadline))))) {
+                     isValid = true;
+                } else {
+                    form.setError("pillars", { type: "manual", message: "Each initiative must have at least one activity with complete details." });
+                    isValid = false;
+                }
+                break;
+            case 5: // Review
+                isValid = await form.trigger();
+                break;
+        }
+
+        if (isValid && currentTabIndex < TABS.length - 1) {
+            setHighestCompletedStep(Math.max(highestCompletedStep, currentTabIndex + 1));
+            setCurrentTab(TABS[currentTabIndex + 1].value);
+        } else {
+            // Optional: Log why it's not valid, for debugging.
+            console.log("Validation failed", form.formState.errors);
+        }
     };
     
     const handleBack = () => {
@@ -603,7 +640,5 @@ function ReviewSection({ form }: { form: any }) {
         </div>
     )
 }
-
-    
 
     
