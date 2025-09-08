@@ -139,22 +139,28 @@ export default function CreateStrategicPlanPage() {
     }
 
     const handleNext = async () => {
-        const currentTabIndex = TABS.findIndex(t => t.value === currentTab);
-        
-        let isValid = false;
-        if(currentTabIndex === 0) isValid = await form.trigger(["planTitle", "startYear", "endYear", "version"]);
-        if(currentTabIndex === 1) isValid = await form.trigger("pillars");
-        if(currentTabIndex === 2) isValid = await form.trigger("pillars");
-        if(currentTabIndex === 3) isValid = await form.trigger("pillars");
-        if(currentTabIndex === 4) isValid = await form.trigger("pillars");
-       
-        if (isValid && currentTabIndex < TABS.length - 1) {
-            setHighestCompletedStep(Math.max(highestCompletedStep, currentTabIndex + 1));
-            setCurrentTab(TABS[currentTabIndex + 1].value);
-        } else if (currentTabIndex === TABS.length - 2) {
-             setHighestCompletedStep(Math.max(highestCompletedStep, currentTabIndex + 1));
-             setCurrentTab(TABS[currentTabIndex + 1].value);
-        }
+      const currentTabIndex = TABS.findIndex(t => t.value === currentTab);
+      let isValid = false;
+
+      switch(currentTabIndex) {
+          case 0:
+              isValid = await form.trigger(["planTitle", "startYear", "endYear", "version"]);
+              break;
+          case 1:
+          case 2:
+          case 3:
+          case 4:
+              isValid = await form.trigger("pillars");
+              break;
+          case 5:
+              isValid = true;
+              break;
+      }
+     
+      if (isValid && currentTabIndex < TABS.length - 1) {
+          setHighestCompletedStep(Math.max(highestCompletedStep, currentTabIndex + 1));
+          setCurrentTab(TABS[currentTabIndex + 1].value);
+      }
     };
     
     const handleBack = () => {
@@ -224,7 +230,7 @@ export default function CreateStrategicPlanPage() {
                                     <div className="space-y-2">
                                         <Label htmlFor="version">Version</Label>
                                         <Input id="version" {...form.register("version")} />
-                                        {form.formState.errors.version && <p className="text-sm text-destructive">{form.form-state.errors.version.message}</p>}
+                                        {form.formState.errors.version && <p className="text-sm text-destructive">{form.formState.errors.version.message}</p>}
                                     </div>
                                 </div>
                             </TabsContent>
@@ -597,5 +603,7 @@ function ReviewSection({ form }: { form: any }) {
         </div>
     )
 }
+
+    
 
     
