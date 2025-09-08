@@ -348,7 +348,7 @@ function StepHeader({ title, description }: { title: string, description: string
 
 // Helper to calculate weights
 const calculateInitiativeWeight = (activities: any[] = []) => {
-    return activities.reduce((total, activity) => total + (activity.weight || 0), 0);
+    return activities.reduce((total, activity) => total + (Number(activity.weight) || 0), 0);
 };
 
 const calculateObjectiveWeight = (initiatives: any[] = []) => {
