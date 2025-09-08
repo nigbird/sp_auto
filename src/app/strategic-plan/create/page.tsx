@@ -24,6 +24,7 @@ const activitySchema = z.object({
   weight: z.coerce.number().min(0, "Weight must be positive").max(100, "Weight cannot exceed 100"),
   deadline: z.string().min(1, "Deadline is required"),
   owner: z.string().min(1, "Owner is required"),
+  collaborators: z.array(z.string()).optional(),
 });
 
 const initiativeSchema = z.object({
@@ -176,18 +177,20 @@ function PillarAccordion({ pIndex, removePillar, form }: { pIndex: number; remov
     
     return (
         <Card className="bg-muted/30">
-            <div className="flex items-center p-4">
-                <GripVertical className="h-5 w-5 text-muted-foreground mr-2"/>
+            <div className="flex items-center p-4 border-b">
+                <GripVertical className="h-5 w-5 text-muted-foreground mr-2 cursor-grab"/>
                 <div className="flex-1 space-y-2">
-                    <Label>Pillar {pIndex + 1}</Label>
-                    <Input {...register(`pillars.${pIndex}.title`)} placeholder="Pillar Title" />
-                    <Textarea {...register(`pillars.${pIndex}.description`)} placeholder="Pillar Description" />
+                    <div className="flex items-center">
+                        <Label className="font-bold text-lg mr-2">Pillar {pIndex + 1}</Label>
+                        <Input {...register(`pillars.${pIndex}.title`)} placeholder="Pillar Title" className="flex-1"/>
+                    </div>
+                    <Textarea {...register(`pillars.${pIndex}.description`)} placeholder="Pillar Description" rows={2} />
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => removePillar(pIndex)} className="ml-4">
                     <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
             </div>
-            <CardContent className="pl-12 pr-4 pb-4">
+            <CardContent className="pl-10 pr-4 py-4">
                 <div className="space-y-4">
                     {objectiveFields.map((objective, oIndex) => (
                         <ObjectiveAccordion key={objective.id} pIndex={pIndex} oIndex={oIndex} removeObjective={removeObjective} form={form} />
@@ -206,32 +209,35 @@ function ObjectiveAccordion({ pIndex, oIndex, removeObjective, form }: { pIndex:
     const { fields: initiativeFields, append: appendInitiative, remove: removeInitiative } = useFieldArray({ control, name: `pillars.${pIndex}.objectives.${oIndex}.initiatives` });
 
     return (
-         <Accordion type="single" collapsible className="w-full bg-background border rounded-md p-4">
+         <Accordion type="single" collapsible className="w-full bg-background border rounded-md">
             <AccordionItem value={`objective-${oIndex}`} className="border-none">
-                <div className="flex items-center">
-                    <AccordionTrigger className="flex-1">
+                <div className="flex items-center p-4">
+                    <AccordionTrigger className="flex-1 p-0">
                         <div className="flex items-center gap-2">
-                           <span className="font-semibold">Objective {pIndex + 1}.{oIndex + 1}</span>
+                           <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab"/>
+                           <span className="font-semibold text-base">Objective {pIndex + 1}.{oIndex + 1}</span>
                         </div>
                     </AccordionTrigger>
                      <Button variant="ghost" size="icon" onClick={() => removeObjective(oIndex)}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                 </div>
-                <AccordionContent className="pt-4 space-y-4">
-                    <div className="space-y-2">
-                        <Label>Objective Statement</Label>
-                        <Textarea {...register(`pillars.${pIndex}.objectives.${oIndex}.statement`)} placeholder="e.g., Increase Market Share" />
-                    </div>
-                     <Separator />
-                     <h4 className="font-medium text-muted-foreground">Initiatives</h4>
-                     <div className="space-y-4">
-                        {initiativeFields.map((initiative, iIndex) => (
-                           <InitiativeAccordion key={initiative.id} pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} removeInitiative={removeInitiative} form={form} />
-                        ))}
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ id: `i-${Date.now()}`, title: "", description: "", owner: "", collaborators: [], activities: [] })}>
-                           <PlusCircle className="mr-2 h-4 w-4" /> Add Initiative
-                        </Button>
+                <AccordionContent className="px-4 pb-4 space-y-4">
+                    <div className="pl-8 space-y-4 border-l border-dashed ml-2">
+                        <div className="space-y-2 pt-2">
+                            <Label>Objective Statement</Label>
+                            <Textarea {...register(`pillars.${pIndex}.objectives.${oIndex}.statement`)} placeholder="e.g., Increase Market Share" />
+                        </div>
+                        <Separator />
+                        <h4 className="font-medium text-muted-foreground">Initiatives</h4>
+                        <div className="space-y-4">
+                            {initiativeFields.map((initiative, iIndex) => (
+                            <InitiativeAccordion key={initiative.id} pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} removeInitiative={removeInitiative} form={form} />
+                            ))}
+                            <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ id: `i-${Date.now()}`, title: "", description: "", owner: "", collaborators: [], activities: [] })}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Initiative
+                            </Button>
+                        </div>
                     </div>
                 </AccordionContent>
             </AccordionItem>
@@ -245,11 +251,12 @@ function InitiativeAccordion({ pIndex, oIndex, iIndex, removeInitiative, form }:
     const { fields: activityFields, append: appendActivity, remove: removeActivity } = useFieldArray({ control, name: `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities` });
 
     return (
-         <Accordion type="single" collapsible className="w-full bg-muted/30 border rounded-md p-4">
+         <Accordion type="single" collapsible className="w-full bg-muted/30 border rounded-md">
             <AccordionItem value={`initiative-${iIndex}`} className="border-none">
-                <div className="flex items-center">
-                    <AccordionTrigger className="flex-1">
+                <div className="flex items-center p-3">
+                    <AccordionTrigger className="flex-1 p-0">
                         <div className="flex items-center gap-2">
+                           <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab"/>
                            <span className="font-semibold">Initiative {pIndex + 1}.{oIndex + 1}.{iIndex + 1}</span>
                         </div>
                     </AccordionTrigger>
@@ -257,109 +264,128 @@ function InitiativeAccordion({ pIndex, oIndex, iIndex, removeInitiative, form }:
                         <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                 </div>
-                <AccordionContent className="pt-4 space-y-4">
-                    <div className="space-y-2">
-                        <Label>Initiative Title</Label>
-                        <Input {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.title`)} placeholder="Initiative Title" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Initiative Description</Label>
-                        <Textarea {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.description`)} placeholder="Initiative Description" />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Controller
-                            control={control}
-                            name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.owner`}
-                            render={({ field }) => (
-                                <div className="space-y-2">
-                                    <Label>Lead/Owner</Label>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {peopleOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            )}
-                        />
-                         <Controller
-                            control={control}
-                            name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.collaborators`}
-                            render={({ field }) => (
-                                <div className="space-y-2">
-                                    <Label>Collaborators</Label>
-                                    <MultiSelect
-                                        options={peopleOptions}
-                                        selected={field.value ?? []}
-                                        onChange={field.onChange}
-                                        placeholder="Select..."
-                                    />
-                                </div>
-                            )}
-                        />
-                    </div>
-                     <Separator />
-                     <h4 className="font-medium text-muted-foreground">Activities</h4>
-                     <div className="space-y-2">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="w-[10%]">Code</TableHead>
-                                    <TableHead>Title</TableHead>
-                                    <TableHead>Weight (%)</TableHead>
-                                    <TableHead>Deadline</TableHead>
-                                    <TableHead>Owner</TableHead>
-                                    <TableHead>Action</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {activityFields.map((activity, aIndex) => (
-                                    <TableRow key={activity.id}>
-                                        <TableCell>
-                                           <span className="text-sm text-muted-foreground">{pIndex + 1}.{oIndex + 1}.{iIndex + 1}.{aIndex + 1}</span>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Input {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.title`)} placeholder="Activity Title"/>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Input type="number" {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.weight`)} placeholder="100"/>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Input type="date" {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.deadline`)} />
-                                        </TableCell>
-                                         <TableCell>
-                                            <Controller
-                                                control={control}
-                                                name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.owner`}
-                                                render={({ field }) => (
-                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                        <SelectTrigger className="min-w-[150px]">
-                                                            <SelectValue placeholder="Select..." />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {peopleOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                                        </SelectContent>
-                                                    </Select>
-                                                )}
-                                            />
-                                        </TableCell>
-                                        <TableCell>
-                                            <Button variant="ghost" size="icon" onClick={() => removeActivity(aIndex)}>
-                                                <Trash2 className="h-4 w-4 text-destructive"/>
-                                            </Button>
-                                        </TableCell>
+                <AccordionContent className="px-3 pb-3 space-y-4">
+                   <div className="pl-8 space-y-4 border-l border-dashed ml-2 pt-2">
+                        <div className="space-y-2">
+                            <Label>Initiative Title</Label>
+                            <Input {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.title`)} placeholder="Initiative Title" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Initiative Description</Label>
+                            <Textarea {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.description`)} placeholder="Initiative Description" rows={2}/>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Controller
+                                control={control}
+                                name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.owner`}
+                                render={({ field }) => (
+                                    <div className="space-y-2">
+                                        <Label>Lead/Owner</Label>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {peopleOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+                            />
+                            <Controller
+                                control={control}
+                                name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.collaborators`}
+                                render={({ field }) => (
+                                    <div className="space-y-2">
+                                        <Label>Collaborators</Label>
+                                        <MultiSelect
+                                            options={peopleOptions}
+                                            selected={field.value ?? []}
+                                            onChange={field.onChange}
+                                            placeholder="Select..."
+                                        />
+                                    </div>
+                                )}
+                            />
+                        </div>
+                        <Separator />
+                        <h4 className="font-medium text-muted-foreground">Activities</h4>
+                        <div className="space-y-2">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-[10%]">Code</TableHead>
+                                        <TableHead>Title</TableHead>
+                                        <TableHead>Weight (%)</TableHead>
+                                        <TableHead>Deadline</TableHead>
+                                        <TableHead>Owner</TableHead>
+                                        <TableHead>Collaborators</TableHead>
+                                        <TableHead>Action</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                         <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: `a-${Date.now()}`, title: '', weight: 100, deadline: '', owner: '' })}>
-                             <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
-                        </Button>
-                    </div>
+                                </TableHeader>
+                                <TableBody>
+                                    {activityFields.map((activity, aIndex) => (
+                                        <TableRow key={activity.id}>
+                                            <TableCell>
+                                            <span className="text-sm text-muted-foreground">{pIndex + 1}.{oIndex + 1}.{iIndex + 1}.{aIndex + 1}</span>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Input {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.title`)} placeholder="Activity Title"/>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Input type="number" {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.weight`)} placeholder="100"/>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Input type="date" {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.deadline`)} />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Controller
+                                                    control={control}
+                                                    name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.owner`}
+                                                    render={({ field }) => (
+                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                            <SelectTrigger className="min-w-[150px]">
+                                                                <SelectValue placeholder="Select..." />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {peopleOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    )}
+                                                />
+                                            </TableCell>
+                                             <TableCell>
+                                                <Controller
+                                                    control={control}
+                                                    name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.collaborators`}
+                                                    render={({ field }) => (
+                                                        <MultiSelect
+                                                            options={peopleOptions}
+                                                            selected={field.value ?? []}
+                                                            onChange={field.onChange}
+                                                            placeholder="Select..."
+                                                        />
+                                                    )}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Button variant="ghost" size="icon" onClick={() => removeActivity(aIndex)}>
+                                                    <Trash2 className="h-4 w-4 text-destructive"/>
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                            <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: `a-${Date.now()}`, title: '', weight: 100, deadline: '', owner: '', collaborators: [] })}>
+                                <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
+                            </Button>
+                        </div>
+                   </div>
                 </AccordionContent>
             </AccordionItem>
         </Accordion>
     )
 }
+
+    

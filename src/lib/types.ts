@@ -18,7 +18,7 @@ export type Activity = {
   title: string;
   description:string;
   department: string;
-  responsible: string; // This is the owner
+  responsible: string;
   owner?: string;
   collaborators?: string[];
   startDate: Date;
@@ -84,3 +84,5 @@ export type Rule = {
   isSystem: boolean;
   condition?: (activity: Activity) => boolean;
 };
+
+    
