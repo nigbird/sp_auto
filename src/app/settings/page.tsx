@@ -1,8 +1,9 @@
+
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Settings, UserPlus, Users, CheckCircle } from "lucide-react";
+import { Settings, UserPlus, Users, CheckCircle, Gavel } from "lucide-react";
 import Link from "next/link";
 
 export default function SettingsPage() {
@@ -51,6 +52,19 @@ export default function SettingsPage() {
             <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
               <Link href="/settings/role-management">
                 <CheckCircle className="mr-2 h-4 w-4" /> Go to Role Management
+              </Link>
+            </Button>
+          </CardFooter>
+        </Card>
+         <Card className="flex flex-col">
+          <CardHeader>
+            <CardTitle>Performance Rules</CardTitle>
+            <CardDescription>Define how performance statuses are calculated based on progress against targets. Customize the thresholds for statuses like "On Track" or "Delayed".</CardDescription>
+          </CardHeader>
+          <CardFooter className="mt-auto">
+            <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
+              <Link href="/settings/rules">
+                <Gavel className="mr-2 h-4 w-4" /> Go to Rules Definition
               </Link>
             </Button>
           </CardFooter>

@@ -21,6 +21,7 @@ import {
   LogOut,
   UserCheck,
   Network,
+  Gavel,
 } from "lucide-react";
 import { Logo } from "./icons";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -106,10 +107,20 @@ export function AppSidebar() {
               Strategic Plan
             </SidebarMenuButton>
           </SidebarMenuItem>
+           <SidebarMenuItem>
+            <SidebarMenuButton
+              href="/settings/rules"
+              isActive={pathname.startsWith("/settings/rules")}
+              tooltip="Rules"
+            >
+              <Gavel />
+              Rules
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
               href="/settings"
-              isActive={pathname.startsWith("/settings")}
+              isActive={pathname.startsWith("/settings") && !pathname.startsWith("/settings/rules")}
               tooltip="Settings"
             >
               <Settings />
