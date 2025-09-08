@@ -2,19 +2,36 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { Activity } from "@/lib/types";
+import type { Activity, Pillar } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusDonutChart } from "./status-donut-chart";
 import { calculateWeightedProgress } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { PillarTable } from "./pillar-table";
 
 type DepartmentalDashboardProps = {
     activities: Activity[];
     departments: string[];
+    pillars: Pillar[];
 }
 
-export function DepartmentalDashboard({ activities, departments }: DepartmentalDashboardProps) {
+function filterPillarsByDepartment(pillars: Pillar[], department: string | null): Pillar[] {
+    if (!department || department === "All") return pillars;
+
+    return pillars.map(pillar => ({
+        ...pillar,
+        objectives: pillar.objectives.map(objective => ({
+            ...objective,
+            initiatives: objective.initiatives.map(initiative => ({
+                ...initiative,
+                activities: initiative.activities.filter(activity => activity.department === department),
+            })).filter(initiative => initiative.activities.length > 0)
+        })).filter(objective => objective.initiatives.length > 0)
+    })).filter(pillar => pillar.objectives.length > 0);
+}
+
+export function DepartmentalDashboard({ activities, departments, pillars }: DepartmentalDashboardProps) {
     const [selectedDepartment, setSelectedDepartment] = useState<string>("All");
 
     const filteredActivities = useMemo(() => {
@@ -23,6 +40,10 @@ export function DepartmentalDashboard({ activities, departments }: DepartmentalD
         }
         return activities.filter(a => a.department === selectedDepartment);
     }, [activities, selectedDepartment]);
+
+    const filteredPillars = useMemo(() => {
+        return filterPillarsByDepartment(pillars, selectedDepartment);
+    }, [pillars, selectedDepartment]);
 
     const overallWeightedProgress = useMemo(() => {
         return calculateWeightedProgress(filteredActivities);
@@ -114,6 +135,7 @@ export function DepartmentalDashboard({ activities, departments }: DepartmentalD
                     </CardContent>
                 </Card>
             </div>
+            <PillarTable pillars={filteredPillars} />
         </div>
     )
 }

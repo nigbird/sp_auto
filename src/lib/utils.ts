@@ -146,10 +146,12 @@ export function calculateActivityStatus(activity: { progress: number; startDate:
 }
 
 function sumWeights(items: { weight: number }[]): number {
+    if (items.length === 0) return 0;
     return items.reduce((sum, item) => sum + item.weight, 0) / 100;
 }
 
 function sumActual(items: { weight: number, progress: number }[]): number {
+    if (items.length === 0) return 0;
     const totalWeight = items.reduce((sum, item) => sum + item.weight, 0);
     if(totalWeight === 0) return 0;
     const weightedSum = items.reduce((sum, item) => sum + (item.progress/100 * item.weight), 0);

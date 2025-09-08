@@ -2,7 +2,7 @@
 "use client"
 
 import type { Pillar } from "@/lib/types";
-import { getPillarActual, getPillarPlan, getPillarProgress } from "@/lib/utils";
+import { getPillarActual, getPillarPlan } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -20,7 +20,7 @@ export function PillarTable({ pillars }: { pillars: Pillar[] }) {
     const totalAchievement = totalPlan > 0 ? (totalActual / totalPlan) * 100 : 0;
     
   return (
-    <Card className="lg:col-span-7">
+    <Card>
       <CardHeader>
         <CardTitle>Strategic Pillar Performance</CardTitle>
       </CardHeader>
@@ -38,13 +38,13 @@ export function PillarTable({ pillars }: { pillars: Pillar[] }) {
             {pillars.map((pillar) => {
               const plan = getPillarPlan(pillar);
               const actual = getPillarActual(pillar);
-              const achievement = getPillarProgress(pillar);
+              const achievement = plan > 0 ? (actual / plan) * 100 : 0;
               return (
                 <TableRow key={pillar.id}>
                   <TableCell className="font-medium">{pillar.title}</TableCell>
                   <TableCell className="text-right">{plan.toFixed(1)}</TableCell>
                   <TableCell className="text-right">{actual.toFixed(1)}</TableCell>
-                  <TableCell className="text-right">{achievement}%</TableCell>
+                  <TableCell className="text-right">{achievement.toFixed(0)}%</TableCell>
                 </TableRow>
               );
             })}

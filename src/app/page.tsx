@@ -1,23 +1,10 @@
 
-import { getReportData } from "@/lib/data";
-import type { Pillar, Activity } from "@/lib/types";
+import { getReportData, getActivities } from "@/lib/data";
 import { DepartmentalDashboard } from "@/components/dashboard/departmental-dashboard";
-
-function extractActivitiesFromPillars(pillars: Pillar[]): Activity[] {
-    const activities: Activity[] = [];
-    pillars.forEach(pillar => {
-        pillar.objectives.forEach(objective => {
-            objective.initiatives.forEach(initiative => {
-                activities.push(...initiative.activities);
-            });
-        });
-    });
-    return activities;
-}
 
 export default async function DashboardPage() {
   const reportData = await getReportData();
-  const activities = extractActivitiesFromPillars(reportData);
+  const activities = await getActivities();
   const departments = ["All", ...new Set(activities.map((a) => a.department))];
 
   return (
@@ -25,6 +12,7 @@ export default async function DashboardPage() {
       <DepartmentalDashboard 
         activities={activities}
         departments={departments}
+        pillars={reportData}
       />
     </div>
   );
