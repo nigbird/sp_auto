@@ -352,11 +352,11 @@ const calculateInitiativeWeight = (activities: any[] = []) => {
 };
 
 const calculateObjectiveWeight = (initiatives: any[] = []) => {
-    return initiatives.reduce((total, initiative) => total + calculateInitiativeWeight(initiative.activities), 0);
+    return initiatives.reduce((total, initiative) => total + calculateInitiativeWeight(initiative.activities || []), 0);
 };
 
 const calculatePillarWeight = (objectives: any[] = []) => {
-    return objectives.reduce((total, objective) => total + calculateObjectiveWeight(objective.initiatives), 0);
+    return objectives.reduce((total, objective) => total + calculateObjectiveWeight(objective.initiatives || []), 0);
 }
 
 
@@ -662,3 +662,5 @@ function ReviewSection({ form }: { form: any }) {
     )
 }
 
+
+    
