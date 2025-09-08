@@ -22,44 +22,41 @@ function sumActivityWeights(activities: Activity[]): number {
 
 function sumInitiativeWeights(initiatives: Initiative[]): number {
     return initiatives.reduce((sum, initiative) => {
-        initiative.weight = sumActivityWeights(initiative.activities);
-        return sum + initiative.weight;
+        return sum + sumActivityWeights(initiative.activities);
     }, 0);
 }
 
 function sumObjectiveWeights(objectives: Objective[]): number {
     return objectives.reduce((sum, objective) => {
-        objective.weight = sumInitiativeWeights(objective.initiatives);
-        return sum + objective.weight;
+        return sum + sumInitiativeWeights(objective.initiatives);
     }, 0);
 }
 
 export const getInitiativeProgress = (initiative: Initiative): number => {
-    initiative.weight = sumActivityWeights(initiative.activities);
     return calculateWeightedProgress(initiative.activities);
 };
 
 export const getObjectiveProgress = (objective: Objective): number => {
     const progressWithCalculatedWeights = objective.initiatives.map(i => {
+        const initiativeWeight = sumActivityWeights(i.activities);
         return {
             ...i,
             progress: getInitiativeProgress(i),
-            weight: i.weight // weight is now calculated inside getInitiativeProgress
+            weight: initiativeWeight
         };
     });
-    objective.weight = sumInitiativeWeights(objective.initiatives);
     return calculateWeightedProgress(progressWithCalculatedWeights);
 };
 
 export const getPillarProgress = (pillar: Pillar): number => {
     const progressWithCalculatedWeights = pillar.objectives.map(o => {
+        const objectiveWeight = sumInitiativeWeights(o.initiatives);
         return {
             ...o,
             progress: getObjectiveProgress(o),
-            weight: o.weight // weight is now calculated inside getObjectiveProgress
+            weight: objectiveWeight
         };
     });
-    sumObjectiveWeights(pillar.objectives);
     return calculateWeightedProgress(progressWithCalculatedWeights);
 };
 

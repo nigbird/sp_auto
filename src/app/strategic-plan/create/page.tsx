@@ -40,9 +40,13 @@ const formSchema = z.object({
   pillarDescription: z.string().optional(),
 
   objectiveStatement: z.string().min(1, "Objective Statement is required"),
+  objectiveWeight: z.coerce.number().min(0).max(100),
+
 
   initiativeTitle: z.string().min(1, "Initiative Title is required"),
   initiativeDescription: z.string().optional(),
+  initiativeWeight: z.coerce.number().min(0).max(100),
+
 
   activities: z.array(activitySchema).min(1, "At least one activity is required"),
 }).refine(data => data.endYear >= data.startYear, {
@@ -85,8 +89,10 @@ export default function CreateStrategicPlanPage() {
             pillarTitle: "",
             pillarDescription: "",
             objectiveStatement: "",
+            objectiveWeight: 100,
             initiativeTitle: "",
             initiativeDescription: "",
+            initiativeWeight: 100,
             activities: [{ title: '', deliverable: '', uom: '', weight: 100, target: 100, baseline: 0, deadline: '', responsible: '' }]
         },
     });
@@ -110,10 +116,10 @@ export default function CreateStrategicPlanPage() {
                 isValid = await triggerValidation(["pillarTitle"]);
                 break;
             case 2:
-                isValid = await triggerValidation(["objectiveStatement"]);
+                isValid = await triggerValidation(["objectiveStatement", "objectiveWeight"]);
                 break;
             case 3:
-                isValid = await triggerValidation(["initiativeTitle"]);
+                isValid = await triggerValidation(["initiativeTitle", "initiativeWeight"]);
                 break;
             case 4:
                 isValid = await triggerValidation(["activities"]);
@@ -263,6 +269,11 @@ export default function CreateStrategicPlanPage() {
                             <Textarea id="objectiveStatement" {...form.register("objectiveStatement")} />
                              {form.formState.errors.objectiveStatement && <p className="text-sm text-destructive">{form.formState.errors.objectiveStatement.message}</p>}
                         </div>
+                        <div className="space-y-2">
+                             <Label htmlFor="objectiveWeight">Objective Weight (%)</Label>
+                             <Input id="objectiveWeight" type="number" {...form.register("objectiveWeight")} />
+                             {form.formState.errors.objectiveWeight && <p className="text-sm text-destructive">{form.formState.errors.objectiveWeight.message}</p>}
+                         </div>
                     </div>
                 </div>
 
@@ -283,6 +294,11 @@ export default function CreateStrategicPlanPage() {
                             <Label htmlFor="initiativeDescription">Initiative Description</Label>
                             <Textarea id="initiativeDescription" {...form.register("initiativeDescription")} />
                         </div>
+                         <div className="space-y-2">
+                             <Label htmlFor="initiativeWeight">Initiative Weight (%)</Label>
+                             <Input id="initiativeWeight" type="number" {...form.register("initiativeWeight")} />
+                             {form.formState.errors.initiativeWeight && <p className="text-sm text-destructive">{form.formState.errors.initiativeWeight.message}</p>}
+                         </div>
                     </div>
                 </div>
 
@@ -375,11 +391,11 @@ export default function CreateStrategicPlanPage() {
                                     {/* Objective */}
                                     <div className="ml-4 mt-2 space-y-2 border-l pl-4">
                                         <div>
-                                            <h5 className="font-medium">(1.1) {form.watch('objectiveStatement')}</h5>
+                                            <h5 className="font-medium">(1.1) {form.watch('objectiveStatement')} (Weight: {form.watch('objectiveWeight')}%)</h5>
                                             {/* Initiative */}
                                             <div className="ml-4 mt-2 space-y-2 border-l pl-4">
                                                 <div>
-                                                    <h6 className="font-medium italic">(1.1.1) {form.watch('initiativeTitle')}</h6>
+                                                    <h6 className="font-medium italic">(1.1.1) {form.watch('initiativeTitle')} (Weight: {form.watch('initiativeWeight')}%)</h6>
                                                      <p className="text-sm text-muted-foreground">{form.watch('initiativeDescription')}</p>
                                                     {/* Activities */}
                                                     <ul className="ml-4 mt-2 list-disc pl-4 space-y-1">
