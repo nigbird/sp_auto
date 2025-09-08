@@ -73,7 +73,7 @@ export default function RulesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[25%]">Activity Status</TableHead>
-                <TableHead>Definition (Criteria)</TableHead>
+                <TableHead>Definition</TableHead>
                 <TableHead className="w-[15%] text-center">From (%)</TableHead>
                 <TableHead className="w-[15%] text-center">To (%)</TableHead>
               </TableRow>
