@@ -7,7 +7,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-
 export function calculateWeightedProgress(items: { weight: number; progress: number }[]): number {
   if (items.length === 0) return 0;
   const totalWeight = items.reduce((sum, item) => sum + item.weight, 0);
@@ -16,13 +15,53 @@ export function calculateWeightedProgress(items: { weight: number; progress: num
   return Math.round(weightedSum / totalWeight);
 }
 
-export const getInitiativeProgress = (initiative: Initiative) => calculateWeightedProgress(initiative.activities);
-export const getObjectiveProgress = (objective: Objective) => calculateWeightedProgress(
-    objective.initiatives.map(i => ({...i, progress: getInitiativeProgress(i) }))
-);
-export const getPillarProgress = (pillar: Pillar) => calculateWeightedProgress(
-    pillar.objectives.map(o => ({...o, progress: getObjectiveProgress(o) }))
-);
+
+function sumActivityWeights(activities: Activity[]): number {
+    return activities.reduce((sum, activity) => sum + activity.weight, 0);
+}
+
+function sumInitiativeWeights(initiatives: Initiative[]): number {
+    return initiatives.reduce((sum, initiative) => {
+        initiative.weight = sumActivityWeights(initiative.activities);
+        return sum + initiative.weight;
+    }, 0);
+}
+
+function sumObjectiveWeights(objectives: Objective[]): number {
+    return objectives.reduce((sum, objective) => {
+        objective.weight = sumInitiativeWeights(objective.initiatives);
+        return sum + objective.weight;
+    }, 0);
+}
+
+export const getInitiativeProgress = (initiative: Initiative): number => {
+    initiative.weight = sumActivityWeights(initiative.activities);
+    return calculateWeightedProgress(initiative.activities);
+};
+
+export const getObjectiveProgress = (objective: Objective): number => {
+    const progressWithCalculatedWeights = objective.initiatives.map(i => {
+        return {
+            ...i,
+            progress: getInitiativeProgress(i),
+            weight: i.weight // weight is now calculated inside getInitiativeProgress
+        };
+    });
+    objective.weight = sumInitiativeWeights(objective.initiatives);
+    return calculateWeightedProgress(progressWithCalculatedWeights);
+};
+
+export const getPillarProgress = (pillar: Pillar): number => {
+    const progressWithCalculatedWeights = pillar.objectives.map(o => {
+        return {
+            ...o,
+            progress: getObjectiveProgress(o),
+            weight: o.weight // weight is now calculated inside getObjectiveProgress
+        };
+    });
+    sumObjectiveWeights(pillar.objectives);
+    return calculateWeightedProgress(progressWithCalculatedWeights);
+};
 
 
 export const getTrafficLightColor = (progress: number) => {
