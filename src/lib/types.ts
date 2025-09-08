@@ -21,11 +21,11 @@ export type Activity = {
   responsible: string;
   owner?: string;
   collaborators?: string[];
-  startDate: Date;
-  endDate: Date;
+  startDate: Date | string;
+  endDate: Date | string;
   status: ActivityStatus;
-  kpis: KPI[];
-  lastUpdated: {
+  kpis?: KPI[];
+  lastUpdated?: {
     user: string;
     date: Date;
   };
@@ -62,7 +62,7 @@ export type Initiative = {
 
 export type Objective = {
     id?: string;
-    title: string; 
+    title?: string; 
     statement: string;
     weight?: number; // Calculated field
     initiatives: Initiative[];
@@ -85,3 +85,12 @@ export type Rule = {
   isSystem: boolean;
   condition?: (activity: Activity) => boolean;
 };
+
+export type StrategicPlan = {
+  planTitle: string;
+  startYear: number;
+  endYear: number;
+  version: string;
+  pillars: Pillar[];
+  status: 'draft' | 'published';
+}

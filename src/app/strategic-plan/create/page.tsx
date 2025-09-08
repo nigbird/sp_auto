@@ -5,6 +5,7 @@ import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Trash2, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -19,17 +20,29 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Stepper } from "@/components/ui/stepper";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useMemo, useEffect } from "react";
+import { savePlan } from "@/lib/plan-service";
 
 
 const activitySchema = z.object({
+  id: z.string().optional(),
   title: z.string().min(1, "Title is required"),
   weight: z.coerce.number().min(0, "Weight must be positive"),
   deadline: z.string().min(1, "Deadline is required"),
   owner: z.string().min(1, "Owner is required"),
   collaborators: z.array(z.string()).optional(),
+  progress: z.number().default(0),
+  status: z.string().default('Not Started'),
+  description: z.string().optional(),
+  startDate: z.string().min(1, "Start date is required"),
+  endDate: z.string().min(1, "End date is required"),
+  department: z.string().min(1, "Department is required"),
+  responsible: z.string().min(1, "Responsible person is required"),
+  updates: z.array(z.any()).default([]),
+  lastUpdated: z.any().optional(),
 });
 
 const initiativeSchema = z.object({
+  id: z.string().optional(),
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
   owner: z.string().min(1, "Owner is required"),
@@ -38,11 +51,13 @@ const initiativeSchema = z.object({
 });
 
 const objectiveSchema = z.object({
+  id: z.string().optional(),
   statement: z.string().min(1, "Objective Statement is required"),
   initiatives: z.array(initiativeSchema).min(1, "At least one initiative is required."),
 });
 
 const pillarSchema = z.object({
+  id: z.string().optional(),
   title: z.string().min(1, "Pillar Title is required"),
   description: z.string().optional(),
   objectives: z.array(objectiveSchema).min(1, "At least one objective is required."),
@@ -74,9 +89,14 @@ const TABS = [
     { value: "review", title: "Review & Save" }
 ];
 
+function generateId(prefix: string) {
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
 
 export default function CreateStrategicPlanPage() {
     const { toast } = useToast();
+    const router = useRouter();
     const [currentTab, setCurrentTab] = useState(TABS[0].value);
     const [highestCompletedStep, setHighestCompletedStep] = useState(0);
 
@@ -89,19 +109,22 @@ export default function CreateStrategicPlanPage() {
             version: "1.0",
             pillars: [
                 { 
+                    id: generateId('P'),
                     title: "Pillar 1", 
                     description: "", 
                     objectives: [
                         { 
+                            id: generateId('O'),
                             statement: "Objective 1.1", 
                             initiatives: [
                                 {
+                                    id: generateId('I'),
                                     title: "Initiative 1.1.1",
                                     description: "",
                                     owner: "Liam Johnson",
                                     collaborators: [],
                                     activities: [
-                                        { title: "Activity 1.1.1.1", weight: 100, deadline: "", owner: "", collaborators: [] },
+                                        { id: generateId('A'), title: "Activity 1.1.1.1", weight: 100, deadline: "", owner: "", collaborators: [], progress:0, status: 'Not Started', startDate: '', endDate: '', department: 'Sales', responsible: 'Liam Johnson', updates: [] },
                                     ]
                                 }
                             ]
@@ -119,18 +142,22 @@ export default function CreateStrategicPlanPage() {
     });
 
     const onSubmit = (data: FormValues) => {
-        console.log(data);
+        savePlan(data, 'published');
         toast({
             title: "Plan Published!",
             description: "The new strategic plan has been successfully published.",
         });
+        router.push('/strategic-plan');
     };
     
     const handleSaveDraft = () => {
+        const data = form.getValues();
+        savePlan(data, 'draft');
         toast({
             title: "Draft Saved!",
             description: "Your strategic plan has been saved as a draft.",
         });
+        router.push('/strategic-plan');
     }
 
     const handleNext = async () => {
@@ -177,7 +204,7 @@ export default function CreateStrategicPlanPage() {
         if (isValid && currentTabIndex < TABS.length - 1) {
             setHighestCompletedStep(Math.max(highestCompletedStep, currentTabIndex + 1));
             setCurrentTab(TABS[currentTabIndex + 1].value);
-        } else {
+        } else if (!isValid) {
              toast({
                 title: "Validation Error",
                 description: "Please fill out all required fields before proceeding.",
@@ -221,7 +248,7 @@ export default function CreateStrategicPlanPage() {
                     <Stepper 
                         steps={TABS.map((tab, index) => ({
                             title: tab.title,
-                            isCompleted: isStepCompleted(index),
+                            isCompleted: isStepCompleted(index) || highestCompletedStep > index,
                             isCurrent: currentTab === tab.value
                         }))}
                         onStepClick={(index) => {
@@ -282,7 +309,7 @@ export default function CreateStrategicPlanPage() {
                                             </CardContent>
                                         </Card>
                                     ))}
-                                    <Button type="button" variant="outline" onClick={() => appendPillar({ title: `Pillar ${pillarFields.length + 1}`, description: "", objectives: [] })}>
+                                    <Button type="button" variant="outline" onClick={() => appendPillar({ id: generateId('P'), title: `Pillar ${pillarFields.length + 1}`, description: "", objectives: [] })}>
                                         <PlusCircle className="mr-2 h-4 w-4" /> Add Pillar
                                     </Button>
                                 </div>
@@ -388,7 +415,7 @@ function PillarObjectiveAccordion({ pIndex, form }: { pIndex: number; form: any 
                         </CardContent>
                     </Card>
                  ))}
-                 <Button type="button" variant="outline" size="sm" onClick={() => appendObjective({ statement: `Objective ${pIndex + 1}.${objectiveFields.length + 1}`, initiatives: [] })}>
+                 <Button type="button" variant="outline" size="sm" onClick={() => appendObjective({ id: generateId('O'), statement: `Objective ${pIndex + 1}.${objectiveFields.length + 1}`, initiatives: [] })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Objective
                 </Button>
             </AccordionContent>
@@ -483,7 +510,7 @@ function ObjectiveInitiativeAccordion({ pIndex, oIndex, form }: { pIndex: number
                         </Card>
                      )
                 })}
-                <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ title: `Initiative ${pIndex+1}.${oIndex+1}.${initiativeFields.length+1}`, description: "", owner: "", collaborators: [], activities: [] })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ id: generateId('I'), title: `Initiative ${pIndex+1}.${oIndex+1}.${initiativeFields.length+1}`, description: "", owner: "", collaborators: [], activities: [] })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Initiative
                 </Button>
             </AccordionContent>
@@ -607,7 +634,7 @@ function InitiativeActivityAccordion({ pIndex, oIndex, iIndex, form }: { pIndex:
                         ))}
                     </TableBody>
                 </Table>
-                <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ title: `Activity ${pIndex + 1}.${oIndex + 1}.${iIndex + 1}.${activityFields.length + 1}`, weight: 0, deadline: '', owner: '', collaborators: [] })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: generateId('A'), title: `Activity ${pIndex + 1}.${oIndex + 1}.${iIndex + 1}.${activityFields.length + 1}`, weight: 0, deadline: '', owner: '', collaborators: [], progress:0, status: 'Not Started', startDate: '', endDate: '', department: 'Sales', responsible: 'Liam Johnson', updates: [] })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
                 </Button>
             </AccordionContent>
@@ -661,6 +688,3 @@ function ReviewSection({ form }: { form: any }) {
         </div>
     )
 }
-
-
-    

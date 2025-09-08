@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, Edit, Trash2, ChevronDown, ChevronRight, MoreVertical } from "lucide-react";
 import { getPillarProgress } from "@/lib/utils";
 import { getReportData } from "@/lib/data"; // To get initial data
+import { getSavedPlan } from "@/lib/plan-service";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,8 +61,13 @@ export default function StrategicPlanPage() {
 
   useEffect(() => {
     async function loadData() {
-      const initialData = await getReportData();
-      setData(initialData);
+      const savedPlan = getSavedPlan();
+      if (savedPlan?.pillars) {
+          setData(savedPlan.pillars);
+      } else {
+          const initialData = await getReportData();
+          setData(initialData);
+      }
       setIsLoading(false);
     }
     loadData();
@@ -132,7 +138,7 @@ export default function StrategicPlanPage() {
         if(type === 'Pillar') {
             item.title = editTitle;
         } else {
-            item.statement = editTitle;
+            item.title = editTitle; // Use title for all editable items now
         }
         if (type === 'Activity' || type === 'Objective' || type === 'Initiative') {
             const newWeight = parseInt(editWeight, 10);
