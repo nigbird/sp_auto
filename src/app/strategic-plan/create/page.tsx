@@ -18,7 +18,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Stepper } from "@/components/ui/stepper";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   calculateWeightedProgress,
   getInitiativeProgress,
@@ -29,7 +29,7 @@ import {
 
 const activitySchema = z.object({
   title: z.string().min(1, "Title is required"),
-  weight: z.coerce.number().min(0, "Weight must be positive").max(100, "Weight cannot exceed 100"),
+  weight: z.coerce.number().min(0, "Weight must be positive"),
   deadline: z.string().min(1, "Deadline is required"),
   owner: z.string().min(1, "Owner is required"),
   collaborators: z.array(z.string()).optional(),
@@ -40,29 +40,18 @@ const initiativeSchema = z.object({
   description: z.string().optional(),
   owner: z.string().min(1, "Owner is required"),
   collaborators: z.array(z.string()).optional(),
-  weight: z.coerce.number().min(0, "Weight must be positive").max(100, "Weight cannot exceed 100"),
-  activities: z.array(activitySchema).min(1, "At least one activity is required.").refine(
-    (activities) => activities.reduce((sum, a) => sum + a.weight, 0) === 100,
-    { message: "Activity weights must sum to 100% for each initiative." }
-  ),
+  activities: z.array(activitySchema).min(1, "At least one activity is required."),
 });
 
 const objectiveSchema = z.object({
   statement: z.string().min(1, "Objective Statement is required"),
-  weight: z.coerce.number().min(0, "Weight must be positive").max(100, "Weight cannot exceed 100"),
-  initiatives: z.array(initiativeSchema).min(1, "At least one initiative is required.").refine(
-    (initiatives) => initiatives.reduce((sum, i) => sum + i.weight, 0) === 100,
-    { message: "Initiative weights must sum to 100% for each objective." }
-  ),
+  initiatives: z.array(initiativeSchema).min(1, "At least one initiative is required."),
 });
 
 const pillarSchema = z.object({
   title: z.string().min(1, "Pillar Title is required"),
   description: z.string().optional(),
-  objectives: z.array(objectiveSchema).min(1, "At least one objective is required.").refine(
-    (objectives) => objectives.reduce((sum, o) => sum + o.weight, 0) === 100,
-    { message: "Objective weights must sum to 100% for each pillar." }
-  ),
+  objectives: z.array(objectiveSchema).min(1, "At least one objective is required."),
 });
 
 const formSchema = z.object({
@@ -111,14 +100,12 @@ export default function CreateStrategicPlanPage() {
                     objectives: [
                         { 
                             statement: "Objective 1.1", 
-                            weight: 100,
                             initiatives: [
                                 {
                                     title: "Initiative 1.1.1",
                                     description: "",
                                     owner: "Liam Johnson",
                                     collaborators: [],
-                                    weight: 100,
                                     activities: [
                                         { title: "Activity 1.1.1.1", weight: 100, deadline: "", owner: "", collaborators: [] },
                                     ]
@@ -129,6 +116,7 @@ export default function CreateStrategicPlanPage() {
                 }
             ]
         },
+        mode: "onChange"
     });
 
     const { fields: pillarFields, append: appendPillar, remove: removePillar } = useFieldArray({
@@ -160,23 +148,17 @@ export default function CreateStrategicPlanPage() {
                 isValid = await form.trigger(["planTitle", "startYear", "endYear", "version"]);
                 break;
             case 1: // Pillars
-                isValid = await form.trigger("pillars");
-                const pillars = form.getValues("pillars");
-                if (pillars.length > 0 && pillars.every(p => p.title)) {
+                 isValid = await form.trigger("pillars");
+                 const pillars = form.getValues("pillars");
+                 if (pillars.every(p => p.title)) {
                     isValid = true;
-                } else {
-                    form.setError("pillars", { type: "manual", message: "At least one pillar with a title is required." });
-                    isValid = false;
-                }
+                 }
                 break;
             case 2: // Objectives
                 isValid = await form.trigger("pillars");
                  const pillarsForObjectives = form.getValues("pillars");
                 if (pillarsForObjectives.every(p => p.objectives.length > 0 && p.objectives.every(o => o.statement))) {
                     isValid = true;
-                } else {
-                    form.setError("pillars", { type: "manual", message: "Each pillar must have at least one objective with a statement." });
-                    isValid = false;
                 }
                 break;
             case 3: // Initiatives
@@ -184,19 +166,13 @@ export default function CreateStrategicPlanPage() {
                 const pillarsForInitiatives = form.getValues("pillars");
                 if (pillarsForInitiatives.every(p => p.objectives.every(o => o.initiatives.length > 0 && o.initiatives.every(i => i.title && i.owner)))) {
                     isValid = true;
-                } else {
-                    form.setError("pillars", { type: "manual", message: "Each objective must have at least one initiative with a title and owner." });
-                    isValid = false;
                 }
                 break;
             case 4: // Activities
                 isValid = await form.trigger("pillars");
                  const pillarsForActivities = form.getValues("pillars");
-                if (pillarsForActivities.every(p => p.objectives.every(o => o.initiatives.every(i => i.activities.length > 0 && i.activities.every(a => a.title && a.owner && a.deadline))))) {
+                if (pillarsForActivities.every(p => p.objectives.every(o => o.initiatives.every(i => i.activities.length > 0 && i.activities.every(a => a.title && a.owner && a.deadline && a.weight > 0))))) {
                      isValid = true;
-                } else {
-                    form.setError("pillars", { type: "manual", message: "Each initiative must have at least one activity with complete details." });
-                    isValid = false;
                 }
                 break;
             case 5: // Review
@@ -208,7 +184,11 @@ export default function CreateStrategicPlanPage() {
             setHighestCompletedStep(Math.max(highestCompletedStep, currentTabIndex + 1));
             setCurrentTab(TABS[currentTabIndex + 1].value);
         } else {
-            // Optional: Log why it's not valid, for debugging.
+             toast({
+                title: "Validation Error",
+                description: "Please fill out all required fields before proceeding.",
+                variant: "destructive",
+            });
             console.log("Validation failed", form.formState.errors);
         }
     };
@@ -372,15 +352,27 @@ function StepHeader({ title, description }: { title: string, description: string
     )
 }
 
+// Helper to calculate weights
+const calculateObjectiveWeight = (initiatives: any[] = []) => {
+    return initiatives.reduce((total, initiative) => total + (calculateInitiativeWeight(initiative.activities)), 0);
+};
+
+const calculateInitiativeWeight = (activities: any[] = []) => {
+    return activities.reduce((total, activity) => total + (activity.weight || 0), 0);
+};
+
 
 function PillarObjectiveAccordion({ pIndex, form }: { pIndex: number; form: any }) {
     const { control, register, watch } = form;
     const { fields: objectiveFields, append: appendObjective, remove: removeObjective } = useFieldArray({ control, name: `pillars.${pIndex}.objectives` });
     const pillarTitle = watch(`pillars.${pIndex}.title`);
+    const objectives = watch(`pillars.${pIndex}.objectives`);
+    const totalPillarWeight = useMemo(() => objectives.reduce((total, obj) => total + calculateObjectiveWeight(obj.initiatives), 0), [objectives]);
+
     
     return (
         <AccordionItem value={`pillar-${pIndex}`}>
-            <AccordionTrigger className="text-xl font-semibold">{pillarTitle}</AccordionTrigger>
+            <AccordionTrigger className="text-xl font-semibold">{pillarTitle} <span className="text-base font-normal text-muted-foreground ml-2">(Total Weight: {totalPillarWeight})</span></AccordionTrigger>
             <AccordionContent className="pl-4 border-l ml-4 space-y-4">
                  {objectiveFields.map((objective, oIndex) => (
                     <Card key={objective.id}>
@@ -395,14 +387,10 @@ function PillarObjectiveAccordion({ pIndex, form }: { pIndex: number; form: any 
                                 <Label>Objective Statement</Label>
                                 <Textarea {...register(`pillars.${pIndex}.objectives.${oIndex}.statement`)} placeholder="e.g., Increase Market Share" />
                             </div>
-                            <div className="space-y-2">
-                                <Label>Weight (%)</Label>
-                                <Input type="number" {...register(`pillars.${pIndex}.objectives.${oIndex}.weight`)} placeholder="e.g., 60"/>
-                            </div>
                         </CardContent>
                     </Card>
                  ))}
-                 <Button type="button" variant="outline" size="sm" onClick={() => appendObjective({ statement: `Objective ${pIndex + 1}.${objectiveFields.length + 1}`, weight: 0, initiatives: [] })}>
+                 <Button type="button" variant="outline" size="sm" onClick={() => appendObjective({ statement: `Objective ${pIndex + 1}.${objectiveFields.length + 1}`, initiatives: [] })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Objective
                 </Button>
             </AccordionContent>
@@ -433,70 +421,71 @@ function ObjectiveInitiativeAccordion({ pIndex, oIndex, form }: { pIndex: number
     const { control, register, watch } = form;
     const { fields: initiativeFields, append: appendInitiative, remove: removeInitiative } = useFieldArray({ control, name: `pillars.${pIndex}.objectives.${oIndex}.initiatives` });
     const objectiveStatement = watch(`pillars.${pIndex}.objectives.${oIndex}.statement`);
+    const initiatives = watch(`pillars.${pIndex}.objectives.${oIndex}.initiatives`);
+    const totalObjectiveWeight = useMemo(() => calculateObjectiveWeight(initiatives), [initiatives]);
 
     return (
         <AccordionItem value={`objective-${pIndex}-${oIndex}`}>
-            <AccordionTrigger className="font-semibold text-lg">Objective {pIndex + 1}.{oIndex + 1}: {objectiveStatement}</AccordionTrigger>
+            <AccordionTrigger className="font-semibold text-lg">Objective {pIndex + 1}.{oIndex + 1}: {objectiveStatement} <span className="text-base font-normal text-muted-foreground ml-2">(Total Weight: {totalObjectiveWeight})</span></AccordionTrigger>
             <AccordionContent className="pl-4 border-l ml-4 space-y-4">
-                {initiativeFields.map((initiative, iIndex) => (
-                     <Card key={initiative.id}>
-                        <CardHeader className="flex-row items-center justify-between">
-                            <CardTitle>Initiative {pIndex + 1}.{oIndex + 1}.{iIndex + 1}</CardTitle>
-                             <Button variant="destructive" size="icon" onClick={() => removeInitiative(iIndex)}>
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <Label>Initiative Title</Label>
-                                <Input {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.title`)} placeholder="Initiative Title" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Initiative Description</Label>
-                                <Textarea {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.description`)} placeholder="Initiative Description" rows={2}/>
-                            </div>
-                             <div className="space-y-2">
-                                <Label>Weight (%)</Label>
-                                <Input type="number" {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.weight`)} placeholder="e.g., 100"/>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <Controller
-                                    control={control}
-                                    name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.owner`}
-                                    render={({ field }) => (
-                                        <div className="space-y-2">
-                                            <Label>Lead/Owner</Label>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {peopleOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    )}
-                                />
-                                <Controller
-                                    control={control}
-                                    name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.collaborators`}
-                                    render={({ field }) => (
-                                        <div className="space-y-2">
-                                            <Label>Collaborators</Label>
-                                            <MultiSelect
-                                                options={peopleOptions}
-                                                selected={field.value ?? []}
-                                                onChange={field.onChange}
-                                                placeholder="Select..."
-                                            />
-                                        </div>
-                                    )}
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
-                <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ title: `Initiative ${pIndex+1}.${oIndex+1}.${initiativeFields.length+1}`, description: "", owner: "", collaborators: [], weight: 0, activities: [] })}>
+                {initiativeFields.map((initiative, iIndex) => {
+                     const initiativeWeight = calculateInitiativeWeight(watch(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities`));
+                     return (
+                         <Card key={initiative.id}>
+                            <CardHeader className="flex-row items-center justify-between">
+                                <CardTitle>Initiative {pIndex + 1}.{oIndex + 1}.{iIndex + 1} <span className="text-base font-normal text-muted-foreground ml-2">(Weight: {initiativeWeight})</span></CardTitle>
+                                 <Button variant="destructive" size="icon" onClick={() => removeInitiative(iIndex)}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label>Initiative Title</Label>
+                                    <Input {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.title`)} placeholder="Initiative Title" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Initiative Description</Label>
+                                    <Textarea {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.description`)} placeholder="Initiative Description" rows={2}/>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <Controller
+                                        control={control}
+                                        name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.owner`}
+                                        render={({ field }) => (
+                                            <div className="space-y-2">
+                                                <Label>Lead/Owner</Label>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {peopleOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        )}
+                                    />
+                                    <Controller
+                                        control={control}
+                                        name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.collaborators`}
+                                        render={({ field }) => (
+                                            <div className="space-y-2">
+                                                <Label>Collaborators</Label>
+                                                <MultiSelect
+                                                    options={peopleOptions}
+                                                    selected={field.value ?? []}
+                                                    onChange={field.onChange}
+                                                    placeholder="Select..."
+                                                />
+                                            </div>
+                                        )}
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+                     )
+                })}
+                <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ title: `Initiative ${pIndex+1}.${oIndex+1}.${initiativeFields.length+1}`, description: "", owner: "", collaborators: [], activities: [] })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Initiative
                 </Button>
             </AccordionContent>
@@ -546,17 +535,20 @@ function InitiativeActivityAccordion({ pIndex, oIndex, iIndex, form }: { pIndex:
     const { control, register, watch } = form;
     const { fields: activityFields, append: appendActivity, remove: removeActivity } = useFieldArray({ control, name: `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities` });
     const initiativeTitle = watch(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.title`);
+    const activities = watch(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities`);
+    const initiativeWeight = useMemo(() => calculateInitiativeWeight(activities), [activities]);
+
 
     return (
         <AccordionItem value={`initiative-${pIndex}-${oIndex}-${iIndex}`}>
-            <AccordionTrigger className="font-medium text-base">Initiative {pIndex + 1}.{oIndex + 1}.{iIndex + 1}: {initiativeTitle}</AccordionTrigger>
+            <AccordionTrigger className="font-medium text-base">Initiative {pIndex + 1}.{oIndex + 1}.{iIndex + 1}: {initiativeTitle} <span className="text-sm font-normal text-muted-foreground ml-2">(Total Weight: {initiativeWeight})</span></AccordionTrigger>
             <AccordionContent className="pl-4 border-l ml-4 space-y-4">
                  <Table>
                     <TableHeader>
                         <TableRow>
                             <TableHead className="w-[10%]">Code</TableHead>
                             <TableHead>Title</TableHead>
-                            <TableHead>Weight (%)</TableHead>
+                            <TableHead>Weight</TableHead>
                             <TableHead>Deadline</TableHead>
                             <TableHead>Owner</TableHead>
                             <TableHead>Collaborators</TableHead>
@@ -617,7 +609,7 @@ function InitiativeActivityAccordion({ pIndex, oIndex, iIndex, form }: { pIndex:
                         ))}
                     </TableBody>
                 </Table>
-                <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ title: `Activity ${pIndex + 1}.${oIndex + 1}.${iIndex + 1}.${activityFields.length + 1}`, weight: 100, deadline: '', owner: '', collaborators: [] })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ title: `Activity ${pIndex + 1}.${oIndex + 1}.${iIndex + 1}.${activityFields.length + 1}`, weight: 0, deadline: '', owner: '', collaborators: [] })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
                 </Button>
             </AccordionContent>
@@ -625,9 +617,10 @@ function InitiativeActivityAccordion({ pIndex, oIndex, iIndex, form }: { pIndex:
     );
 }
 
+
 function ReviewSection({ form }: { form: any }) {
-    const { getValues } = form;
-    const plan = getValues();
+    const { getValues, watch } = form;
+    const plan = watch(); // Watch all fields to re-render on change
 
     if (!plan.pillars || plan.pillars.length === 0) {
         return <p>No data entered yet. Please fill out the previous steps.</p>;
@@ -636,28 +629,37 @@ function ReviewSection({ form }: { form: any }) {
     return (
         <div className="space-y-4">
             <h3 className="text-xl font-bold">{plan.planTitle} ({plan.startYear}-{plan.endYear}) v{plan.version}</h3>
-            {plan.pillars.map((pillar: any, pIndex: number) => (
-                <div key={pIndex} className="p-4 border rounded-lg space-y-3 bg-muted/20">
-                    <h4 className="font-bold text-lg">Pillar {pIndex+1}: {pillar.title}</h4>
-                    {pillar.objectives.map((objective: any, oIndex: number) => (
-                        <div key={oIndex} className="p-3 border rounded-md space-y-2 bg-background/50 ml-4">
-                            <h5 className="font-semibold">Objective {pIndex+1}.{oIndex+1}: {objective.statement} (Weight: {objective.weight}%)</h5>
-                            {objective.initiatives.map((initiative: any, iIndex: number) => (
-                                 <div key={iIndex} className="p-2 border rounded-md space-y-2 bg-muted/20 ml-4">
-                                     <h6 className="font-medium">Initiative {pIndex+1}.{oIndex+1}.{iIndex+1}: {initiative.title} (Weight: {initiative.weight}%)</h6>
-                                     <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
-                                        {initiative.activities.map((activity: any, aIndex: number) => (
-                                            <li key={aIndex}>
-                                               <span className="font-semibold text-foreground">Activity {pIndex+1}.{oIndex+1}.{iIndex+1}.{aIndex+1}:</span> {activity.title} (Weight: {activity.weight}%)
-                                            </li>
-                                        ))}
-                                     </ul>
-                                 </div>
-                            ))}
-                        </div>
-                    ))}
-                </div>
-            ))}
+            {plan.pillars.map((pillar: any, pIndex: number) => {
+                const pillarWeight = pillar.objectives.reduce((total: number, obj: any) => total + calculateObjectiveWeight(obj.initiatives), 0);
+                return (
+                    <div key={pIndex} className="p-4 border rounded-lg space-y-3 bg-muted/20">
+                        <h4 className="font-bold text-lg">Pillar {pIndex+1}: {pillar.title} (Weight: {pillarWeight})</h4>
+                        {pillar.objectives.map((objective: any, oIndex: number) => {
+                             const objectiveWeight = calculateObjectiveWeight(objective.initiatives);
+                             return (
+                                <div key={oIndex} className="p-3 border rounded-md space-y-2 bg-background/50 ml-4">
+                                    <h5 className="font-semibold">Objective {pIndex+1}.{oIndex+1}: {objective.statement} (Weight: {objectiveWeight})</h5>
+                                    {objective.initiatives.map((initiative: any, iIndex: number) => {
+                                        const initiativeWeight = calculateInitiativeWeight(initiative.activities);
+                                        return (
+                                             <div key={iIndex} className="p-2 border rounded-md space-y-2 bg-muted/20 ml-4">
+                                                 <h6 className="font-medium">Initiative {pIndex+1}.{oIndex+1}.{iIndex+1}: {initiative.title} (Weight: {initiativeWeight})</h6>
+                                                 <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
+                                                    {initiative.activities.map((activity: any, aIndex: number) => (
+                                                        <li key={aIndex}>
+                                                           <span className="font-semibold text-foreground">Activity {pIndex+1}.{oIndex+1}.{iIndex+1}.{aIndex+1}:</span> {activity.title} (Weight: {activity.weight})
+                                                        </li>
+                                                    ))}
+                                                 </ul>
+                                             </div>
+                                        )
+                                    })}
+                                </div>
+                            )
+                        })}
+                    </div>
+                )
+            })}
         </div>
     )
 }

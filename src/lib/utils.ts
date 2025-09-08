@@ -1,5 +1,4 @@
 
-
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Pillar, Objective, Initiative, Activity, ActivityStatus } from "./types";
@@ -21,42 +20,45 @@ function sumActivityWeights(activities: Activity[]): number {
     return activities.reduce((sum, activity) => sum + activity.weight, 0);
 }
 
-function sumInitiativeWeights(initiatives: Initiative[]): number {
-    return initiatives.reduce((sum, initiative) => {
-        return sum + initiative.weight;
+const getInitiativeWeight = (initiative: Initiative): number => {
+    return sumActivityWeights(initiative.activities);
+}
+
+const getObjectiveWeight = (objective: Objective): number => {
+    return objective.initiatives.reduce((sum, initiative) => {
+        return sum + getInitiativeWeight(initiative);
     }, 0);
 }
 
-function sumObjectiveWeights(objectives: Objective[]): number {
-    return objectives.reduce((sum, objective) => {
-        return sum + objective.weight;
+const getPillarWeight = (pillar: Pillar): number => {
+     return pillar.objectives.reduce((sum, objective) => {
+        return sum + getObjectiveWeight(objective);
     }, 0);
 }
+
 
 export const getInitiativeProgress = (initiative: Initiative): number => {
     return calculateWeightedProgress(initiative.activities);
 };
 
 export const getObjectiveProgress = (objective: Objective): number => {
-    const progressWithCalculatedWeights = objective.initiatives.map(i => {
+    const initiativesWithProgress = objective.initiatives.map(i => {
         return {
-            ...i,
             progress: getInitiativeProgress(i),
-            weight: i.weight
+            weight: getInitiativeWeight(i)
         };
     });
-    return calculateWeightedProgress(progressWithCalculatedWeights);
+    return calculateWeightedProgress(initiativesWithProgress);
 };
 
 export const getPillarProgress = (pillar: Pillar): number => {
-    const progressWithCalculatedWeights = pillar.objectives.map(o => {
+    const objectivesWithProgress = pillar.objectives.map(o => {
         return {
-            ...o,
             progress: getObjectiveProgress(o),
-            weight: o.weight
+            weight: getObjectiveWeight(o)
         };
     });
-    return calculateWeightedProgress(progressWithCalculatedWeights);
+    return calculateWeightedProgress(objectivesWithProgress);
 };
 
 
@@ -97,7 +99,7 @@ export function generateReportSummary(pillars: Pillar[]): ReportSummary {
   });
 
   const overallProgress = calculateWeightedProgress(
-    pillars.map(p => ({ weight: 1, progress: getPillarProgress(p) }))
+    pillars.map(p => ({ weight: getPillarWeight(p), progress: getPillarProgress(p) }))
   );
 
   return {
