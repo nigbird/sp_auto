@@ -19,12 +19,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Stepper } from "@/components/ui/stepper";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useMemo, useEffect } from "react";
-import {
-  calculateWeightedProgress,
-  getInitiativeProgress,
-  getObjectiveProgress,
-  getPillarProgress,
-} from "@/lib/utils";
 
 
 const activitySchema = z.object({
@@ -353,13 +347,17 @@ function StepHeader({ title, description }: { title: string, description: string
 }
 
 // Helper to calculate weights
-const calculateObjectiveWeight = (initiatives: any[] = []) => {
-    return initiatives.reduce((total, initiative) => total + (calculateInitiativeWeight(initiative.activities)), 0);
-};
-
 const calculateInitiativeWeight = (activities: any[] = []) => {
     return activities.reduce((total, activity) => total + (activity.weight || 0), 0);
 };
+
+const calculateObjectiveWeight = (initiatives: any[] = []) => {
+    return initiatives.reduce((total, initiative) => total + calculateInitiativeWeight(initiative.activities), 0);
+};
+
+const calculatePillarWeight = (objectives: any[] = []) => {
+    return objectives.reduce((total, objective) => total + calculateObjectiveWeight(objective.initiatives), 0);
+}
 
 
 function PillarObjectiveAccordion({ pIndex, form }: { pIndex: number; form: any }) {
@@ -367,7 +365,7 @@ function PillarObjectiveAccordion({ pIndex, form }: { pIndex: number; form: any 
     const { fields: objectiveFields, append: appendObjective, remove: removeObjective } = useFieldArray({ control, name: `pillars.${pIndex}.objectives` });
     const pillarTitle = watch(`pillars.${pIndex}.title`);
     const objectives = watch(`pillars.${pIndex}.objectives`);
-    const totalPillarWeight = useMemo(() => objectives.reduce((total, obj) => total + calculateObjectiveWeight(obj.initiatives), 0), [objectives]);
+    const totalPillarWeight = useMemo(() => calculatePillarWeight(objectives), [objectives]);
 
     
     return (
@@ -433,7 +431,7 @@ function ObjectiveInitiativeAccordion({ pIndex, oIndex, form }: { pIndex: number
                      return (
                          <Card key={initiative.id}>
                             <CardHeader className="flex-row items-center justify-between">
-                                <CardTitle>Initiative {pIndex + 1}.{oIndex + 1}.{iIndex + 1} <span className="text-base font-normal text-muted-foreground ml-2">(Weight: {initiativeWeight})</span></CardTitle>
+                                <CardTitle>Initiative {pIndex + 1}.{oIndex + 1}.{iIndex + 1} <span className="text-base font-normal text-muted-foreground ml-2">(Total Weight: {initiativeWeight})</span></CardTitle>
                                  <Button variant="destructive" size="icon" onClick={() => removeInitiative(iIndex)}>
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -630,20 +628,20 @@ function ReviewSection({ form }: { form: any }) {
         <div className="space-y-4">
             <h3 className="text-xl font-bold">{plan.planTitle} ({plan.startYear}-{plan.endYear}) v{plan.version}</h3>
             {plan.pillars.map((pillar: any, pIndex: number) => {
-                const pillarWeight = pillar.objectives.reduce((total: number, obj: any) => total + calculateObjectiveWeight(obj.initiatives), 0);
+                const pillarWeight = calculatePillarWeight(pillar.objectives);
                 return (
                     <div key={pIndex} className="p-4 border rounded-lg space-y-3 bg-muted/20">
-                        <h4 className="font-bold text-lg">Pillar {pIndex+1}: {pillar.title} (Weight: {pillarWeight})</h4>
+                        <h4 className="font-bold text-lg">Pillar {pIndex+1}: {pillar.title} (Total Weight: {pillarWeight})</h4>
                         {pillar.objectives.map((objective: any, oIndex: number) => {
                              const objectiveWeight = calculateObjectiveWeight(objective.initiatives);
                              return (
                                 <div key={oIndex} className="p-3 border rounded-md space-y-2 bg-background/50 ml-4">
-                                    <h5 className="font-semibold">Objective {pIndex+1}.{oIndex+1}: {objective.statement} (Weight: {objectiveWeight})</h5>
+                                    <h5 className="font-semibold">Objective {pIndex+1}.{oIndex+1}: {objective.statement} (Total Weight: {objectiveWeight})</h5>
                                     {objective.initiatives.map((initiative: any, iIndex: number) => {
                                         const initiativeWeight = calculateInitiativeWeight(initiative.activities);
                                         return (
                                              <div key={iIndex} className="p-2 border rounded-md space-y-2 bg-muted/20 ml-4">
-                                                 <h6 className="font-medium">Initiative {pIndex+1}.{oIndex+1}.{iIndex+1}: {initiative.title} (Weight: {initiativeWeight})</h6>
+                                                 <h6 className="font-medium">Initiative {pIndex+1}.{oIndex+1}.{iIndex+1}: {initiative.title} (Total Weight: {initiativeWeight})</h6>
                                                  <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
                                                     {initiative.activities.map((activity: any, aIndex: number) => (
                                                         <li key={aIndex}>
@@ -663,3 +661,4 @@ function ReviewSection({ form }: { form: any }) {
         </div>
     )
 }
+
