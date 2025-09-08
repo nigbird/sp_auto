@@ -20,7 +20,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const activitySchema = z.object({
-  code: z.string().min(1, "Code is required"),
   title: z.string().min(1, "Title is required"),
   deliverable: z.string().optional(),
   uom: z.string().optional(),
@@ -37,14 +36,11 @@ const formSchema = z.object({
   endYear: z.coerce.number().min(2000),
   version: z.string().min(1, "Version is required"),
 
-  pillarCode: z.string().min(1, "Pillar Code is required"),
   pillarTitle: z.string().min(1, "Pillar Title is required"),
   pillarDescription: z.string().optional(),
 
-  objectiveCode: z.string().min(1, "Objective Code is required"),
   objectiveStatement: z.string().min(1, "Objective Statement is required"),
 
-  initiativeCode: z.string().min(1, "Initiative Code is required"),
   initiativeTitle: z.string().min(1, "Initiative Title is required"),
   initiativeDescription: z.string().optional(),
 
@@ -86,15 +82,12 @@ export default function CreateStrategicPlanPage() {
             startYear: new Date().getFullYear(),
             endYear: new Date().getFullYear() + 4,
             version: "1.0",
-            pillarCode: "",
             pillarTitle: "",
             pillarDescription: "",
-            objectiveCode: "",
             objectiveStatement: "",
-            initiativeCode: "",
             initiativeTitle: "",
             initiativeDescription: "",
-            activities: [{ code: 'ACT-001', title: '', deliverable: '', uom: '', weight: 100, target: 100, baseline: 0, deadline: '', responsible: '' }]
+            activities: [{ title: '', deliverable: '', uom: '', weight: 100, target: 100, baseline: 0, deadline: '', responsible: '' }]
         },
     });
 
@@ -114,13 +107,13 @@ export default function CreateStrategicPlanPage() {
                 isValid = await triggerValidation(["planTitle", "startYear", "endYear", "version"]);
                 break;
             case 1:
-                isValid = await triggerValidation(["pillarCode", "pillarTitle"]);
+                isValid = await triggerValidation(["pillarTitle"]);
                 break;
             case 2:
-                isValid = await triggerValidation(["objectiveCode", "objectiveStatement"]);
+                isValid = await triggerValidation(["objectiveStatement"]);
                 break;
             case 3:
-                isValid = await triggerValidation(["initiativeCode", "initiativeTitle"]);
+                isValid = await triggerValidation(["initiativeTitle"]);
                 break;
             case 4:
                 isValid = await triggerValidation(["activities"]);
@@ -144,7 +137,20 @@ export default function CreateStrategicPlanPage() {
     };
 
     const onSubmit = (data: FormValues) => {
-        console.log(data);
+        // Here you would transform the data to include the generated codes
+        // before sending to your backend.
+        const finalData = {
+            ...data,
+            pillarCode: "1",
+            objectiveCode: "1.1",
+            initiativeCode: "1.1.1",
+            activities: data.activities.map((act, index) => ({
+                ...act,
+                code: `1.1.1.${index + 1}`
+            }))
+        };
+
+        console.log(finalData);
         toast({
             title: "Plan Published!",
             description: "The new strategic plan has been successfully published.",
@@ -229,9 +235,8 @@ export default function CreateStrategicPlanPage() {
                     <CardDescription className="mb-4">A Pillar is a high-level strategic focus area.</CardDescription>
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="pillarCode">Pillar Code</Label>
-                            <Input id="pillarCode" {...form.register("pillarCode")} />
-                             {form.formState.errors.pillarCode && <p className="text-sm text-destructive">{form.formState.errors.pillarCode.message}</p>}
+                            <Label>Pillar Code</Label>
+                            <p className="font-mono text-muted-foreground p-2 rounded-md border border-dashed">1</p>
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="pillarTitle">Pillar Title</Label>
@@ -249,10 +254,9 @@ export default function CreateStrategicPlanPage() {
                      <CardTitle className="mb-1">Step 3: Define Objective</CardTitle>
                     <CardDescription className="mb-4">An Objective is a specific, measurable goal that supports a Pillar.</CardDescription>
                      <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="objectiveCode">Objective Code</Label>
-                            <Input id="objectiveCode" {...form.register("objectiveCode")} />
-                             {form.formState.errors.objectiveCode && <p className="text-sm text-destructive">{form.formState.errors.objectiveCode.message}</p>}
+                         <div className="space-y-2">
+                            <Label>Objective Code</Label>
+                            <p className="font-mono text-muted-foreground p-2 rounded-md border border-dashed">1.1</p>
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="objectiveStatement">Objective Statement</Label>
@@ -267,9 +271,8 @@ export default function CreateStrategicPlanPage() {
                     <CardDescription className="mb-4">An Initiative is a project or program designed to achieve an Objective.</CardDescription>
                      <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="initiativeCode">Initiative Code</Label>
-                            <Input id="initiativeCode" {...form.register("initiativeCode")} />
-                             {form.formState.errors.initiativeCode && <p className="text-sm text-destructive">{form.formState.errors.initiativeCode.message}</p>}
+                            <Label>Initiative Code</Label>
+                            <p className="font-mono text-muted-foreground p-2 rounded-md border border-dashed">1.1.1</p>
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="initiativeTitle">Initiative Title</Label>
@@ -317,7 +320,7 @@ export default function CreateStrategicPlanPage() {
                             <TableBody>
                                 {fields.map((field, index) => (
                                     <TableRow key={field.id}>
-                                        <TableCell><Input {...form.register(`activities.${index}.code`)} className="min-w-[80px]"/></TableCell>
+                                        <TableCell><p className="font-mono text-sm text-muted-foreground">1.1.1.{index + 1}</p></TableCell>
                                         <TableCell><Input {...form.register(`activities.${index}.title`)} className="min-w-[150px]"/></TableCell>
                                         <TableCell><Input {...form.register(`activities.${index}.deliverable`)} className="min-w-[150px]"/></TableCell>
                                         <TableCell><Input {...form.register(`activities.${index}.uom`)} className="min-w-[80px]"/></TableCell>
@@ -352,7 +355,7 @@ export default function CreateStrategicPlanPage() {
                             </TableBody>
                         </Table>
                     </div>
-                     <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ code: `ACT-00${fields.length+1}`, title: '', deliverable: '', uom: '', weight: 0, target: 100, baseline: 0, deadline: '', responsible: '' })}>Add Activity</Button>
+                     <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ title: '', deliverable: '', uom: '', weight: 0, target: 100, baseline: 0, deadline: '', responsible: '' })}>Add Activity</Button>
                      {form.formState.errors.activities?.message && <p className="text-sm text-destructive mt-2">{form.formState.errors.activities.message}</p>}
                      {form.formState.errors.activities?.root?.message && <p className="text-sm text-destructive mt-2">{form.formState.errors.activities.root.message}</p>}
                 </div>
@@ -367,21 +370,21 @@ export default function CreateStrategicPlanPage() {
                             {/* Pillar */}
                             <div className="ml-4 mt-2 space-y-2 border-l pl-4">
                                 <div>
-                                    <h4 className="font-semibold">{form.watch('pillarTitle')}</h4>
+                                    <h4 className="font-semibold">(1) {form.watch('pillarTitle')}</h4>
                                     <p className="text-sm text-muted-foreground">{form.watch('pillarDescription')}</p>
                                     {/* Objective */}
                                     <div className="ml-4 mt-2 space-y-2 border-l pl-4">
                                         <div>
-                                            <h5 className="font-medium">{form.watch('objectiveStatement')}</h5>
+                                            <h5 className="font-medium">(1.1) {form.watch('objectiveStatement')}</h5>
                                             {/* Initiative */}
                                             <div className="ml-4 mt-2 space-y-2 border-l pl-4">
                                                 <div>
-                                                    <h6 className="font-medium italic">{form.watch('initiativeTitle')}</h6>
+                                                    <h6 className="font-medium italic">(1.1.1) {form.watch('initiativeTitle')}</h6>
                                                      <p className="text-sm text-muted-foreground">{form.watch('initiativeDescription')}</p>
                                                     {/* Activities */}
                                                     <ul className="ml-4 mt-2 list-disc pl-4 space-y-1">
                                                         {form.watch('activities').map((act, i) => (
-                                                            <li key={i} className="text-sm">{act.title} (Weight: {act.weight}%, Responsible: {act.responsible})</li>
+                                                            <li key={i} className="text-sm">(1.1.1.{i+1}) {act.title} (Weight: {act.weight}%, Responsible: {act.responsible})</li>
                                                         ))}
                                                     </ul>
                                                 </div>
