@@ -1,19 +1,15 @@
 import { getReportData } from "@/lib/data";
-import { generateReportSummary } from "@/lib/utils";
-import { ReportSummaryCards } from "@/components/reports/summary-cards";
 import { ReportTable } from "@/components/reports/report-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function ReportsPage() {
   const reportData = await getReportData();
-  const summary = generateReportSummary(reportData);
 
   return (
     <div className="flex-1 space-y-6">
       <div className="flex items-center justify-between space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
       </div>
-      <ReportSummaryCards summary={summary} />
        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
         <Card className="lg:col-span-4">
           <CardHeader>
