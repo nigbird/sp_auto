@@ -21,12 +21,13 @@ import { Stepper } from "@/components/ui/stepper";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useMemo, useEffect } from "react";
 import { savePlan } from "@/lib/plan-service";
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 
 
 const activitySchema = z.object({
   id: z.string().optional(),
   title: z.string().min(1, "Title is required"),
-  weight: z.coerce.number().min(0, "Weight must be positive"),
+  weight: z.coerce.number().min(1, "Weight must be greater than 0"),
   deadline: z.string().min(1, "Deadline is required"),
   owner: z.string().min(1, "Owner is required"),
   collaborators: z.array(z.string()).optional(),
@@ -243,6 +244,7 @@ export default function CreateStrategicPlanPage() {
                 </div>
             </div>
             
+        <Form {...form}>
             <Card>
                 <CardContent className="p-6">
                     <Stepper 
@@ -262,27 +264,59 @@ export default function CreateStrategicPlanPage() {
                         <Tabs value={currentTab} onValueChange={setCurrentTab}>
                             <TabsContent value="plan-info" className="space-y-6">
                                 <StepHeader title="Step 1: Define Plan Information" description="Set the basic details for your new strategic plan." />
-                                 <div className="space-y-2">
-                                    <Label htmlFor="planTitle">Plan Title</Label>
-                                    <Input id="planTitle" {...form.register("planTitle")} />
-                                    {form.formState.errors.planTitle && <p className="text-sm text-destructive">{form.formState.errors.planTitle.message}</p>}
-                                </div>
+                                <FormField
+                                    control={form.control}
+                                    name="planTitle"
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <Label>Plan Title</Label>
+                                        <FormControl>
+                                            <Input {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="startYear">Start Year</Label>
-                                        <Input id="startYear" type="number" {...form.register("startYear")} />
-                                        {form.formState.errors.startYear && <p className="text-sm text-destructive">{form.formState.errors.startYear.message}</p>}
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="endYear">End Year</Label>
-                                        <Input id="endYear" type="number" {...form.register("endYear")} />
-                                        {form.formState.errors.endYear && <p className="text-sm text-destructive">{form.formState.errors.endYear.message}</p>}
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="version">Version</Label>
-                                        <Input id="version" {...form.register("version")} />
-                                        {form.formState.errors.version && <p className="text-sm text-destructive">{form.formState.errors.version.message}</p>}
-                                    </div>
+                                     <FormField
+                                        control={form.control}
+                                        name="startYear"
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <Label>Start Year</Label>
+                                            <FormControl>
+                                                <Input type="number" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="endYear"
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <Label>End Year</Label>
+                                            <FormControl>
+                                                <Input type="number" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="version"
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <Label>Version</Label>
+                                            <FormControl>
+                                                <Input {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
                                 </div>
                             </TabsContent>
                             
@@ -298,14 +332,32 @@ export default function CreateStrategicPlanPage() {
                                                 </Button>
                                             </CardHeader>
                                             <CardContent className="space-y-4">
-                                                <div className="space-y-2">
-                                                    <Label>Pillar Title</Label>
-                                                    <Input {...form.register(`pillars.${index}.title`)} />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label>Pillar Description</Label>
-                                                    <Textarea {...form.register(`pillars.${index}.description`)} />
-                                                </div>
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`pillars.${index}.title`}
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <Label>Pillar Title</Label>
+                                                            <FormControl>
+                                                                <Input {...field} />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`pillars.${index}.description`}
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <Label>Pillar Description</Label>
+                                                            <FormControl>
+                                                                <Textarea {...field} />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
                                             </CardContent>
                                         </Card>
                                     ))}
@@ -360,6 +412,7 @@ export default function CreateStrategicPlanPage() {
                     </div>
                 </CardContent>
             </Card>
+        </Form>
         </div>
     );
 }
@@ -388,7 +441,7 @@ const calculatePillarWeight = (objectives: any[] = []) => {
 
 
 function PillarObjectiveAccordion({ pIndex, form }: { pIndex: number; form: any }) {
-    const { control, register, watch } = form;
+    const { control, watch } = form;
     const { fields: objectiveFields, append: appendObjective, remove: removeObjective } = useFieldArray({ control, name: `pillars.${pIndex}.objectives` });
     const pillarTitle = watch(`pillars.${pIndex}.title`);
     const objectives = watch(`pillars.${pIndex}.objectives`);
@@ -408,10 +461,19 @@ function PillarObjectiveAccordion({ pIndex, form }: { pIndex: number; form: any 
                             </Button>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                             <div className="space-y-2">
-                                <Label>Objective Statement</Label>
-                                <Textarea {...register(`pillars.${pIndex}.objectives.${oIndex}.statement`)} placeholder="e.g., Increase Market Share" />
-                            </div>
+                             <FormField
+                                control={control}
+                                name={`pillars.${pIndex}.objectives.${oIndex}.statement`}
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <Label>Objective Statement</Label>
+                                        <FormControl>
+                                            <Textarea {...field} placeholder="e.g., Increase Market Share" />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                         </CardContent>
                     </Card>
                  ))}
@@ -464,45 +526,69 @@ function ObjectiveInitiativeAccordion({ pIndex, oIndex, form }: { pIndex: number
                                 </Button>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label>Initiative Title</Label>
-                                    <Input {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.title`)} placeholder="Initiative Title" />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Initiative Description</Label>
-                                    <Textarea {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.description`)} placeholder="Initiative Description" rows={2}/>
-                                </div>
+                                <FormField
+                                    control={control}
+                                    name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.title`}
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <Label>Initiative Title</Label>
+                                            <FormControl>
+                                                <Input {...field} placeholder="Initiative Title" />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={control}
+                                    name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.description`}
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <Label>Initiative Description</Label>
+                                            <FormControl>
+                                                <Textarea {...field} placeholder="Initiative Description" rows={2}/>
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <Controller
+                                    <FormField
                                         control={control}
                                         name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.owner`}
                                         render={({ field }) => (
-                                            <div className="space-y-2">
+                                            <FormItem>
                                                 <Label>Lead/Owner</Label>
                                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select..." />
-                                                    </SelectTrigger>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select..." />
+                                                        </SelectTrigger>
+                                                    </FormControl>
                                                     <SelectContent>
                                                         {peopleOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                                                     </SelectContent>
                                                 </Select>
-                                            </div>
+                                                <FormMessage />
+                                            </FormItem>
                                         )}
                                     />
-                                    <Controller
+                                    <FormField
                                         control={control}
                                         name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.collaborators`}
                                         render={({ field }) => (
-                                            <div className="space-y-2">
+                                            <FormItem>
                                                 <Label>Collaborators</Label>
-                                                <MultiSelect
-                                                    options={peopleOptions}
-                                                    selected={field.value ?? []}
-                                                    onChange={field.onChange}
-                                                    placeholder="Select..."
-                                                />
-                                            </div>
+                                                <FormControl>
+                                                    <MultiSelect
+                                                        options={peopleOptions}
+                                                        selected={field.value ?? []}
+                                                        onChange={field.onChange}
+                                                        placeholder="Select..."
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
                                         )}
                                     />
                                 </div>
@@ -587,41 +673,84 @@ function InitiativeActivityAccordion({ pIndex, oIndex, iIndex, form }: { pIndex:
                                 <span className="text-sm text-muted-foreground">{pIndex + 1}.{oIndex + 1}.{iIndex + 1}.{aIndex + 1}</span>
                                 </TableCell>
                                 <TableCell>
-                                    <Input {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.title`)} placeholder="Activity Title"/>
+                                     <FormField
+                                        control={control}
+                                        name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.title`}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormControl>
+                                                    <Input {...field} placeholder="Activity Title"/>
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
                                 </TableCell>
                                 <TableCell>
-                                    <Input type="number" {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.weight`)} placeholder="100"/>
+                                     <FormField
+                                        control={control}
+                                        name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.weight`}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormControl>
+                                                    <Input type="number" {...field} placeholder="100"/>
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
                                 </TableCell>
                                 <TableCell>
-                                    <Input type="date" {...register(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.deadline`)} />
+                                     <FormField
+                                        control={control}
+                                        name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.deadline`}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormControl>
+                                                    <Input type="date" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
                                 </TableCell>
                                 <TableCell>
-                                    <Controller
+                                    <FormField
                                         control={control}
                                         name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.owner`}
                                         render={({ field }) => (
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <SelectTrigger className="min-w-[150px]">
-                                                    <SelectValue placeholder="Select..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {peopleOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
+                                            <FormItem>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger className="min-w-[150px]">
+                                                            <SelectValue placeholder="Select..." />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {peopleOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
                                         )}
                                     />
                                 </TableCell>
                                     <TableCell>
-                                    <Controller
+                                    <FormField
                                         control={control}
                                         name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.collaborators`}
                                         render={({ field }) => (
-                                            <MultiSelect
-                                                options={peopleOptions}
-                                                selected={field.value ?? []}
-                                                onChange={field.onChange}
-                                                placeholder="Select..."
-                                            />
+                                            <FormItem>
+                                                <FormControl>
+                                                    <MultiSelect
+                                                        options={peopleOptions}
+                                                        selected={field.value ?? []}
+                                                        onChange={field.onChange}
+                                                        placeholder="Select..."
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
                                         )}
                                     />
                                 </TableCell>
@@ -688,3 +817,5 @@ function ReviewSection({ form }: { form: any }) {
         </div>
     )
 }
+
+    
