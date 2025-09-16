@@ -105,7 +105,7 @@ function TaskCard({ activity, onUpdateActivity }: TaskCardProps) {
                                     <SelectItem value="Completed As Per Target">Completed As Per Target</SelectItem>
                                     <SelectItem value="Delayed">Delayed</SelectItem>
                                     <SelectItem value="Not Started">Not Started</SelectItem>
-                                    <SelectItem value="Overdue">Overdue & Not Started</SelectItem>
+                                    <SelectItem value="Overdue">Overdue</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
