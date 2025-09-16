@@ -226,193 +226,194 @@ export default function CreateStrategicPlanPage() {
 
     return (
         <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 space-y-6">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button asChild variant="outline" size="icon">
-                    <Link href="/strategic-plan">
-                        <ArrowLeft className="h-4 w-4" />
-                    </Link>
-                    </Button>
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Create Strategic Plan</h1>
-                        <p className="text-muted-foreground">Follow the steps to create a new strategic plan for your organization.</p>
-                    </div>
-                </div>
-                 <div className="flex gap-2">
-                    <Button variant="outline" type="button" onClick={handleSaveDraft}>Save Draft</Button>
-                    <Button type="submit">Publish Plan</Button>
-                </div>
-            </div>
-            
-            <Card>
-                <CardContent className="p-6">
-                    <Stepper 
-                        steps={TABS.map((tab, index) => ({
-                            title: tab.title,
-                            isCompleted: isStepCompleted(index) || highestCompletedStep > index,
-                            isCurrent: currentTab === tab.value
-                        }))}
-                        onStepClick={(index) => {
-                            if (isStepCompleted(index) || index === highestCompletedStep) {
-                                setCurrentTab(TABS[index].value);
-                            }
-                        }}
-                    />
-
-                    <div className="mt-8">
-                        <Tabs value={currentTab} onValueChange={setCurrentTab}>
-                            <TabsContent value="plan-info" className="space-y-6">
-                                <StepHeader title="Step 1: Define Plan Information" description="Set the basic details for your new strategic plan." />
-                                <FormField
-                                    control={form.control}
-                                    name="planTitle"
-                                    render={({ field }) => (
-                                    <FormItem>
-                                        <Label>Plan Title</Label>
-                                        <FormControl>
-                                            <Input {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                    )}
-                                />
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                     <FormField
-                                        control={form.control}
-                                        name="startYear"
-                                        render={({ field }) => (
-                                        <FormItem>
-                                            <Label>Start Year</Label>
-                                            <FormControl>
-                                                <Input type="number" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="endYear"
-                                        render={({ field }) => (
-                                        <FormItem>
-                                            <Label>End Year</Label>
-                                            <FormControl>
-                                                <Input type="number" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="version"
-                                        render={({ field }) => (
-                                        <FormItem>
-                                            <Label>Version</Label>
-                                            <FormControl>
-                                                <Input {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                        )}
-                                    />
-                                </div>
-                            </TabsContent>
-                            
-                            <TabsContent value="pillars" className="space-y-6">
-                                <StepHeader title="Step 2: Define Pillars" description="A Pillar is a high-level strategic focus area for the organization." />
-                                <div className="space-y-4">
-                                    {pillarFields.map((pillar, index) => (
-                                        <Card key={pillar.id}>
-                                            <CardHeader className="flex flex-row items-center justify-between">
-                                                <CardTitle>Pillar {index + 1}</CardTitle>
-                                                <Button variant="destructive" size="icon" onClick={() => removePillar(index)}>
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </CardHeader>
-                                            <CardContent className="space-y-4">
-                                                <FormField
-                                                    control={form.control}
-                                                    name={`pillars.${index}.title`}
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <Label>Pillar Title</Label>
-                                                            <FormControl>
-                                                                <Input {...field} />
-                                                            </FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                                <FormField
-                                                    control={form.control}
-                                                    name={`pillars.${index}.description`}
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <Label>Pillar Description</Label>
-                                                            <FormControl>
-                                                                <Textarea {...field} />
-                                                            </FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                    <Button type="button" variant="outline" onClick={() => appendPillar({ id: generateId('P'), title: `Pillar ${pillarFields.length + 1}`, description: "", objectives: [] })}>
-                                        <PlusCircle className="mr-2 h-4 w-4" /> Add Pillar
-                                    </Button>
-                                </div>
-                            </TabsContent>
-
-                            <TabsContent value="objectives" className="space-y-6">
-                                 <StepHeader title="Step 3: Define Objectives" description="An Objective is a specific, measurable goal that supports a Pillar." />
-                                <Accordion type="multiple" defaultValue={pillarFields.map((_, pIndex) => `pillar-${pIndex}`)}>
-                                    {pillarFields.map((pillar, pIndex) => (
-                                        <PillarObjectiveAccordion key={pillar.id} pIndex={pIndex} form={form} />
-                                    ))}
-                                </Accordion>
-                            </TabsContent>
-
-                             <TabsContent value="initiatives" className="space-y-6">
-                                 <StepHeader title="Step 4: Define Initiatives" description="An Initiative is a specific project or program designed to achieve an Objective." />
-                                <Accordion type="multiple" defaultValue={pillarFields.map((_, pIndex) => `pillar-${pIndex}`)}>
-                                    {pillarFields.map((pillar, pIndex) => (
-                                        <PillarInitiativeAccordion key={pillar.id} pIndex={pIndex} form={form} />
-                                    ))}
-                                </Accordion>
-                            </TabsContent>
-
-                             <TabsContent value="activities" className="space-y-6">
-                                 <StepHeader title="Step 5: Define Activities" description="An Activity is a specific task required to complete an Initiative." />
-                                <Accordion type="multiple" defaultValue={pillarFields.map((_, pIndex) => `pillar-${pIndex}`)}>
-                                    {pillarFields.map((pillar, pIndex) => (
-                                        <PillarActivityAccordion key={pillar.id} pIndex={pIndex} form={form} />
-                                    ))}
-                                </Accordion>
-                            </TabsContent>
-
-                            <TabsContent value="review" className="space-y-6">
-                                 <StepHeader title="Step 6: Review & Save" description="Review the complete strategic plan hierarchy before publishing." />
-                                <ReviewSection form={form} />
-                            </TabsContent>
-
-                        </Tabs>
-
-                        <div className="flex justify-between mt-8">
-                            <Button variant="outline" type="button" onClick={handleBack} disabled={currentTab === TABS[0].value}>Back</Button>
-                            {currentTab !== TABS[TABS.length - 1].value ? (
-                                <Button type="button" onClick={handleNext}>Next</Button>
-                            ) : (
-                                <Button type="submit">Publish Plan</Button>
-                            )}
+            <div className="flex-1 space-y-6">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <Button asChild variant="outline" size="icon">
+                        <Link href="/strategic-plan">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Link>
+                        </Button>
+                        <div>
+                            <h1 className="text-3xl font-bold tracking-tight">Create Strategic Plan</h1>
+                            <p className="text-muted-foreground">Follow the steps to create a new strategic plan for your organization.</p>
                         </div>
                     </div>
-                </CardContent>
-            </Card>
-        </form>
+                     <div className="flex gap-2">
+                        <Button variant="outline" type="button" onClick={handleSaveDraft}>Save Draft</Button>
+                        <Button type="submit" form="strategic-plan-form">Publish Plan</Button>
+                    </div>
+                </div>
+                <form id="strategic-plan-form" onSubmit={form.handleSubmit(onSubmit)}>
+                    <Card>
+                        <CardContent className="p-6">
+                            <Stepper 
+                                steps={TABS.map((tab, index) => ({
+                                    title: tab.title,
+                                    isCompleted: isStepCompleted(index) || highestCompletedStep > index,
+                                    isCurrent: currentTab === tab.value
+                                }))}
+                                onStepClick={(index) => {
+                                    if (isStepCompleted(index) || index === highestCompletedStep) {
+                                        setCurrentTab(TABS[index].value);
+                                    }
+                                }}
+                            />
+
+                            <div className="mt-8">
+                                <Tabs value={currentTab} onValueChange={setCurrentTab}>
+                                    <TabsContent value="plan-info" className="space-y-6">
+                                        <StepHeader title="Step 1: Define Plan Information" description="Set the basic details for your new strategic plan." />
+                                        <FormField
+                                            control={form.control}
+                                            name="planTitle"
+                                            render={({ field }) => (
+                                            <FormItem>
+                                                <Label>Plan Title</Label>
+                                                <FormControl>
+                                                    <Input {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                            )}
+                                        />
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                             <FormField
+                                                control={form.control}
+                                                name="startYear"
+                                                render={({ field }) => (
+                                                <FormItem>
+                                                    <Label>Start Year</Label>
+                                                    <FormControl>
+                                                        <Input type="number" {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name="endYear"
+                                                render={({ field }) => (
+                                                <FormItem>
+                                                    <Label>End Year</Label>
+                                                    <FormControl>
+                                                        <Input type="number" {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name="version"
+                                                render={({ field }) => (
+                                                <FormItem>
+                                                    <Label>Version</Label>
+                                                    <FormControl>
+                                                        <Input {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                    </TabsContent>
+                                    
+                                    <TabsContent value="pillars" className="space-y-6">
+                                        <StepHeader title="Step 2: Define Pillars" description="A Pillar is a high-level strategic focus area for the organization." />
+                                        <div className="space-y-4">
+                                            {pillarFields.map((pillar, index) => (
+                                                <Card key={pillar.id}>
+                                                    <CardHeader className="flex flex-row items-center justify-between">
+                                                        <CardTitle>Pillar {index + 1}</CardTitle>
+                                                        <Button variant="destructive" size="icon" onClick={() => removePillar(index)}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </CardHeader>
+                                                    <CardContent className="space-y-4">
+                                                        <FormField
+                                                            control={form.control}
+                                                            name={`pillars.${index}.title`}
+                                                            render={({ field }) => (
+                                                                <FormItem>
+                                                                    <Label>Pillar Title</Label>
+                                                                    <FormControl>
+                                                                        <Input {...field} />
+                                                                    </FormControl>
+                                                                    <FormMessage />
+                                                                </FormItem>
+                                                            )}
+                                                        />
+                                                        <FormField
+                                                            control={form.control}
+                                                            name={`pillars.${index}.description`}
+                                                            render={({ field }) => (
+                                                                <FormItem>
+                                                                    <Label>Pillar Description</Label>
+                                                                    <FormControl>
+                                                                        <Textarea {...field} />
+                                                                    </FormControl>
+                                                                    <FormMessage />
+                                                                </FormItem>
+                                                            )}
+                                                        />
+                                                    </CardContent>
+                                                </Card>
+                                            ))}
+                                            <Button type="button" variant="outline" onClick={() => appendPillar({ id: generateId('P'), title: `Pillar ${pillarFields.length + 1}`, description: "", objectives: [] })}>
+                                                <PlusCircle className="mr-2 h-4 w-4" /> Add Pillar
+                                            </Button>
+                                        </div>
+                                    </TabsContent>
+
+                                    <TabsContent value="objectives" className="space-y-6">
+                                         <StepHeader title="Step 3: Define Objectives" description="An Objective is a specific, measurable goal that supports a Pillar." />
+                                        <Accordion type="multiple" defaultValue={pillarFields.map((_, pIndex) => `pillar-${pIndex}`)}>
+                                            {pillarFields.map((pillar, pIndex) => (
+                                                <PillarObjectiveAccordion key={pillar.id} pIndex={pIndex} form={form} />
+                                            ))}
+                                        </Accordion>
+                                    </TabsContent>
+
+                                     <TabsContent value="initiatives" className="space-y-6">
+                                         <StepHeader title="Step 4: Define Initiatives" description="An Initiative is a specific project or program designed to achieve an Objective." />
+                                        <Accordion type="multiple" defaultValue={pillarFields.map((_, pIndex) => `pillar-${pIndex}`)}>
+                                            {pillarFields.map((pillar, pIndex) => (
+                                                <PillarInitiativeAccordion key={pillar.id} pIndex={pIndex} form={form} />
+                                            ))}
+                                        </Accordion>
+                                    </TabsContent>
+
+                                     <TabsContent value="activities" className="space-y-6">
+                                         <StepHeader title="Step 5: Define Activities" description="An Activity is a specific task required to complete an Initiative." />
+                                        <Accordion type="multiple" defaultValue={pillarFields.map((_, pIndex) => `pillar-${pIndex}`)}>
+                                            {pillarFields.map((pillar, pIndex) => (
+                                                <PillarActivityAccordion key={pillar.id} pIndex={pIndex} form={form} />
+                                            ))}
+                                        </Accordion>
+                                    </TabsContent>
+
+                                    <TabsContent value="review" className="space-y-6">
+                                         <StepHeader title="Step 6: Review & Save" description="Review the complete strategic plan hierarchy before publishing." />
+                                        <ReviewSection form={form} />
+                                    </TabsContent>
+
+                                </Tabs>
+
+                                <div className="flex justify-between mt-8">
+                                    <Button variant="outline" type="button" onClick={handleBack} disabled={currentTab === TABS[0].value}>Back</Button>
+                                    {currentTab !== TABS[TABS.length - 1].value ? (
+                                        <Button type="button" onClick={handleNext}>Next</Button>
+                                    ) : (
+                                        <Button type="submit">Publish Plan</Button>
+                                    )}
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </form>
+            </div>
         </Form>
     );
 }
@@ -787,17 +788,17 @@ function ReviewSection({ form }: { form: any }) {
                 const pillarWeight = calculatePillarWeight(pillar.objectives);
                 return (
                     <div key={pIndex} className="p-4 border rounded-lg space-y-3 bg-muted/20">
-                        <h4 className="font-bold text-lg">Pillar {pIndex+1}: {pillar.title} (Total Weight: {pillarWeight})</h4>
+                        <h4 className="font-bold text-lg">{pillar.title} (Total Weight: {pillarWeight})</h4>
                         {pillar.objectives.map((objective: any, oIndex: number) => {
                              const objectiveWeight = calculateObjectiveWeight(objective.initiatives);
                              return (
                                 <div key={oIndex} className="p-3 border rounded-md space-y-2 bg-background/50 ml-4">
-                                    <h5 className="font-semibold">Objective {pIndex+1}.{oIndex+1}: {objective.statement} (Total Weight: {objectiveWeight})</h5>
+                                    <h5 className="font-semibold">{objective.statement} (Total Weight: {objectiveWeight})</h5>
                                     {objective.initiatives.map((initiative: any, iIndex: number) => {
                                         const initiativeWeight = calculateInitiativeWeight(initiative.activities);
                                         return (
                                              <div key={iIndex} className="p-2 border rounded-md space-y-2 bg-muted/20 ml-4">
-                                                 <h6 className="font-medium">Initiative {pIndex+1}.{oIndex+1}.{iIndex+1}: {initiative.title} (Total Weight: {initiativeWeight})</h6>
+                                                 <h6 className="font-medium">{initiative.title} (Total Weight: {initiativeWeight})</h6>
                                                  <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
                                                     {initiative.activities.map((activity: any, aIndex: number) => (
                                                         <li key={aIndex}>
@@ -817,5 +818,3 @@ function ReviewSection({ form }: { form: any }) {
         </div>
     )
 }
-
-    
