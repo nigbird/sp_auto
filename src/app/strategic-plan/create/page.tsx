@@ -244,7 +244,7 @@ export default function CreateStrategicPlanPage() {
                         <Button type="submit" form="strategic-plan-form">Publish Plan</Button>
                     </div>
                 </div>
-                <form id="strategic-plan-form" onSubmit={form.handleSubmit(onSubmit)}>
+                <form id="strategic-plan-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     <Card>
                         <CardContent className="p-6">
                             <Stepper 
