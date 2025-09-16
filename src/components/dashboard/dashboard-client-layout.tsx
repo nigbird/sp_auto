@@ -30,11 +30,6 @@ function filterPillarsByDepartment(pillars: Pillar[], department: string | null)
 export function DashboardClientLayout({ initialReportData, allActivities, departments }: DashboardClientLayoutProps) {
     const [selectedDepartment, setSelectedDepartment] = useState<string>("All");
 
-    const filteredActivities = useMemo(() => {
-        if (selectedDepartment === "All") return allActivities;
-        return allActivities.filter(a => a.department === selectedDepartment);
-    }, [allActivities, selectedDepartment]);
-
     const filteredReportData = useMemo(() => {
         return filterPillarsByDepartment(initialReportData, selectedDepartment === "All" ? null : selectedDepartment);
     }, [initialReportData, selectedDepartment]);
