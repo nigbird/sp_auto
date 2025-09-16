@@ -14,7 +14,7 @@ import {
   ColumnFiltersState,
   getFilteredRowModel,
 } from "@tanstack/react-table";
-import { MoreHorizontal, PlusCircle, X } from "lucide-react";
+import { MoreHorizontal, PlusCircle, X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -22,15 +22,8 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -38,11 +31,22 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import type { Activity } from "@/lib/types";
 import { StatusBadge } from "../status-badge";
 import { Progress } from "../ui/progress";
 import { ActivityForm } from "./activity-form";
 import { ActivityReviewDialog } from "./activity-review-dialog";
+import { ActivityDetailsDialog } from "./activity-details-dialog";
 import { format } from "date-fns";
 import { Input } from "../ui/input";
 import { DataTableFacetedFilter } from "../data-table-faceted-filter";
@@ -55,8 +59,14 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
   const [data, setData] = useState(activities);
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [isReviewFormOpen, setIsReviewFormOpen] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [reviewingActivity, setReviewingActivity] = useState<Activity | null>(null);
+  const [viewingActivity, setViewingActivity] = useState<Activity | null>(null);
+  const [deletingActivity, setDeletingActivity] = useState<Activity | null>(null);
+  
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const { toast } = useToast();
@@ -89,6 +99,11 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
   };
 
   const handleViewDetails = (activity: Activity) => {
+    setViewingActivity(activity);
+    setIsDetailsOpen(true);
+  }
+
+  const handleReviewUpdate = (activity: Activity) => {
     setReviewingActivity(activity);
     setIsReviewFormOpen(true);
   }
@@ -97,6 +112,19 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
     setEditingActivity(null);
     setIsCreateFormOpen(true);
   };
+
+  const handleDeleteClick = (activity: Activity) => {
+    setDeletingActivity(activity);
+    setIsDeleteDialogOpen(true);
+  }
+
+  const handleDeleteConfirm = () => {
+    if(!deletingActivity) return;
+    setData(data.filter(act => act.id !== deletingActivity.id));
+    toast({ title: "Activity Deleted", description: `"${deletingActivity.title}" has been deleted.` });
+    setIsDeleteDialogOpen(false);
+    setDeletingActivity(null);
+  }
   
   const handleApprove = (activityId: string) => {
     setData(currentData => currentData.map(act => {
@@ -218,9 +246,16 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => handleViewDetails(activity)}>View Details</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleEdit(activity)}>Edit Activity</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleViewDetails(activity)} disabled={!activity.pendingUpdate}>View Details</DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+              {activity.pendingUpdate && (
+                <DropdownMenuItem onClick={() => handleReviewUpdate(activity)}>Review Update</DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleDeleteClick(activity)} className="text-destructive">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         );
@@ -387,6 +422,26 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
         onApprove={handleApprove}
         onDecline={handleDecline}
       />
+      <ActivityDetailsDialog 
+        isOpen={isDetailsOpen}
+        onOpenChange={setIsDetailsOpen}
+        activity={viewingActivity}
+      />
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the activity
+                    "{deletingActivity?.title}".
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteConfirm}>Delete</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
