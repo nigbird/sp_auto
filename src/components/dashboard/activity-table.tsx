@@ -231,12 +231,6 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
                     </Button>
                 )}
             </div>
-          <DialogTrigger asChild>
-            <Button onClick={handleCreateNew} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Create Activity
-            </Button>
-          </DialogTrigger>
         </div>
         <div className="rounded-md border">
           <Table>
