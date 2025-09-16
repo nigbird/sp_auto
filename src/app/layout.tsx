@@ -1,30 +1,20 @@
-"use client"
-
 import type { Metadata } from "next";
-import { usePathname } from 'next/navigation'
 import "./globals.css";
-import { AppLayout } from "@/components/app-layout";
-import { Toaster } from "@/components/ui/toaster";
+import { RootLayoutClient } from "@/components/root-layout-client";
 
-// Metadata cannot be exported from a client component, so we define it here.
-// export const metadata: Metadata = {
-//   title: "Corp-Plan Dashboard",
-//   description: "Corporate Activity Plan & Dashboard Automation System",
-// };
+export const metadata: Metadata = {
+  title: "Corp-Plan Dashboard",
+  description: "Corporate Activity Plan & Dashboard Automation System",
+};
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const pathname = usePathname();
-  const isLoginPage = pathname === "/login";
-
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <title>Corp-Plan Dashboard</title>
-        <meta name="description" content="Corporate Activity Plan & Dashboard Automation System" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
@@ -33,14 +23,7 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        {isLoginPage ? (
-          <>
-            {children}
-            <Toaster />
-          </>
-        ) : (
-          <AppLayout>{children}</AppLayout>
-        )}
+        <RootLayoutClient>{children}</RootLayoutClient>
       </body>
     </html>
   );
