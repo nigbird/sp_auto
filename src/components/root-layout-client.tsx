@@ -13,16 +13,16 @@ export function RootLayoutClient({
   const pathname = usePathname();
   const isLoginPage = pathname === "/login";
 
+  if (isLoginPage) {
+    return (
+      <>
+        {children}
+        <Toaster />
+      </>
+    );
+  }
+
   return (
-    <>
-      {isLoginPage ? (
-        <>
-          {children}
-          <Toaster />
-        </>
-      ) : (
-        <AppLayout>{children}</AppLayout>
-      )}
-    </>
+    <AppLayout>{children}</AppLayout>
   );
 }

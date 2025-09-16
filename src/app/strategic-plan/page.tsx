@@ -236,8 +236,8 @@ export default function StrategicPlanPage() {
 
 
   return (
-    <div className="flex-1 space-y-6">
-        <div className="flex items-center justify-between space-y-2">
+    <div className="flex flex-col h-full gap-6">
+        <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold tracking-tight">Strategic Plan</h1>
             <div className="flex gap-2">
                 {plan ? (
@@ -262,14 +262,14 @@ export default function StrategicPlanPage() {
         </div>
 
 
-    <Card className="w-full">
+    <Card className="flex-1 flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
             <CardTitle>{plan?.planTitle ?? 'No Plan Created'}</CardTitle>
             {plan && <p className="text-sm text-muted-foreground">Version {plan.version} ({plan.startYear}-{plan.endYear}) - <span className="font-semibold capitalize">{plan.status}</span></p>}
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="flex-1 space-y-4 overflow-auto">
         {data.map((pillar, pillarIndex) => (
           <PillarItem 
             key={pillar.id} 
@@ -406,3 +406,4 @@ function PillarItem({ pillar, pillarIndex, onEdit, onDelete }: { pillar: Pillar;
 }
 
     
+
