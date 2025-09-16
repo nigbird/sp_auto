@@ -56,19 +56,6 @@ export default function SettingsPage() {
             </Button>
           </CardFooter>
         </Card>
-         <Card className="flex flex-col">
-          <CardHeader>
-            <CardTitle>Performance Rules</CardTitle>
-            <CardDescription>Define how performance statuses are calculated based on progress against targets. Customize the thresholds for statuses like "On Track" or "Delayed".</CardDescription>
-          </CardHeader>
-          <CardFooter className="mt-auto">
-            <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-              <Link href="/settings/rules">
-                <Gavel className="mr-2 h-4 w-4" /> Go to Rules Definition
-              </Link>
-            </Button>
-          </CardFooter>
-        </Card>
       </div>
     </div>
   );
