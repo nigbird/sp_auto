@@ -42,7 +42,7 @@ export default function MyActivityPage() {
     loadActivities();
   }, []);
 
-  const overdueActivities = useMemo(() => myActivities.filter(a => a.status === 'Delayed' || a_status === 'Overdue'), [myActivities]);
+  const overdueActivities = useMemo(() => myActivities.filter(a => a.status === 'Delayed' || a.status === 'Overdue'), [myActivities]);
   const pendingActivities = useMemo(() => myActivities.filter(a => a.status === 'Not Started'), [myActivities]);
   const activeActivities = useMemo(() => myActivities.filter(a => a.status === 'On Track'), [myActivities]);
   const completedActivities = useMemo(() => myActivities.filter(a => a.status === 'Completed As Per Target'), [myActivities]);
