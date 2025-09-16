@@ -29,7 +29,13 @@ function TaskCard({ activity, onUpdateActivity }: TaskCardProps) {
   const [updateComment, setUpdateComment] = React.useState("");
 
   React.useEffect(() => {
-    const newStatus = calculateActivityStatus({ ...activity, progress });
+    // This needs to be a valid date object. If it's a string, convert it.
+    const activityWithDateObjects = {
+      ...activity,
+      startDate: typeof activity.startDate === 'string' ? new Date(activity.startDate) : activity.startDate,
+      endDate: typeof activity.endDate === 'string' ? new Date(activity.endDate) : activity.endDate,
+    }
+    const newStatus = calculateActivityStatus({ ...activityWithDateObjects, progress });
     setStatus(newStatus);
   }, [progress, activity]);
 
@@ -39,7 +45,12 @@ function TaskCard({ activity, onUpdateActivity }: TaskCardProps) {
         alert("Please provide an update comment.");
         return;
     }
-    const newStatus = calculateActivityStatus({ ...activity, progress });
+    const activityWithDateObjects = {
+      ...activity,
+      startDate: typeof activity.startDate === 'string' ? new Date(activity.startDate) : activity.startDate,
+      endDate: typeof activity.endDate === 'string' ? new Date(activity.endDate) : activity.endDate,
+    }
+    const newStatus = calculateActivityStatus({ ...activityWithDateObjects, progress });
     onUpdateActivity(activity.id, progress, newStatus, updateComment);
     setUpdateComment("");
   };
@@ -50,6 +61,8 @@ function TaskCard({ activity, onUpdateActivity }: TaskCardProps) {
           setProgress(newProgress);
       }
   }
+
+  const deadline = activity.endDate ? (typeof activity.endDate === 'string' ? new Date(activity.endDate) : activity.endDate) : new Date();
 
   return (
     <Card className="bg-card">
@@ -73,7 +86,7 @@ function TaskCard({ activity, onUpdateActivity }: TaskCardProps) {
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="flex items-center gap-4">
-                    <Badge variant="outline">Due: {format(activity.endDate, "PP")}</Badge>
+                    <Badge variant="outline">Due: {format(deadline, "PP")}</Badge>
                     <Badge variant="outline">Weight: {activity.weight}%</Badge>
                     <Progress value={activity.progress} className="h-2 flex-1" />
                 </div>
@@ -123,7 +136,7 @@ function TaskCard({ activity, onUpdateActivity }: TaskCardProps) {
                     <div className="space-y-4">
                         <h4 className="font-medium">Update History</h4>
                         <div className="space-y-4 max-h-48 overflow-y-auto pr-2">
-                        {[...activity.updates].reverse().map((update, index) => (
+                        {[...(activity.updates || [])].reverse().map((update, index) => (
                             <div key={index} className="flex items-start gap-4">
                                 <Avatar className="h-9 w-9">
                                     <AvatarFallback>{update.user.charAt(0)}</AvatarFallback>
@@ -131,7 +144,7 @@ function TaskCard({ activity, onUpdateActivity }: TaskCardProps) {
                                 <div className="w-full">
                                     <div className="flex justify-between items-center">
                                         <p className="font-semibold">{update.user}</p>
-                                        <p className="text-xs text-muted-foreground">{formatDistanceToNow(update.date, { addSuffix: true })}</p>
+                                        <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(update.date), { addSuffix: true })}</p>
                                     </div>
                                     <p className="text-sm text-muted-foreground">{update.comment}</p>
                                 </div>

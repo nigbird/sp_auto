@@ -2,8 +2,8 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { getActivities } from "@/lib/data";
-import type { Activity, ActivityStatus, ActivityUpdate } from "@/lib/types";
+import { getSavedPlan } from "@/lib/plan-service";
+import type { Activity, ActivityStatus, ActivityUpdate, StrategicPlan } from "@/lib/types";
 import { MyActivitySummaryCards } from "@/components/my-activity/my-activity-summary-cards";
 import { MyActivityTaskList } from "@/components/my-activity/my-activity-task-list";
 import { AllActivityTaskList } from "@/components/my-activity/all-activity-task-list";
@@ -20,8 +20,18 @@ export default function MyActivityPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    async function loadActivities() {
-      const activities = await getActivities();
+    function loadActivities() {
+      const plan: StrategicPlan | null = getSavedPlan();
+      let activities: Activity[] = [];
+      if (plan) {
+        plan.pillars.forEach(pillar => {
+          pillar.objectives.forEach(objective => {
+            objective.initiatives.forEach(initiative => {
+              activities.push(...initiative.activities);
+            });
+          });
+        });
+      }
       setAllActivities(activities);
       // In a real application, this would be based on the logged-in user's identity.
       // For this demo, we'll assign tasks to a few specific users.
