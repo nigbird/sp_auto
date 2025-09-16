@@ -262,7 +262,7 @@ export default function StrategicPlanPage() {
         </div>
 
 
-    <Card>
+    <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
             <CardTitle>{plan?.planTitle ?? 'No Plan Created'}</CardTitle>
