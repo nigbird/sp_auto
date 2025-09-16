@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, MoreHorizontal, PlusCircle } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, PlusCircle, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -18,21 +18,47 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
 import { getUsers } from "@/lib/data";
 import type { User } from "@/lib/types";
 import { format } from "date-fns";
+import { UserForm, UserFormValues } from "@/components/settings/user-form";
+import { useToast } from "@/hooks/use-toast";
 
 export default function UserManagementPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     async function fetchData() {
       const userList = await getUsers();
       setUsers(userList);
+      setIsLoading(false);
     }
     fetchData();
   }, []);
@@ -43,7 +69,47 @@ export default function UserManagementPage() {
         ? { ...user, status: user.status === 'Active' ? 'Inactive' : 'Active' }
         : user
     ));
+    toast({
+        title: "Status Updated",
+        description: `User status has been toggled.`,
+    });
   };
+
+  const handleEditClick = (user: User) => {
+    setSelectedUser(user);
+    setIsEditDialogOpen(true);
+  };
+  
+  const handleDeleteClick = (user: User) => {
+    setSelectedUser(user);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleUpdateUser = (values: UserFormValues) => {
+    if (!selectedUser) return;
+    setUsers(users.map(user => 
+        user.email === selectedUser.email ? { ...user, name: values.name, role: values.role } : user
+    ));
+    setIsEditDialogOpen(false);
+    setSelectedUser(null);
+    toast({
+      title: "User Updated",
+      description: `${values.name}'s details have been successfully updated.`,
+    });
+  };
+
+  const handleDeleteUser = () => {
+    if (!selectedUser) return;
+    setUsers(users.filter(user => user.email !== selectedUser.email));
+    setIsDeleteDialogOpen(false);
+    setSelectedUser(null);
+    toast({
+      title: "User Deleted",
+      description: "The user has been permanently removed from the system.",
+      variant: "destructive",
+    });
+  };
+
 
   return (
     <div className="flex-1 space-y-6">
@@ -84,7 +150,14 @@ export default function UserManagementPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((user) => (
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center">
+                    Loading users...
+                  </TableCell>
+                </TableRow>
+              ) : (
+                users.map((user) => (
                 <TableRow key={user.email}>
                     <TableCell>
                         <div className="flex items-center gap-3">
@@ -114,19 +187,61 @@ export default function UserManagementPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEditClick(user)}>
+                            Edit
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleToggleStatus(user.email)}>
                           {user.status === 'Active' ? 'Deactivate' : 'Activate'}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleDeleteClick(user)} className="text-destructive">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))}
+              ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+                Update the details for {selectedUser?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <UserForm 
+            user={selectedUser}
+            onSubmit={handleUpdateUser}
+            onCancel={() => setIsEditDialogOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete User Confirmation */}
+       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the account for <strong>{selectedUser?.name}</strong>.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setSelectedUser(null)}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
