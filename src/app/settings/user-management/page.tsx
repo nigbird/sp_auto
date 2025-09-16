@@ -38,8 +38,8 @@ export default function UserManagementPage() {
   }, []);
 
   const handleToggleStatus = (email: string) => {
-    setUsers(users.map(user => 
-      user.email === email 
+    setUsers(users.map(user =>
+      user.email === email
         ? { ...user, status: user.status === 'Active' ? 'Inactive' : 'Active' }
         : user
     ));
@@ -104,7 +104,7 @@ export default function UserManagementPage() {
                       {user.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{format(user.createdAt, "PP")}</TableCell>
+                  <TableCell>{format(new Date(user.createdAt), "PP")}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
