@@ -225,7 +225,8 @@ export default function CreateStrategicPlanPage() {
     const isStepCompleted = (index: number) => index < highestCompletedStep;
 
     return (
-        <div className="flex-1 space-y-6">
+        <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 space-y-6">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <Button asChild variant="outline" size="icon">
@@ -239,13 +240,11 @@ export default function CreateStrategicPlanPage() {
                     </div>
                 </div>
                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={handleSaveDraft}>Save Draft</Button>
-                    <Button onClick={form.handleSubmit(onSubmit)}>Publish Plan</Button>
+                    <Button variant="outline" type="button" onClick={handleSaveDraft}>Save Draft</Button>
+                    <Button type="submit">Publish Plan</Button>
                 </div>
             </div>
             
-        <Form {...form}>
-         <form onSubmit={form.handleSubmit(onSubmit)}>
             <Card>
                 <CardContent className="p-6">
                     <Stepper 
@@ -415,7 +414,6 @@ export default function CreateStrategicPlanPage() {
             </Card>
         </form>
         </Form>
-        </div>
     );
 }
 
@@ -819,7 +817,5 @@ function ReviewSection({ form }: { form: any }) {
         </div>
     )
 }
-
-    
 
     
