@@ -254,6 +254,7 @@ export default function EditStrategicPlanPage() {
             </div>
             
             <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)}>
             <Card>
                 <CardContent className="p-6">
                     <Stepper 
@@ -411,16 +412,17 @@ export default function EditStrategicPlanPage() {
                         </Tabs>
 
                         <div className="flex justify-between mt-8">
-                            <Button variant="outline" onClick={handleBack} disabled={currentTab === TABS[0].value}>Back</Button>
+                            <Button variant="outline" type="button" onClick={handleBack} disabled={currentTab === TABS[0].value}>Back</Button>
                             {currentTab !== TABS[TABS.length - 1].value ? (
-                                <Button onClick={handleNext}>Next</Button>
+                                <Button type="button" onClick={handleNext}>Next</Button>
                             ) : (
-                                <Button onClick={form.handleSubmit(onSubmit)}>Update & Publish</Button>
+                                <Button type="submit">Update & Publish</Button>
                             )}
                         </div>
                     </div>
                 </CardContent>
             </Card>
+            </form>
             </Form>
         </div>
     );
