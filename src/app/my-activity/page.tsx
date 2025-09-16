@@ -3,12 +3,11 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { getSavedPlan } from "@/lib/plan-service";
-import type { Activity, ActivityStatus, ActivityUpdate, StrategicPlan } from "@/lib/types";
+import type { Activity, ActivityStatus, ActivityUpdate, StrategicPlan, PendingUpdate } from "@/lib/types";
 import { MyActivitySummaryCards } from "@/components/my-activity/my-activity-summary-cards";
 import { MyActivityTaskList } from "@/components/my-activity/my-activity-task-list";
 import { AllActivityTaskList } from "@/components/my-activity/all-activity-task-list";
 import { useToast } from "@/hooks/use-toast";
-import { calculateActivityStatus } from "@/lib/utils";
 
 type FilterType = "Delayed" | "Not Started" | "On Track" | "Completed As Per Target" | "Overdue" | "All";
 
@@ -43,7 +42,7 @@ export default function MyActivityPage() {
     loadActivities();
   }, []);
 
-  const overdueActivities = useMemo(() => myActivities.filter(a => a.status === 'Delayed' || a.status === 'Overdue'), [myActivities]);
+  const overdueActivities = useMemo(() => myActivities.filter(a => a.status === 'Delayed' || a_status === 'Overdue'), [myActivities]);
   const pendingActivities = useMemo(() => myActivities.filter(a => a.status === 'Not Started'), [myActivities]);
   const activeActivities = useMemo(() => myActivities.filter(a => a.status === 'On Track'), [myActivities]);
   const completedActivities = useMemo(() => myActivities.filter(a => a.status === 'Completed As Per Target'), [myActivities]);
@@ -73,34 +72,34 @@ export default function MyActivityPage() {
   const handleUpdateActivity = (
     activityId: string,
     newProgress: number,
-    newStatus: ActivityStatus,
+    _newStatus: ActivityStatus,
     updateComment: string
   ) => {
-    // In a real app, this would be a call to a server action or API endpoint.
-    const newUpdate: ActivityUpdate = {
+    const newPendingUpdate: PendingUpdate = {
         user: "Liam Johnson", // Hardcoded for demo
         date: new Date(),
         comment: updateComment,
+        progress: newProgress,
     };
     
     const updatedActivities = myActivities.map(activity => {
         if (activity.id === activityId) {
-            const status = calculateActivityStatus({ ...activity, progress: newProgress });
             return {
                 ...activity,
-                progress: newProgress,
-                status: status,
-                updates: [...activity.updates, newUpdate],
-                lastUpdated: { user: newUpdate.user, date: newUpdate.date }
+                pendingUpdate: newPendingUpdate,
             };
         }
         return activity;
     });
     setMyActivities(updatedActivities);
-
+    
+    // In a real app, you would save this to the backend.
+    // For now, we simulate by updating the state of another component
+    // We can use a custom event for this if needed, or rely on a shared state management
+    
     toast({
-        title: "Activity Updated",
-        description: `Progress for "${updatedActivities.find(a => a.id === activityId)?.title}" has been saved.`,
+        title: "Update Submitted",
+        description: `Your progress update for "${updatedActivities.find(a => a.id === activityId)?.title}" has been submitted for review.`,
     });
   };
 

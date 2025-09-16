@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState } from "react";
@@ -41,23 +42,30 @@ import type { Activity } from "@/lib/types";
 import { StatusBadge } from "../status-badge";
 import { Progress } from "../ui/progress";
 import { ActivityForm } from "./activity-form";
+import { ActivityReviewDialog } from "./activity-review-dialog";
 import { format } from "date-fns";
 import { Input } from "../ui/input";
 import { DataTableFacetedFilter } from "../data-table-faceted-filter";
 import { DateRangePicker } from "../date-range-picker";
 import { DateRange } from "react-day-picker";
+import { useToast } from "@/hooks/use-toast";
+import { calculateActivityStatus } from "@/lib/utils";
 
 export function ActivityTable({ activities, users, departments, statuses }: { activities: Activity[], users: string[], departments: string[], statuses: string[] }) {
   const [data, setData] = useState(activities);
-  const [open, setOpen] = useState(false);
+  const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
+  const [isReviewFormOpen, setIsReviewFormOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [reviewingActivity, setReviewingActivity] = useState<Activity | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const { toast } = useToast();
 
   const handleFormSubmit = (values: any) => {
     if(editingActivity) {
       // Update logic
       setData(data.map(act => act.id === editingActivity.id ? {...act, ...values, lastUpdated: {user: 'Admin User', date: new Date()}} : act));
+      toast({ title: "Activity Updated", description: "The activity has been successfully updated." });
     } else {
       // Create logic
       const newActivity: Activity = {
@@ -69,21 +77,69 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
         progress: 0,
       };
       setData([newActivity, ...data]);
+      toast({ title: "Activity Created", description: "The new activity has been successfully created." });
     }
-    setOpen(false);
+    setIsCreateFormOpen(false);
     setEditingActivity(null);
   };
   
   const handleEdit = (activity: Activity) => {
     setEditingActivity(activity);
-    setOpen(true);
+    setIsCreateFormOpen(true);
   };
+
+  const handleViewDetails = (activity: Activity) => {
+    setReviewingActivity(activity);
+    setIsReviewFormOpen(true);
+  }
   
   const handleCreateNew = () => {
     setEditingActivity(null);
-    setOpen(true);
+    setIsCreateFormOpen(true);
   };
   
+  const handleApprove = (activityId: string) => {
+    setData(currentData => currentData.map(act => {
+      if (act.id === activityId && act.pendingUpdate) {
+        const { progress, comment, user, date } = act.pendingUpdate;
+        const newStatus = calculateActivityStatus({ ...act, progress });
+        
+        toast({
+          title: "Update Approved",
+          description: `Progress for "${act.title}" has been updated to ${progress}%.`,
+        });
+
+        return {
+          ...act,
+          progress: progress,
+          status: newStatus,
+          lastUpdated: { user, date },
+          updates: [...act.updates, { user, date, comment }],
+          pendingUpdate: undefined,
+        };
+      }
+      return act;
+    }));
+    setIsReviewFormOpen(false);
+    setReviewingActivity(null);
+  };
+
+  const handleDecline = (activityId: string) => {
+    setData(currentData => currentData.map(act => {
+      if (act.id === activityId) {
+        toast({
+          title: "Update Declined",
+          description: `The pending update for "${act.title}" has been declined.`,
+          variant: "destructive"
+        });
+        return { ...act, pendingUpdate: undefined };
+      }
+      return act;
+    }));
+    setIsReviewFormOpen(false);
+    setReviewingActivity(null);
+  };
+
   const departmentOptions = departments.map(d => ({ label: d, value: d }));
   const statusOptions = statuses.map(s => ({ label: s, value: s }));
 
@@ -91,9 +147,15 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
     {
       accessorKey: "title",
       header: "Title",
-      cell: ({ row }) => (
-        <div className="font-medium">{row.getValue("title")}</div>
-      ),
+      cell: ({ row }) => {
+        const activity = row.original;
+        return (
+          <div className="flex items-center gap-2">
+            {activity.pendingUpdate && <span className="h-2 w-2 rounded-full bg-blue-500" title="Pending update"></span>}
+            <span className="font-medium">{row.getValue("title")}</span>
+          </div>
+        )
+      },
     },
     {
       accessorKey: "department",
@@ -109,7 +171,7 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
     {
       accessorKey: "endDate",
       header: "End Date",
-      cell: ({ row }) => format(row.getValue("endDate"), "PPP"),
+      cell: ({ row }) => format(new Date(row.getValue("endDate")), "PPP"),
       filterFn: (row, id, value) => {
         const date = new Date(row.getValue(id));
         const { from, to } = value as DateRange;
@@ -157,7 +219,7 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
               <DropdownMenuItem onClick={() => handleEdit(activity)}>Edit Activity</DropdownMenuItem>
-              <DropdownMenuItem>View Details</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleViewDetails(activity)} disabled={!activity.pendingUpdate}>View Details</DropdownMenuItem>
               <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -185,7 +247,6 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
 
   return (
     <div>
-    <Dialog open={open} onOpenChange={setOpen}>
       <div className="w-full">
         <div className="flex items-center justify-between pb-4">
             <div className="flex items-center gap-2">
@@ -231,6 +292,26 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
                     </Button>
                 )}
             </div>
+             <Dialog open={isCreateFormOpen} onOpenChange={setIsCreateFormOpen}>
+                <DialogTrigger asChild>
+                    <Button onClick={handleCreateNew}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Create Activity
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-2xl">
+                    <DialogHeader>
+                    <DialogTitle>{editingActivity ? 'Edit Activity' : 'Create New Activity'}</DialogTitle>
+                    </DialogHeader>
+                    <ActivityForm 
+                    onSubmit={handleFormSubmit}
+                    activity={editingActivity}
+                    users={users}
+                    departments={departments}
+                    statuses={statuses}
+                    />
+                </DialogContent>
+            </Dialog>
         </div>
         <div className="rounded-md border">
           <Table>
@@ -299,19 +380,13 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
           </Button>
         </div>
       </div>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{editingActivity ? 'Edit Activity' : 'Create New Activity'}</DialogTitle>
-        </DialogHeader>
-        <ActivityForm 
-          onSubmit={handleFormSubmit}
-          activity={editingActivity}
-          users={users}
-          departments={departments}
-          statuses={statuses}
-        />
-      </DialogContent>
-    </Dialog>
+      <ActivityReviewDialog
+        isOpen={isReviewFormOpen}
+        onOpenChange={setIsReviewFormOpen}
+        activity={reviewingActivity}
+        onApprove={handleApprove}
+        onDecline={handleDecline}
+      />
     </div>
   );
 }

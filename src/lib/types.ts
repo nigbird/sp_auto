@@ -1,4 +1,5 @@
 
+
 export type ActivityStatus = "Not Started" | "On Track" | "Completed As Per Target" | "Delayed" | "Overdue" | string;
 
 export type KPI = {
@@ -12,6 +13,13 @@ export type ActivityUpdate = {
   date: Date;
   comment: string;
 };
+
+export type PendingUpdate = {
+  user: string;
+  date: Date;
+  comment: string;
+  progress: number;
+}
 
 export type Activity = {
   id: string;
@@ -32,6 +40,7 @@ export type Activity = {
   updates: ActivityUpdate[];
   weight: number;
   progress: number;
+  pendingUpdate?: PendingUpdate;
 };
 
 export type User = {
