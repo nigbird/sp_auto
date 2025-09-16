@@ -1,6 +1,6 @@
 
 import { getReportData, getActivities } from "@/lib/data";
-import { DepartmentalDashboard } from "@/components/dashboard/departmental-dashboard";
+import { DashboardClientLayout } from "@/components/dashboard/dashboard-client-layout";
 import { ReportSummaryCards } from "@/components/reports/summary-cards";
 import { generateReportSummary } from "@/lib/utils";
 
@@ -13,10 +13,10 @@ export default async function DashboardPage() {
   return (
     <div className="flex-1 space-y-6">
       <ReportSummaryCards summary={summary} />
-      <DepartmentalDashboard 
-        activities={activities}
+      <DashboardClientLayout 
+        initialReportData={reportData}
+        allActivities={activities}
         departments={departments}
-        pillars={reportData}
       />
     </div>
   );

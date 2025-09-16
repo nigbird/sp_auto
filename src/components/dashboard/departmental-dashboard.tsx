@@ -58,7 +58,9 @@ export function DepartmentalDashboard({ activities, departments, pillars }: Depa
             "Overdue": 0
         };
         filteredActivities.forEach(activity => {
-            counts[activity.status]++;
+            if (activity.status in counts) {
+                counts[activity.status as keyof typeof counts]++;
+            }
         });
         // Combine Overdue into Delayed for the chart
         counts.Delayed += counts.Overdue;

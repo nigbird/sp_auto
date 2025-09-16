@@ -1,12 +1,9 @@
-
 "use client";
 
 import { useState, useMemo } from "react";
 import type { Pillar, Activity } from "@/lib/types";
-import { ActivityCharts } from "@/components/dashboard/activity-charts";
 import { PillarTable } from "@/components/dashboard/pillar-table";
-import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { DepartmentalDashboard } from "./departmental-dashboard";
 
 type DashboardClientLayoutProps = {
     initialReportData: Pillar[];
@@ -15,7 +12,7 @@ type DashboardClientLayoutProps = {
 }
 
 function filterPillarsByDepartment(pillars: Pillar[], department: string | null): Pillar[] {
-    if (!department) return pillars;
+    if (!department || department === "All") return pillars;
 
     return pillars.map(pillar => ({
         ...pillar,
@@ -31,39 +28,27 @@ function filterPillarsByDepartment(pillars: Pillar[], department: string | null)
 
 
 export function DashboardClientLayout({ initialReportData, allActivities, departments }: DashboardClientLayoutProps) {
-    const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
+    const [selectedDepartment, setSelectedDepartment] = useState<string>("All");
 
     const filteredActivities = useMemo(() => {
-        if (!selectedDepartment) return allActivities;
+        if (selectedDepartment === "All") return allActivities;
         return allActivities.filter(a => a.department === selectedDepartment);
     }, [allActivities, selectedDepartment]);
 
     const filteredReportData = useMemo(() => {
-        return filterPillarsByDepartment(initialReportData, selectedDepartment);
+        return filterPillarsByDepartment(initialReportData, selectedDepartment === "All" ? null : selectedDepartment);
     }, [initialReportData, selectedDepartment]);
 
     return (
         <div className="space-y-6">
-            {selectedDepartment && (
-                 <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-semibold tracking-tight">
-                        Showing Performance for: <span className="text-primary">{selectedDepartment}</span>
-                    </h2>
-                    <Button variant="ghost" onClick={() => setSelectedDepartment(null)}>
-                        <X className="mr-2 h-4 w-4" />
-                        Clear Filter
-                    </Button>
-                </div>
-            )}
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-                <ActivityCharts 
-                    activities={filteredActivities}
-                    allActivities={allActivities}
-                    onDepartmentSelect={setSelectedDepartment}
-                    selectedDepartment={selectedDepartment}
-                />
-                <PillarTable pillars={filteredReportData} />
-            </div>
+            <DepartmentalDashboard 
+                activities={allActivities}
+                departments={departments}
+                pillars={initialReportData}
+                selectedDepartment={selectedDepartment}
+                onDepartmentChange={setSelectedDepartment}
+            />
+            <PillarTable pillars={filteredReportData} />
         </div>
     )
 }

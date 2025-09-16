@@ -13,7 +13,8 @@ import { Progress } from "../ui/progress";
 
 function ReadOnlyTaskCard({ activity }: { activity: Activity }) {
   const [isOpen, setIsOpen] = React.useState(false);
-  const endDate = typeof activity.endDate === 'string' ? new Date(activity.endDate) : activity.endDate;
+  const endDate = activity.endDate && new Date(activity.endDate);
+  const isValidDate = endDate && !isNaN(endDate.getTime());
 
   return (
     <Card className="bg-card">
@@ -21,7 +22,9 @@ function ReadOnlyTaskCard({ activity }: { activity: Activity }) {
             <CardHeader className="flex flex-row items-start justify-between">
                 <div>
                     <h3 className="font-semibold">{activity.title}</h3>
-                    <p className="text-sm text-muted-foreground">Due: {format(endDate, "PP")}</p>
+                    <p className="text-sm text-muted-foreground">
+                        Due: {isValidDate ? format(endDate, "PP") : "Not set"}
+                    </p>
                 </div>
                  <div className="flex items-center gap-4">
                     <div className="text-right">
@@ -46,11 +49,11 @@ function ReadOnlyTaskCard({ activity }: { activity: Activity }) {
                         </div>
                          <div className="space-y-2">
                              <p className="text-sm font-medium">Start Date</p>
-                             <p className="text-sm">{format(new Date(activity.startDate), "PP")}</p>
+                             <p className="text-sm">{activity.startDate ? format(new Date(activity.startDate), "PP") : "Not set"}</p>
                         </div>
                         <div className="space-y-2">
                              <p className="text-sm font-medium">End Date</p>
-                             <p className="text-sm">{format(endDate, "PP")}</p>
+                             <p className="text-sm">{isValidDate ? format(endDate, "PP") : "Not set"}</p>
                         </div>
                         <div className="space-y-2">
                              <p className="text-sm font-medium">Weight</p>
