@@ -140,8 +140,8 @@ export default function EditStrategicPlanPage() {
         name: "pillars"
     });
 
-    const onSubmit = (data: FormValues) => {
-        savePlan(data, 'published');
+    const onSubmit = async (data: FormValues) => {
+        await savePlan(data, 'published');
         toast({
             title: "Plan Published!",
             description: "The strategic plan has been successfully updated and published.",
@@ -149,9 +149,9 @@ export default function EditStrategicPlanPage() {
         router.push('/strategic-plan');
     };
     
-    const handleSaveDraft = () => {
+    const handleSaveDraft = async () => {
         const data = form.getValues();
-        savePlan(data, 'draft');
+        await savePlan(data, 'draft');
         toast({
             title: "Draft Saved!",
             description: "Your strategic plan has been saved as a draft.",
@@ -504,7 +504,7 @@ function PillarInitiativeAccordion({ pIndex, form }: { pIndex: number; form: any
             <AccordionContent className="pl-4 border-l ml-4 space-y-4">
                 <Accordion type="multiple" className="space-y-4" defaultValue={objectives.map((_: any, oIndex: number) => `objective-${pIndex}-${oIndex}`)}>
                     {objectives.map((_objective: any, oIndex: number) => (
-                       <ObjectiveInitiativeAccordion key={oIndex} pIndex={pIndex} oIndex={oIndex} form={form} />
+                       <ObjectiveInitiativeAccordion key={_objective.id} pIndex={pIndex} oIndex={oIndex} form={form} />
                     ))}
                 </Accordion>
             </AccordionContent>
@@ -623,7 +623,7 @@ function PillarActivityAccordion({ pIndex, form }: { pIndex: number; form: any }
             <AccordionContent className="pl-4 border-l ml-4 space-y-4">
                 <Accordion type="multiple" className="space-y-4" defaultValue={objectives.map((_: any, oIndex: number) => `objective-${pIndex}-${oIndex}`)}>
                     {objectives.map((_objective: any, oIndex: number) => (
-                       <ObjectiveActivityAccordion key={oIndex} pIndex={pIndex} oIndex={oIndex} form={form} />
+                       <ObjectiveActivityAccordion key={_objective.id} pIndex={pIndex} oIndex={oIndex} form={form} />
                     ))}
                 </Accordion>
             </AccordionContent>
@@ -642,7 +642,7 @@ function ObjectiveActivityAccordion({ pIndex, oIndex, form }: { pIndex: number; 
             <AccordionContent className="pl-4 border-l ml-4 space-y-4">
                 <Accordion type="multiple" className="space-y-4" defaultValue={initiatives.map((_: any, iIndex: number) => `initiative-${pIndex}-${oIndex}-${iIndex}`)}>
                     {initiatives.map((_initiative: any, iIndex: number) => (
-                        <InitiativeActivityAccordion key={iIndex} pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} form={form} />
+                        <InitiativeActivityAccordion key={_initiative.id} pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} form={form} />
                     ))}
                 </Accordion>
             </AccordionContent>
@@ -825,5 +825,7 @@ function ReviewSection({ form }: { form: any }) {
         </div>
     )
 }
+
+    
 
     
