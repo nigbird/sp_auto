@@ -193,7 +193,7 @@ export default function CreateStrategicPlanPage() {
             case 4: // Activities
                 isValid = await form.trigger("pillars");
                  const pillarsForActivities = form.getValues("pillars");
-                if (pillarsForActivities.every(p => p.objectives.every(o => o.initiatives.every(i => i.activities.length > 0 && i.activities.every(a => a.title && a.owner && a.deadline && a.weight > 0))))) {
+                if (pillarsForActivities.every(p => p.objectives.every(o => o.initiatives.every(i => i.activities.length > 0 && i.activities.every(a => a.title && a.deadline && a.weight > 0))))) {
                      isValid = true;
                 }
                 break;
@@ -245,6 +245,7 @@ export default function CreateStrategicPlanPage() {
             </div>
             
         <Form {...form}>
+         <form onSubmit={form.handleSubmit(onSubmit)}>
             <Card>
                 <CardContent className="p-6">
                     <Stepper 
@@ -402,16 +403,17 @@ export default function CreateStrategicPlanPage() {
                         </Tabs>
 
                         <div className="flex justify-between mt-8">
-                            <Button variant="outline" onClick={handleBack} disabled={currentTab === TABS[0].value}>Back</Button>
+                            <Button variant="outline" type="button" onClick={handleBack} disabled={currentTab === TABS[0].value}>Back</Button>
                             {currentTab !== TABS[TABS.length - 1].value ? (
-                                <Button onClick={handleNext}>Next</Button>
+                                <Button type="button" onClick={handleNext}>Next</Button>
                             ) : (
-                                <Button onClick={form.handleSubmit(onSubmit)}>Publish Plan</Button>
+                                <Button type="submit">Publish Plan</Button>
                             )}
                         </div>
                     </div>
                 </CardContent>
             </Card>
+        </form>
         </Form>
         </div>
     );
@@ -817,5 +819,7 @@ function ReviewSection({ form }: { form: any }) {
         </div>
     )
 }
+
+    
 
     
