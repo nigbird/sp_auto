@@ -2,13 +2,13 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import type { Pillar } from "@/lib/types";
+import type { Pillar, StrategicPlan } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, Edit, Trash2, ChevronDown, ChevronRight, MoreVertical } from "lucide-react";
 import { getPillarProgress } from "@/lib/utils";
 import { getReportData } from "@/lib/data"; // To get initial data
-import { getSavedPlan } from "@/lib/plan-service";
+import { getSavedPlan, deletePlan } from "@/lib/plan-service";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +36,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { ObjectiveItem } from "@/components/strategic-plan/objective-item";
+import { useToast } from "@/hooks/use-toast";
 
 
 type ItemType = "Pillar" | "Objective" | "Initiative" | "Activity";
@@ -48,10 +49,13 @@ type EditableItem = {
 
 
 export default function StrategicPlanPage() {
+  const [plan, setPlan] = useState<StrategicPlan | null>(null);
   const [data, setData] = useState<Pillar[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeletePlanDialogOpen, setIsDeletePlanDialogOpen] = useState(false);
+  const { toast } = useToast();
 
   const [itemToEdit, setItemToEdit] = useState<EditableItem | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -59,23 +63,44 @@ export default function StrategicPlanPage() {
   
   const [itemToDelete, setItemToDelete] = useState<{ path: number[], type: ItemType} | null>(null);
 
-  useEffect(() => {
-    async function loadData() {
-      const savedPlan = getSavedPlan();
-      if (savedPlan?.pillars) {
-          setData(savedPlan.pillars);
-      } else {
-          const initialData = await getReportData();
-          setData(initialData);
-      }
-      setIsLoading(false);
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    const savedPlan = getSavedPlan();
+    if (savedPlan) {
+        setPlan(savedPlan);
+        setData(savedPlan.pillars);
+    } else {
+        setPlan(null);
+        setData([]);
     }
-    loadData();
+    setIsLoading(false);
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
 
   const forceUpdate = useCallback((newData: Pillar[]) => {
     setData([...newData]);
-  }, []);
+    if (plan) {
+        const updatedPlan = { ...plan, pillars: newData };
+        setPlan(updatedPlan);
+    }
+  }, [plan]);
+
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+        if (event.key === 'strategic_plan') {
+            loadData();
+        }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+        window.removeEventListener('storage', handleStorageChange);
+    };
+}, [loadData]);
   
   useEffect(() => {
     const handleExport = () => {
@@ -135,10 +160,11 @@ export default function StrategicPlanPage() {
     }
     
     if(item) {
-        if(type === 'Pillar') {
+        if(type === 'Pillar' || type === 'Objective') {
             item.title = editTitle;
+            item.statement = editTitle;
         } else {
-            item.title = editTitle; // Use title for all editable items now
+            item.title = editTitle;
         }
         if (type === 'Activity' || type === 'Objective' || type === 'Initiative') {
             const newWeight = parseInt(editWeight, 10);
@@ -178,6 +204,17 @@ export default function StrategicPlanPage() {
     setItemToDelete(null);
   };
 
+  const handleDeletePlan = () => {
+    deletePlan();
+    setPlan(null);
+    setData([]);
+    setIsDeletePlanDialogOpen(false);
+    toast({
+        title: "Plan Deleted",
+        description: "The strategic plan has been successfully deleted.",
+    });
+  }
+
 
   if (isLoading) {
     return (
@@ -200,18 +237,37 @@ export default function StrategicPlanPage() {
 
   return (
     <div className="flex-1 space-y-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Strategic Plan</h1>
-        <Button asChild>
-            <Link href="/strategic-plan/create">
-              <PlusCircle className="mr-2 h-4 w-4" /> Create New Plan
-            </Link>
-        </Button>
-      </div>
+        <div className="flex items-center justify-between space-y-2">
+            <h1 className="text-3xl font-bold tracking-tight">Strategic Plan</h1>
+            <div className="flex gap-2">
+                {plan ? (
+                    <>
+                        <Button variant="outline" asChild>
+                            <Link href="/strategic-plan/edit">
+                                <Edit className="mr-2 h-4 w-4" /> Edit Plan
+                            </Link>
+                        </Button>
+                        <Button variant="destructive" onClick={() => setIsDeletePlanDialogOpen(true)}>
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete Plan
+                        </Button>
+                    </>
+                ) : (
+                    <Button asChild>
+                        <Link href="/strategic-plan/create">
+                            <PlusCircle className="mr-2 h-4 w-4" /> Create New Plan
+                        </Link>
+                    </Button>
+                )}
+            </div>
+        </div>
+
 
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Plan Hierarchy</CardTitle>
+        <div>
+            <CardTitle>{plan?.planTitle ?? 'No Plan Created'}</CardTitle>
+            {plan && <p className="text-sm text-muted-foreground">Version {plan.version} ({plan.startYear}-{plan.endYear}) - <span className="font-semibold capitalize">{plan.status}</span></p>}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {data.map((pillar, pillarIndex) => (
@@ -226,9 +282,11 @@ export default function StrategicPlanPage() {
          {data.length === 0 && (
             <div className="text-center text-muted-foreground py-10">
                 <p>No strategic plan items yet.</p>
-                <Button asChild variant="link" className="p-0 h-auto">
-                    <Link href="/strategic-plan/create">Click "Create New Plan" to get started.</Link>
-                </Button>
+                {!plan && (
+                    <Button asChild variant="link" className="p-0 h-auto">
+                        <Link href="/strategic-plan/create">Click "Create New Plan" to get started.</Link>
+                    </Button>
+                )}
             </div>
         )}
       </CardContent>
@@ -259,7 +317,7 @@ export default function StrategicPlanPage() {
         </DialogContent>
     </Dialog>
 
-    {/* Delete Confirmation Dialog */}
+    {/* Delete Item Confirmation Dialog */}
      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
             <AlertDialogHeader>
@@ -271,6 +329,21 @@ export default function StrategicPlanPage() {
             <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleDeleteItem}>Continue</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+     {/* Delete Plan Confirmation Dialog */}
+     <AlertDialog open={isDeletePlanDialogOpen} onOpenChange={setIsDeletePlanDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Delete Entire Plan?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action is permanent and cannot be undone. This will delete the entire strategic plan.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeletePlan} className="bg-destructive hover:bg-destructive/90">Delete Plan</AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>
@@ -331,3 +404,5 @@ function PillarItem({ pillar, pillarIndex, onEdit, onDelete }: { pillar: Pillar;
     </div>
   );
 }
+
+    

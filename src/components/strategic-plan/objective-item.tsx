@@ -35,6 +35,7 @@ function ActionMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => 
 export function ObjectiveItem({ objective, objectiveIndex, onEdit, onDelete, pillarIndex }: { objective: Objective; objectiveIndex: number; onEdit: Function; onDelete: Function; pillarIndex: number; }) {
     const [isOpen, setIsOpen] = useState(true);
     const progress = getObjectiveProgress(objective);
+    const title = objective.statement || objective.title;
     
     return (
         <div className="space-y-2 rounded-md border bg-background/70 p-3">
@@ -43,12 +44,12 @@ export function ObjectiveItem({ objective, objectiveIndex, onEdit, onDelete, pil
                     <button onClick={() => setIsOpen(!isOpen)} className="focus:outline-none">
                        {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
                     </button>
-                    <h4 className="font-semibold">{objective.statement}</h4>
+                    <h4 className="font-semibold">{title}</h4>
                     <span className="text-sm font-medium text-muted-foreground">(Wt: {objective.weight}%, Prog: {progress}%)</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <ActionMenu 
-                        onEdit={() => onEdit([pillarIndex, objectiveIndex], "Objective", objective.statement, objective.weight)}
+                        onEdit={() => onEdit([pillarIndex, objectiveIndex], "Objective", title, objective.weight)}
                         onDelete={() => onDelete([pillarIndex, objectiveIndex], "Objective")}
                     />
                 </div>
@@ -63,3 +64,5 @@ export function ObjectiveItem({ objective, objectiveIndex, onEdit, onDelete, pil
         </div>
     );
 }
+
+    

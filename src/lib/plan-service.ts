@@ -9,6 +9,8 @@ export function savePlan(planData: Omit<StrategicPlan, 'status'>, status: 'draft
   if (typeof window !== 'undefined') {
     const planToSave: StrategicPlan = { ...planData, status };
     localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify(planToSave));
+    // Dispatch a storage event to notify other tabs/windows
+    window.dispatchEvent(new StorageEvent('storage', { key: PLAN_STORAGE_KEY }));
   }
 }
 
@@ -17,11 +19,9 @@ export function getSavedPlan(): StrategicPlan | null {
     const savedData = localStorage.getItem(PLAN_STORAGE_KEY);
     if (savedData) {
       try {
-        // A simple migration to handle old data structure if needed
         const parsed = JSON.parse(savedData);
+        // Basic migration for old format (array of pillars)
         if (Array.isArray(parsed)) {
-            // This is the old format (just an array of pillars)
-            // We can wrap it in the new format for compatibility
             return {
                 planTitle: 'Imported Strategic Plan',
                 startYear: new Date().getFullYear(),
@@ -30,6 +30,20 @@ export function getSavedPlan(): StrategicPlan | null {
                 pillars: parsed,
                 status: 'published'
             };
+        }
+        // Ensure dates are converted from strings to Date objects
+        if (parsed.pillars) {
+            parsed.pillars.forEach((p: Pillar) => {
+                p.objectives.forEach(o => {
+                    o.initiatives.forEach(i => {
+                        i.activities.forEach(a => {
+                            if (a.startDate) a.startDate = new Date(a.startDate);
+                            if (a.endDate) a.endDate = new Date(a.endDate);
+                            if (a.deadline) a.deadline = new Date(a.deadline as string);
+                        });
+                    });
+                });
+            });
         }
         return parsed;
       } catch (e) {
@@ -40,3 +54,13 @@ export function getSavedPlan(): StrategicPlan | null {
   }
   return null;
 }
+
+export function deletePlan() {
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem(PLAN_STORAGE_KEY);
+        // Dispatch a storage event to notify other tabs/windows
+        window.dispatchEvent(new StorageEvent('storage', { key: PLAN_STORAGE_KEY }));
+    }
+}
+
+    
