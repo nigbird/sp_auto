@@ -12,18 +12,17 @@ export function AppLayout({ children }: { children: ReactNode }) {
   
   return (
     <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <div className="flex flex-1 flex-col">
+      <div className="flex">
+        <AppSidebar />
+        <SidebarInset>
           <Header />
           <main className={cn(
-            "flex-1 bg-background",
-            isStrategicPlanPage ? "p-4 sm:p-6" : "p-4 sm:p-6 lg:p-8"
+            "flex-1 bg-background p-4 sm:p-6 lg:p-8"
           )}>
             {children}
           </main>
-        </div>
-      </SidebarInset>
+        </SidebarInset>
+      </div>
     </SidebarProvider>
   );
 }
