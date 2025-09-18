@@ -1,4 +1,5 @@
 
+
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Pillar, Objective, Initiative, Activity, ActivityStatus } from "./types";
@@ -24,7 +25,7 @@ const getInitiativeWeight = (initiative: Initiative): number => {
     return sumActivityWeights(initiative.activities);
 }
 
-const getObjectiveWeight = (objective: Objective): number => {
+export const getObjectiveWeight = (objective: Objective): number => {
     return objective.initiatives.reduce((sum, initiative) => {
         return sum + getInitiativeWeight(initiative);
     }, 0);
