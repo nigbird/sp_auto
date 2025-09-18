@@ -61,6 +61,14 @@ import { DateRange } from "react-day-picker";
 import { useToast } from "@/hooks/use-toast";
 import { calculateActivityStatus } from "@/lib/utils";
 import { Textarea } from "../ui/textarea";
+import { Badge } from "../ui/badge";
+
+const ApprovalStatusBadge = ({ status }: { status: Activity['approvalStatus'] }) => {
+    if (!status) return null;
+    const variant = status === 'Approved' ? 'default' : status === 'Declined' ? 'destructive' : 'secondary';
+    const className = status === 'Approved' ? 'bg-green-500/20 text-green-700 border-green-400' : status === 'Declined' ? 'bg-red-500/20 text-red-700 border-red-400' : '';
+    return <Badge variant={variant} className={className}>{status}</Badge>
+}
 
 export function ActivityTable({ activities, users, departments, statuses }: { activities: Activity[], users: string[], departments: string[], statuses: string[] }) {
   const [data, setData] = useState(activities);
@@ -81,8 +89,15 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
   const handleFormSubmit = (values: any) => {
     if(editingActivity) {
       // Update logic
-      setData(data.map(act => act.id === editingActivity.id ? {...act, ...values, lastUpdated: {user: 'Admin User', date: new Date()}} : act));
-      toast({ title: "Activity Updated", description: "The activity has been successfully updated." });
+      const updatedActivity = {
+        ...editingActivity, 
+        ...values, 
+        lastUpdated: {user: 'Admin User', date: new Date()},
+        approvalStatus: 'Pending' as const, // Reset on edit
+        declineReason: undefined
+      };
+      setData(data.map(act => act.id === editingActivity.id ? updatedActivity : act));
+      toast({ title: "Activity Updated", description: "The activity has been resubmitted for approval." });
     } else {
       // Create logic
       const newActivity: Activity = {
@@ -95,7 +110,7 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
         approvalStatus: 'Pending',
       };
       setData([newActivity, ...data]);
-      toast({ title: "Activity Created", description: "The new activity has been successfully created." });
+      toast({ title: "Activity Created", description: "The new activity has been submitted for approval." });
     }
     setIsCreateFormOpen(false);
     setEditingActivity(null);
@@ -131,35 +146,47 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
   
   const handleApprove = (activityId: string) => {
     setData(currentData => currentData.map(act => {
-      if (act.id === activityId && act.pendingUpdate) {
-        const { progress, comment, user, date } = act.pendingUpdate;
-        const newStatus = calculateActivityStatus({ ...act, progress });
-        
-        toast({
-          title: "Update Approved",
-          description: `Progress for "${act.title}" has been updated to ${progress}%.`,
-        });
+      if (act.id === activityId) {
+        const isNewActivity = !act.pendingUpdate;
+        let updatedActivity;
 
-        const updatedActivity = {
-          ...act,
-          progress: progress,
-          status: newStatus,
-          lastUpdated: { user, date },
-          updates: [...act.updates, { user, date, comment }],
-          pendingUpdate: undefined,
-          approvalStatus: 'Approved' as const,
-          declineReason: undefined,
-        };
+        if (isNewActivity) { // Approving a new activity
+           toast({
+              title: "Activity Approved",
+              description: `The activity "${act.title}" has been approved.`,
+            });
+           updatedActivity = { ...act, approvalStatus: 'Approved' as const };
+        } else { // Approving a progress update
+            const { progress, comment, user, date } = act.pendingUpdate!;
+            const newStatus = calculateActivityStatus({ ...act, progress });
+            toast({
+              title: "Update Approved",
+              description: `Progress for "${act.title}" has been updated to ${progress}%.`,
+            });
+            updatedActivity = {
+              ...act,
+              progress: progress,
+              status: newStatus,
+              lastUpdated: { user, date },
+              updates: [...act.updates, { user, date, comment }],
+              pendingUpdate: undefined,
+              approvalStatus: 'Approved' as const,
+              declineReason: undefined,
+            };
+        }
         
-        setViewingActivity(updatedActivity);
+        setViewingActivity(updatedActivity); // Update details view if open
         return updatedActivity;
       }
       return act;
     }));
+    setIsDetailsOpen(false); // Close dialog on action
   };
 
   const handleDeclineClick = (activityId: string) => {
-    setViewingActivity(data.find(a => a.id === activityId) || null);
+    const activityToDecline = data.find(a => a.id === activityId);
+    setViewingActivity(activityToDecline || null);
+    setIsDetailsOpen(false);
     setIsDeclineModalOpen(true);
   }
 
@@ -172,21 +199,35 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
 
      setData(currentData => currentData.map(act => {
       if (act.id === activityId) {
-        toast({
-          title: "Update Declined",
-          description: `The pending update for "${act.title}" has been declined.`,
-          variant: "destructive"
-        });
-
-         const updatedActivity = { 
-            ...act, 
-            pendingUpdate: undefined, 
-            approvalStatus: 'Declined' as const,
-            declineReason: declineReason,
-        };
+        const isNewActivity = !act.pendingUpdate;
+        let updatedActivity;
         
-        setViewingActivity(updatedActivity);
+        if (isNewActivity) { // Declining a new activity
+            toast({
+              title: "Activity Declined",
+              description: `The activity "${act.title}" has been declined.`,
+              variant: "destructive"
+            });
+            updatedActivity = { 
+                ...act, 
+                approvalStatus: 'Declined' as const,
+                declineReason: declineReason,
+            };
+        } else { // Declining a progress update
+            toast({
+              title: "Update Declined",
+              description: `The pending update for "${act.title}" has been declined.`,
+              variant: "destructive"
+            });
+            updatedActivity = { 
+                ...act, 
+                pendingUpdate: undefined, 
+                approvalStatus: 'Declined' as const,
+                declineReason: declineReason,
+            };
+        }
 
+        setViewingActivity(updatedActivity); // Update details view if open
         return updatedActivity;
       }
       return act;
@@ -201,18 +242,20 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
       if (act.id === activityId) {
         toast({
           title: "Activity Reset",
-          description: `"${act.title}" is now ready for a new update submission.`,
+          description: `"${act.title}" is now ready for a new submission.`,
         });
-        return { 
+        const updatedActivity = { 
           ...act, 
-          approvalStatus: 'Pending',
+          approvalStatus: 'Pending' as const,
           declineReason: undefined,
         };
+        setEditingActivity(updatedActivity);
+        setIsCreateFormOpen(true);
+        return updatedActivity;
       }
       return act;
     }));
-    setIsCreateFormOpen(false);
-    setEditingActivity(null);
+    // We don't close the form here, we open it for editing
   };
 
 
@@ -225,13 +268,22 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
       header: "Title",
       cell: ({ row }) => {
         const activity = row.original;
+        const needsAttention = activity.approvalStatus === 'Pending';
         return (
           <div className="flex items-center gap-2">
-            {activity.pendingUpdate && activity.approvalStatus === 'Pending' && <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" title="Pending update"></span>}
+            {needsAttention && <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" title="Needs review"></span>}
             <span className="font-medium">{row.getValue("title")}</span>
           </div>
         )
       },
+    },
+    {
+        accessorKey: "approvalStatus",
+        header: "Approval",
+        cell: ({ row }) => <ApprovalStatusBadge status={row.getValue("approvalStatus")} />,
+        filterFn: (row, id, value) => {
+            return value.includes(row.getValue(id));
+        }
     },
     {
       accessorKey: "department",
@@ -260,13 +312,8 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
       }
     },
     {
-      accessorKey: "weight",
-      header: "Weight",
-       cell: ({ row }) => <div>{row.getValue("weight")}%</div>,
-    },
-    {
       accessorKey: "status",
-      header: "Status",
+      header: "Progress Status",
       cell: ({ row }) => <StatusBadge status={row.getValue("status")} />,
       filterFn: (row, id, value) => {
         return value.includes(row.getValue(id));
@@ -284,6 +331,11 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
       id: "actions",
       cell: ({ row }) => {
         const activity = row.original;
+        let detailsText = 'View Details';
+        if (activity.approvalStatus === 'Pending') {
+            detailsText = activity.pendingUpdate ? 'Review Progress Update' : 'Review New Activity';
+        }
+        
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -295,7 +347,7 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
               <DropdownMenuItem onClick={() => handleViewDetails(activity)}>
-                {activity.pendingUpdate ? 'Review & Approve' : 'View Details'}
+                {detailsText}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleEdit(activity)}>Edit Activity</DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -326,12 +378,17 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
   });
 
   const isFiltered = table.getState().columnFilters.length > 0
+  const approvalStatusOptions = [
+    { label: 'Pending', value: 'Pending' },
+    { label: 'Approved', value: 'Approved' },
+    { label: 'Declined', value: 'Declined' },
+  ];
 
   return (
     <div>
       <div className="w-full">
         <div className="flex items-center justify-between pb-4">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
                 <Input
                     placeholder="Filter activities by title..."
                     value={(table.getColumn("title")?.getFilterValue() as string) ?? ""}
@@ -350,8 +407,15 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
                  {table.getColumn("status") && (
                     <DataTableFacetedFilter
                         column={table.getColumn("status")}
-                        title="Status"
+                        title="Progress Status"
                         options={statusOptions}
+                    />
+                )}
+                {table.getColumn("approvalStatus") && (
+                    <DataTableFacetedFilter
+                        column={table.getColumn("approvalStatus")}
+                        title="Approval"
+                        options={approvalStatusOptions}
                     />
                 )}
                 {table.getColumn("endDate") && (
@@ -392,7 +456,7 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
                         departments={departments}
                         statuses={statuses}
                         onReset={handleResetForApproval}
-                        onCancel={() => setIsCreateFormOpen(false)}
+                        onCancel={() => { setIsCreateFormOpen(false); setEditingActivity(null); }}
                     />
                 </DialogContent>
             </Dialog>
@@ -470,7 +534,7 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
         onOpenChange={setIsDetailsOpen}
         activity={viewingActivity}
         onApprove={handleApprove}
-        onDecline={() => viewingActivity && handleDeclineClick(viewingActivity.id)}
+        onDecline={handleDeclineClick}
       />
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
@@ -493,7 +557,7 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
                 <AlertDialogHeader>
                     <AlertDialogTitle>Confirm Decline</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Please provide a reason for declining this activity update. This reason will be saved.
+                        Please provide a reason for declining this update. This reason will be saved.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="py-4">
@@ -512,5 +576,3 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
     </div>
   );
 }
-
-    

@@ -6,7 +6,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import type { Activity } from "@/lib/types";
@@ -54,6 +53,8 @@ export function ActivityDetailsDialog({
   const handleDecline = () => {
     onDecline(activity.id);
   }
+
+  const showApprovalButtons = activity.approvalStatus === 'Pending';
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -120,7 +121,7 @@ export function ActivityDetailsDialog({
                         <Separator />
                         <div className="space-y-4">
                             <div className="space-y-1">
-                                <h3 className="text-lg font-semibold">Progress Update</h3>
+                                <h3 className="text-lg font-semibold">Progress Update for Review</h3>
                                 <p className="text-sm text-muted-foreground">
                                     {pendingUpdate.user} submitted an update {formatDistanceToNow(new Date(pendingUpdate.date), { addSuffix: true })}.
                                 </p>
@@ -150,7 +151,7 @@ export function ActivityDetailsDialog({
             </div>
         </ScrollArea>
 
-        {pendingUpdate && activity.approvalStatus === 'Pending' && (
+        {showApprovalButtons && (
             <DialogFooter className="border-t pt-4">
                 <Button onClick={handleDecline} variant="destructive">Decline</Button>
                 <Button onClick={handleApprove} className="bg-green-600 hover:bg-green-700">Approve</Button>

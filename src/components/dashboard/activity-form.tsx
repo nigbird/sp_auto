@@ -62,6 +62,16 @@ export function ActivityForm({ onSubmit, activity, users, departments, statuses,
     },
   })
 
+  const getSubmitButtonText = () => {
+    if (activity) {
+      if (activity.approvalStatus === 'Declined') {
+        return "Resubmit for Approval";
+      }
+      return "Save Changes";
+    }
+    return "Submit for Approval";
+  }
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -255,20 +265,15 @@ export function ActivityForm({ onSubmit, activity, users, departments, statuses,
         <div className="flex justify-between items-center pt-4">
             <div>
               {activity && activity.approvalStatus === 'Declined' && (
-                <Button type="button" variant="secondary" onClick={() => onReset(activity.id)}>
-                  <RefreshCcw className="mr-2 h-4 w-4" />
-                  Reset for Approval
-                </Button>
+                <p className="text-sm text-destructive">This activity was declined. Please edit and resubmit.</p>
               )}
             </div>
             <div className="flex gap-2">
                 <Button type="button" variant="outline" onClick={onCancel}>Close</Button>
-                <Button type="submit" className="bg-primary hover:bg-primary/90">Save changes</Button>
+                <Button type="submit" className="bg-primary hover:bg-primary/90">{getSubmitButtonText()}</Button>
             </div>
         </div>
       </form>
     </Form>
   )
 }
-
-    
