@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { format } from "date-fns"
-import { CalendarIcon } from "lucide-react"
+import { CalendarIcon, RefreshCcw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -24,6 +24,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import type { Activity } from "@/lib/types"
+import { ScrollArea } from "../ui/scroll-area"
 
 const activitySchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters." }),
@@ -42,9 +43,11 @@ type ActivityFormProps = {
   users: string[];
   departments: string[];
   statuses: string[];
+  onReset: (activityId: string) => void;
+  onCancel: () => void;
 }
 
-export function ActivityForm({ onSubmit, activity, users, departments, statuses }: ActivityFormProps) {
+export function ActivityForm({ onSubmit, activity, users, departments, statuses, onReset, onCancel }: ActivityFormProps) {
   const form = useForm<z.infer<typeof activitySchema>>({
     resolver: zodResolver(activitySchema),
     defaultValues: {
@@ -52,8 +55,8 @@ export function ActivityForm({ onSubmit, activity, users, departments, statuses 
       description: activity?.description ?? "",
       department: activity?.department ?? "",
       responsible: activity?.responsible ?? "",
-      startDate: activity?.startDate,
-      endDate: activity?.endDate,
+      startDate: activity?.startDate ? new Date(activity.startDate) : undefined,
+      endDate: activity?.endDate ? new Date(activity.endDate) : undefined,
       status: activity?.status ?? "Not Started",
       weight: activity?.weight ?? 50,
     },
@@ -62,193 +65,210 @@ export function ActivityForm({ onSubmit, activity, users, departments, statuses 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <FormField
-          control={form.control}
-          name="title"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Title</FormLabel>
-              <FormControl>
-                <Input placeholder="E.g. Q4 Marketing Campaign" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description</FormLabel>
-              <FormControl>
-                <Textarea placeholder="Provide a brief description of the activity..." {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="department"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Department</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a department" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {departments.map(dept => <SelectItem key={dept} value={dept}>{dept}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="responsible"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Responsible Person</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a user" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                     {users.map(user => <SelectItem key={user} value={user}>{user}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <ScrollArea className="h-[60vh] p-1">
+          <div className="space-y-6 pr-6">
             <FormField
-            control={form.control}
-            name="startDate"
-            render={({ field }) => (
-                <FormItem className="flex flex-col">
-                <FormLabel>Start Date</FormLabel>
-                <Popover>
-                    <PopoverTrigger asChild>
-                    <FormControl>
-                        <Button
-                        variant={"outline"}
-                        className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                        )}
-                        >
-                        {field.value ? (
-                            format(field.value, "PPP")
-                        ) : (
-                            <span>Pick a date</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                    </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        initialFocus
-                    />
-                    </PopoverContent>
-                </Popover>
-                <FormMessage />
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Title</FormLabel>
+                  <FormControl>
+                    <Input placeholder="E.g. Q4 Marketing Campaign" {...field} />
+                  </FormControl>
+                  <FormMessage />
                 </FormItem>
-            )}
+              )}
             />
             <FormField
-            control={form.control}
-            name="endDate"
-            render={({ field }) => (
-                <FormItem className="flex flex-col">
-                <FormLabel>End Date</FormLabel>
-                <Popover>
-                    <PopoverTrigger asChild>
-                    <FormControl>
-                        <Button
-                        variant={"outline"}
-                        className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                        )}
-                        >
-                        {field.value ? (
-                            format(field.value, "PPP")
-                        ) : (
-                            <span>Pick a date</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                    </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        initialFocus
-                    />
-                    </PopoverContent>
-                </Popover>
-                <FormMessage />
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Provide a brief description of the activity..." {...field} />
+                  </FormControl>
+                  <FormMessage />
                 </FormItem>
-            )}
+              )}
             />
-        </div>
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
                 control={form.control}
-                name="status"
+                name="department"
                 render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Status</FormLabel>
+                  <FormItem>
+                    <FormLabel>Department</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
+                      <FormControl>
                         <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
+                          <SelectValue placeholder="Select a department" />
                         </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                        {statuses.map(status => (
-                            <SelectItem key={status} value={status}>{status}</SelectItem>
-                        ))}
-                        </SelectContent>
+                      </FormControl>
+                      <SelectContent>
+                        {departments.map(dept => <SelectItem key={dept} value={dept}>{dept}</SelectItem>)}
+                      </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="responsible"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Responsible Person</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a user" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {users.map(user => <SelectItem key={user} value={user}>{user}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                control={form.control}
+                name="startDate"
+                render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                    <FormLabel>Start Date</FormLabel>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                        <FormControl>
+                            <Button
+                            variant={"outline"}
+                            className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                            )}
+                            >
+                            {field.value ? (
+                                format(field.value, "PPP")
+                            ) : (
+                                <span>Pick a date</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                        </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            initialFocus
+                        />
+                        </PopoverContent>
+                    </Popover>
                     <FormMessage />
                     </FormItem>
                 )}
                 />
-             <FormField
+                <FormField
                 control={form.control}
-                name="weight"
+                name="endDate"
                 render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Weight (%)</FormLabel>
+                    <FormItem className="flex flex-col">
+                    <FormLabel>End Date</FormLabel>
+                    <Popover>
+                        <PopoverTrigger asChild>
                         <FormControl>
-                            <Input type="number" placeholder="50" {...field} />
+                            <Button
+                            variant={"outline"}
+                            className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                            )}
+                            >
+                            {field.value ? (
+                                format(field.value, "PPP")
+                            ) : (
+                                <span>Pick a date</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
                         </FormControl>
-                        <FormMessage />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            initialFocus
+                        />
+                        </PopoverContent>
+                    </Popover>
+                    <FormMessage />
                     </FormItem>
                 )}
                 />
-         </div>
-        <div className="flex justify-end pt-4">
-            <Button type="submit" className="bg-primary hover:bg-primary/90">Save changes</Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            {statuses.map(status => (
+                                <SelectItem key={status} value={status}>{status}</SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                <FormField
+                    control={form.control}
+                    name="weight"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Weight (%)</FormLabel>
+                            <FormControl>
+                                <Input type="number" placeholder="50" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+            </div>
+          </div>
+        </ScrollArea>
+        <div className="flex justify-between items-center pt-4">
+            <div>
+              {activity && activity.approvalStatus === 'Declined' && (
+                <Button type="button" variant="secondary" onClick={() => onReset(activity.id)}>
+                  <RefreshCcw className="mr-2 h-4 w-4" />
+                  Reset for Approval
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={onCancel}>Close</Button>
+                <Button type="submit" className="bg-primary hover:bg-primary/90">Save changes</Button>
+            </div>
         </div>
       </form>
     </Form>
   )
 }
+
+    

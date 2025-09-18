@@ -195,6 +195,25 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
     setIsDeclineModalOpen(false);
     setDeclineReason("");
   }
+  
+  const handleResetForApproval = (activityId: string) => {
+    setData(currentData => currentData.map(act => {
+      if (act.id === activityId) {
+        toast({
+          title: "Activity Reset",
+          description: `"${act.title}" is now ready for a new update submission.`,
+        });
+        return { 
+          ...act, 
+          approvalStatus: 'Pending',
+          declineReason: undefined,
+        };
+      }
+      return act;
+    }));
+    setIsCreateFormOpen(false);
+    setEditingActivity(null);
+  };
 
 
   const departmentOptions = departments.map(d => ({ label: d, value: d }));
@@ -367,11 +386,13 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
                     <DialogTitle>{editingActivity ? 'Edit Activity' : 'Create New Activity'}</DialogTitle>
                     </DialogHeader>
                     <ActivityForm 
-                    onSubmit={handleFormSubmit}
-                    activity={editingActivity}
-                    users={users}
-                    departments={departments}
-                    statuses={statuses}
+                        onSubmit={handleFormSubmit}
+                        activity={editingActivity}
+                        users={users}
+                        departments={departments}
+                        statuses={statuses}
+                        onReset={handleResetForApproval}
+                        onCancel={() => setIsCreateFormOpen(false)}
                     />
                 </DialogContent>
             </Dialog>
@@ -491,3 +512,5 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
     </div>
   );
 }
+
+    
