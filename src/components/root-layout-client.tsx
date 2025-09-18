@@ -4,6 +4,7 @@
 import { usePathname } from 'next/navigation'
 import { AppLayout } from "@/components/app-layout";
 import { Toaster } from "@/components/ui/toaster";
+import { ClientOnly } from './client-only';
 
 export function RootLayoutClient({
   children,
@@ -23,6 +24,8 @@ export function RootLayoutClient({
   }
 
   return (
-    <AppLayout>{children}</AppLayout>
+    <ClientOnly>
+      <AppLayout>{children}</AppLayout>
+    </ClientOnly>
   );
 }
