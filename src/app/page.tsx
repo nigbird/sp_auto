@@ -3,6 +3,7 @@ import { getReportData, getActivities } from "@/lib/data";
 import { DashboardClientLayout } from "@/components/dashboard/dashboard-client-layout";
 import { ReportSummaryCards } from "@/components/reports/summary-cards";
 import { generateReportSummary } from "@/lib/utils";
+import { DirectorsPerformance } from "@/components/dashboard/directors-performance";
 
 export default async function DashboardPage() {
   const reportData = await getReportData();
@@ -18,6 +19,7 @@ export default async function DashboardPage() {
         allActivities={activities}
         departments={departments}
       />
+      <DirectorsPerformance />
     </div>
   );
 }
