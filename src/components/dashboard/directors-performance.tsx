@@ -32,9 +32,9 @@ const performanceData = [
 ];
 
 const getPerformanceColor = (achievement: number) => {
-    if (achievement > 80) return "from-green-400/70 to-green-500/70 bg-gradient-to-r";
-    if (achievement >= 50) return "from-yellow-400/70 to-yellow-500/70 bg-gradient-to-r";
-    return "from-red-400/70 to-red-500/70 bg-gradient-to-r";
+    if (achievement > 80) return "from-green-400/80 to-green-500/80 bg-gradient-to-r";
+    if (achievement >= 50) return "from-yellow-400/80 to-yellow-500/80 bg-gradient-to-r";
+    return "from-red-500/90 to-red-600/90 bg-gradient-to-r";
 };
 
 const getRatingBadgeClass = (rating: string) => {
@@ -56,7 +56,7 @@ export function DirectorsPerformance() {
     const [view, setView] = useState<'chart' | 'table'>('chart');
 
     return (
-        <Card>
+        <Card className="shadow-lg rounded-xl">
             <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Streams & Directors Performance</CardTitle>
                 <div className="flex items-center gap-2">
@@ -72,13 +72,20 @@ export function DirectorsPerformance() {
             </CardHeader>
             <CardContent>
                 {view === 'chart' ? (
-                    <div className="space-y-3">
+                    <div className="space-y-1">
                         {performanceData.map((item, index) => (
-                            <div key={index} className="grid grid-cols-[1fr_2fr] items-center gap-4">
-                                <p className="truncate text-sm font-medium text-right">{item.director}</p>
-                                <div className="flex items-center gap-4">
-                                    <Progress value={item.achievement} className="h-5 bg-gray-200" indicatorClassName={getPerformanceColor(item.achievement)} />
-                                    <span className="font-bold text-sm w-16 text-right">{item.achievement.toFixed(1)}%</span>
+                            <div key={index} className={cn("grid grid-cols-[1fr_2fr] items-center gap-4 p-2 rounded-md", index % 2 !== 0 && "bg-muted/50")}>
+                                <p className="truncate text-sm font-medium text-right text-muted-foreground">{item.director}</p>
+                                <div className="relative w-full flex items-center">
+                                    <Progress value={item.achievement} className="h-6 bg-muted/30 rounded-full shadow-inner" indicatorClassName={cn("rounded-full shadow-md", getPerformanceColor(item.achievement))} />
+                                     <div 
+                                        className="absolute top-1/2 -translate-y-1/2 flex items-center justify-center size-8 rounded-full bg-background/80 shadow-md border"
+                                        style={{ left: `calc(${item.achievement}% - 16px)`}}
+                                     >
+                                         <span className="text-xs font-bold text-foreground">
+                                             {item.achievement.toFixed(0)}%
+                                         </span>
+                                     </div>
                                 </div>
                             </div>
                         ))}
@@ -94,7 +101,7 @@ export function DirectorsPerformance() {
                         </TableHeader>
                         <TableBody>
                             {performanceData.map((item, index) => (
-                                <TableRow key={index}>
+                                <TableRow key={index} className={cn(index % 2 !== 0 && "bg-muted/50")}>
                                     <TableCell className="font-medium">{item.director}</TableCell>
                                     <TableCell className="text-right font-semibold">{item.achievement.toFixed(1)}%</TableCell>
                                     <TableCell className="text-center">
