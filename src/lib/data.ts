@@ -29,6 +29,13 @@ const activities: Activity[] = [
     updates: [{ user: "Olivia Smith", date: new Date("2024-07-20T10:00:00Z"), comment: "Initial progress report. Social media campaign is live." }],
     weight: 40,
     progress: 56,
+    approvalStatus: 'Pending',
+    pendingUpdate: {
+      user: "Olivia Smith",
+      date: new Date("2024-07-28T10:00:00Z"),
+      comment: "The social media portion is doing great, but we've had some delays in content creation for the blog.",
+      progress: 65,
+    }
   },
   {
     id: "ACT-002",
@@ -46,7 +53,8 @@ const activities: Activity[] = [
     lastUpdated: { user: "Liam Johnson", date: new Date("2024-07-18T14:30:00Z") },
     updates: [{ user: "Liam Johnson", date: new Date("2024-07-18T14:30:00Z"), comment: "Data migration is on track. User training scheduled." }],
     weight: 30,
-    progress: 72
+    progress: 72,
+    approvalStatus: 'Approved'
   },
   {
     id: "ACT-003",
@@ -64,7 +72,8 @@ const activities: Activity[] = [
     lastUpdated: { user: "Noah Williams", date: new Date("2024-07-25T11:00:00Z") },
     updates: [{ user: "Noah Williams", date: new Date("2024-07-25T11:00:00Z"), comment: "Project complete and deployed." }],
     weight: 30,
-    progress: 100
+    progress: 100,
+    approvalStatus: 'Approved'
   },
   {
     id: "ACT-004",
@@ -81,7 +90,8 @@ const activities: Activity[] = [
     lastUpdated: { user: "Admin", date: new Date("2024-07-15T09:00:00Z") },
     updates: [{ user: "Admin", date: new Date("2024-07-15T09:00:00Z"), comment: "Activity created." }],
     weight: 50,
-    progress: 0
+    progress: 0,
+    approvalStatus: 'Pending'
   },
   {
     id: "ACT-005",
@@ -99,6 +109,8 @@ const activities: Activity[] = [
     updates: [{ user: "Oliver Jones", date: new Date("2024-07-22T16:00:00Z"), comment: "Training delayed due to unforeseen circumstances." }],
     weight: 50,
     progress: 50,
+    approvalStatus: 'Declined',
+    declineReason: "The delay reason is not sufficient. Please provide a more detailed recovery plan."
   },
    {
     id: "ACT-006",
@@ -117,6 +129,7 @@ const activities: Activity[] = [
     updates: [{ user: "Admin", date: new Date("2024-07-28T11:00:00Z"), comment: "Activity created." }],
     weight: 60,
     progress: 0,
+    approvalStatus: 'Pending'
   },
   {
     id: "ACT-007",
@@ -133,7 +146,8 @@ const activities: Activity[] = [
     lastUpdated: { user: "Liam Johnson", date: new Date("2024-07-30T15:00:00Z") },
     updates: [{ user: "Liam Johnson", date: new Date("2024-07-30T15:00:00Z"), comment: "Initial document gathering started." }],
     weight: 40,
-    progress: 10
+    progress: 10,
+    approvalStatus: 'Approved'
   },
 ];
 

@@ -32,14 +32,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -62,6 +54,7 @@ import { DateRangePicker } from "../date-range-picker";
 import { DateRange } from "react-day-picker";
 import { useToast } from "@/hooks/use-toast";
 import { calculateActivityStatus } from "@/lib/utils";
+import { Textarea } from "../ui/textarea";
 
 export function ActivityTable({ activities, users, departments, statuses }: { activities: Activity[], users: string[], departments: string[], statuses: string[] }) {
   const [data, setData] = useState(activities);
@@ -69,6 +62,8 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
   const [isReviewFormOpen, setIsReviewFormOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeclineModalOpen, setIsDeclineModalOpen] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
 
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [reviewingActivity, setReviewingActivity] = useState<Activity | null>(null);
@@ -93,6 +88,7 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
         lastUpdated: { user: "Admin User", date: new Date() },
         updates: [],
         progress: 0,
+        approvalStatus: 'Pending',
       };
       setData([newActivity, ...data]);
       toast({ title: "Activity Created", description: "The new activity has been successfully created." });
@@ -145,14 +141,24 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
           description: `Progress for "${act.title}" has been updated to ${progress}%.`,
         });
 
-        return {
+        const updatedActivity = {
           ...act,
           progress: progress,
           status: newStatus,
           lastUpdated: { user, date },
           updates: [...act.updates, { user, date, comment }],
           pendingUpdate: undefined,
+          approvalStatus: 'Approved' as const,
+          declineReason: undefined,
         };
+
+        // Close the main dialog and update the viewing activity
+        setIsDetailsOpen(false);
+        setViewingActivity(updatedActivity);
+        // A slight delay to allow the dialog to close before reopening
+        setTimeout(() => setIsDetailsOpen(true), 100);
+
+        return updatedActivity;
       }
       return act;
     }));
@@ -160,21 +166,49 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
     setReviewingActivity(null);
   };
 
-  const handleDecline = (activityId: string) => {
-    setData(currentData => currentData.map(act => {
+  const handleDeclineClick = () => {
+    setIsDeclineModalOpen(true);
+  }
+
+  const confirmDecline = () => {
+    if (!viewingActivity || declineReason.trim() === "") {
+        toast({ title: "Reason Required", description: "Please provide a reason for declining.", variant: "destructive" });
+        return;
+    }
+    const activityId = viewingActivity.id;
+
+     setData(currentData => currentData.map(act => {
       if (act.id === activityId) {
         toast({
           title: "Update Declined",
           description: `The pending update for "${act.title}" has been declined.`,
           variant: "destructive"
         });
-        return { ...act, pendingUpdate: undefined };
+
+         const updatedActivity = { 
+            ...act, 
+            pendingUpdate: undefined, 
+            approvalStatus: 'Declined' as const,
+            declineReason: declineReason,
+        };
+        
+        // Close the main dialog and update the viewing activity
+        setIsDetailsOpen(false);
+        setViewingActivity(updatedActivity);
+         // A slight delay to allow the dialog to close before reopening
+        setTimeout(() => setIsDetailsOpen(true), 100);
+
+        return updatedActivity;
       }
       return act;
     }));
+    
     setIsReviewFormOpen(false);
     setReviewingActivity(null);
-  };
+    setIsDeclineModalOpen(false);
+    setDeclineReason("");
+  }
+
 
   const departmentOptions = departments.map(d => ({ label: d, value: d }));
   const statusOptions = statuses.map(s => ({ label: s, value: s }));
@@ -428,12 +462,14 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
         onOpenChange={setIsReviewFormOpen}
         activity={reviewingActivity}
         onApprove={handleApprove}
-        onDecline={handleDecline}
+        onDecline={() => {}}
       />
       <ActivityDetailsDialog 
         isOpen={isDetailsOpen}
         onOpenChange={setIsDetailsOpen}
         activity={viewingActivity}
+        onAccept={handleApprove}
+        onDecline={handleDeclineClick}
       />
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
@@ -450,6 +486,28 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+        <Dialog open={isDeclineModalOpen} onOpenChange={setIsDeclineModalOpen}>
+            <DialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm Decline</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Please provide a reason for declining this activity update. This reason will be saved.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="py-4">
+                    <Textarea 
+                        placeholder="Type your reason here..."
+                        value={declineReason}
+                        onChange={(e) => setDeclineReason(e.target.value)}
+                    />
+                </div>
+                 <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setIsDeclineModalOpen(false)}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={confirmDecline} className="bg-destructive hover:bg-destructive/90">Confirm Decline</AlertDialogAction>
+                </AlertDialogFooter>
+            </DialogContent>
+        </Dialog>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 
 
-
 export type ActivityStatus = "Not Started" | "On Track" | "Completed As Per Target" | "Delayed" | "Overdue" | string;
+export type ApprovalStatus = "Pending" | "Approved" | "Declined";
 
 export type KPI = {
   name: string;
@@ -42,6 +42,8 @@ export type Activity = {
   weight: number;
   progress: number;
   pendingUpdate?: PendingUpdate;
+  approvalStatus?: ApprovalStatus;
+  declineReason?: string;
 };
 
 export type User = {
