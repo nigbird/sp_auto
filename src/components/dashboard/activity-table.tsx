@@ -52,7 +52,6 @@ import type { Activity } from "@/lib/types";
 import { StatusBadge } from "../status-badge";
 import { Progress } from "../ui/progress";
 import { ActivityForm } from "./activity-form";
-import { ActivityReviewDialog } from "./activity-review-dialog";
 import { ActivityDetailsDialog } from "./activity-details-dialog";
 import { format } from "date-fns";
 import { Input } from "../ui/input";
@@ -66,14 +65,12 @@ import { Textarea } from "../ui/textarea";
 export function ActivityTable({ activities, users, departments, statuses }: { activities: Activity[], users: string[], departments: string[], statuses: string[] }) {
   const [data, setData] = useState(activities);
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
-  const [isReviewFormOpen, setIsReviewFormOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeclineModalOpen, setIsDeclineModalOpen] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
 
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
-  const [reviewingActivity, setReviewingActivity] = useState<Activity | null>(null);
   const [viewingActivity, setViewingActivity] = useState<Activity | null>(null);
   const [deletingActivity, setDeletingActivity] = useState<Activity | null>(null);
   
@@ -112,11 +109,6 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
   const handleViewDetails = (activity: Activity) => {
     setViewingActivity(activity);
     setIsDetailsOpen(true);
-  }
-
-  const handleReviewUpdate = (activity: Activity) => {
-    setReviewingActivity(activity);
-    setIsReviewFormOpen(true);
   }
   
   const handleCreateNew = () => {
@@ -158,22 +150,16 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
           approvalStatus: 'Approved' as const,
           declineReason: undefined,
         };
-
-        // Close the main dialog and update the viewing activity
-        setIsDetailsOpen(false);
+        
         setViewingActivity(updatedActivity);
-        // A slight delay to allow the dialog to close before reopening
-        setTimeout(() => setIsDetailsOpen(true), 100);
-
         return updatedActivity;
       }
       return act;
     }));
-    setIsReviewFormOpen(false);
-    setReviewingActivity(null);
   };
 
-  const handleDeclineClick = () => {
+  const handleDeclineClick = (activityId: string) => {
+    setViewingActivity(data.find(a => a.id === activityId) || null);
     setIsDeclineModalOpen(true);
   }
 
@@ -199,19 +185,13 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
             declineReason: declineReason,
         };
         
-        // Close the main dialog and update the viewing activity
-        setIsDetailsOpen(false);
         setViewingActivity(updatedActivity);
-         // A slight delay to allow the dialog to close before reopening
-        setTimeout(() => setIsDetailsOpen(true), 100);
 
         return updatedActivity;
       }
       return act;
     }));
     
-    setIsReviewFormOpen(false);
-    setReviewingActivity(null);
     setIsDeclineModalOpen(false);
     setDeclineReason("");
   }
@@ -228,7 +208,7 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
         const activity = row.original;
         return (
           <div className="flex items-center gap-2">
-            {activity.pendingUpdate && <span className="h-2 w-2 rounded-full bg-blue-500" title="Pending update"></span>}
+            {activity.pendingUpdate && activity.approvalStatus === 'Pending' && <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" title="Pending update"></span>}
             <span className="font-medium">{row.getValue("title")}</span>
           </div>
         )
@@ -295,11 +275,10 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => handleViewDetails(activity)}>View Details</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleViewDetails(activity)}>
+                {activity.pendingUpdate ? 'Review & Approve' : 'View Details'}
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleEdit(activity)}>Edit Activity</DropdownMenuItem>
-              {activity.pendingUpdate && (
-                <DropdownMenuItem onClick={() => handleReviewUpdate(activity)}>Review Update</DropdownMenuItem>
-              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => handleDeleteClick(activity)} className="text-destructive">
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -464,19 +443,13 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
           </Button>
         </div>
       </div>
-      <ActivityReviewDialog
-        isOpen={isReviewFormOpen}
-        onOpenChange={setIsReviewFormOpen}
-        activity={reviewingActivity}
-        onApprove={handleApprove}
-        onDecline={() => {}}
-      />
+
       <ActivityDetailsDialog 
         isOpen={isDetailsOpen}
         onOpenChange={setIsDetailsOpen}
         activity={viewingActivity}
-        onAccept={handleApprove}
-        onDecline={handleDeclineClick}
+        onApprove={handleApprove}
+        onDecline={() => viewingActivity && handleDeclineClick(viewingActivity.id)}
       />
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
@@ -518,5 +491,3 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
     </div>
   );
 }
-
-    

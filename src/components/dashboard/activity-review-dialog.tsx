@@ -77,10 +77,10 @@ export function ActivityReviewDialog({
           </div>
         </div>
         <DialogFooter className="gap-2 sm:justify-end">
-          <Button variant="outline" onClick={() => onDecline(activity.id)}>
+          <Button variant="destructive" onClick={() => onDecline(activity.id)}>
             Decline
           </Button>
-          <Button onClick={() => onApprove(activity.id)}>Approve</Button>
+          <Button onClick={() => onApprove(activity.id)} className="bg-green-600 hover:bg-green-700">Approve</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

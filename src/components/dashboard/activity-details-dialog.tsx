@@ -10,19 +10,20 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import type { Activity } from "@/lib/types";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/status-badge";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
+import { ArrowRight } from "lucide-react";
 
 type ActivityDetailsDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   activity: Activity | null;
-  onAccept: (activityId: string) => void;
+  onApprove: (activityId: string) => void;
   onDecline: (activityId: string) => void;
 };
 
@@ -37,15 +38,17 @@ export function ActivityDetailsDialog({
   isOpen,
   onOpenChange,
   activity,
-  onAccept,
+  onApprove,
   onDecline
 }: ActivityDetailsDialogProps) {
   if (!activity) {
     return null;
   }
+  
+  const { pendingUpdate, progress: currentProgress } = activity;
 
-  const handleAccept = () => {
-    onAccept(activity.id);
+  const handleApprove = () => {
+    onApprove(activity.id);
   }
   const handleDecline = () => {
     onDecline(activity.id);
@@ -53,19 +56,21 @@ export function ActivityDetailsDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle>{activity.title}</DialogTitle>
+          <div className="flex items-start justify-between">
+            <div className="space-y-1">
+                <DialogTitle>{activity.title}</DialogTitle>
+                <DialogDescription>
+                    {activity.description}
+                </DialogDescription>
+            </div>
             <ApprovalStatusBadge status={activity.approvalStatus} />
           </div>
-          <DialogDescription>
-            {activity.description}
-          </DialogDescription>
         </DialogHeader>
-        <Separator />
+        
         <div className="space-y-6 py-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div className="space-y-1">
               <Label>Department</Label>
               <p className="text-sm font-medium">{activity.department}</p>
@@ -82,24 +87,25 @@ export function ActivityDetailsDialog({
               <Label>End Date</Label>
               <p className="text-sm font-medium">{format(new Date(activity.endDate), "PP")}</p>
             </div>
-            <div className="space-y-1">
+             <div className="space-y-1">
+              <Label>Weight</Label>
+              <p className="text-sm font-medium">{activity.weight}%</p>
+            </div>
+             <div className="space-y-1">
               <Label>Status</Label>
               <div>
                 <StatusBadge status={activity.status} />
               </div>
             </div>
-             <div className="space-y-1">
-              <Label>Weight</Label>
-              <p className="text-sm font-medium">{activity.weight}%</p>
-            </div>
           </div>
            <div className="space-y-2">
-            <Label>Progress</Label>
+            <Label>Overall Progress</Label>
             <div className="flex items-center gap-2">
-              <Progress value={activity.progress} className="h-3" />
+              <Progress value={activity.progress} className="h-2" />
               <span className="text-sm font-medium">{activity.progress}%</span>
             </div>
           </div>
+
           {activity.approvalStatus === 'Declined' && activity.declineReason && (
             <div className="space-y-2">
               <Label>Reason for Decline</Label>
@@ -108,12 +114,46 @@ export function ActivityDetailsDialog({
               </div>
             </div>
           )}
+
+          {pendingUpdate && (
+            <>
+                <Separator />
+                <div className="space-y-4">
+                     <div className="space-y-1">
+                        <h3 className="text-lg font-semibold">Progress Update</h3>
+                        <p className="text-sm text-muted-foreground">
+                            {pendingUpdate.user} submitted an update {formatDistanceToNow(new Date(pendingUpdate.date), { addSuffix: true })}.
+                        </p>
+                    </div>
+
+                    <div className="flex items-center gap-4 rounded-lg border bg-muted/50 p-4">
+                        <div className="flex-1 text-center">
+                            <p className="text-2xl font-bold">{currentProgress}%</p>
+                            <p className="text-xs text-muted-foreground">Current</p>
+                        </div>
+                        <ArrowRight className="h-6 w-6 text-muted-foreground" />
+                        <div className="flex-1 text-center">
+                            <p className="text-2xl font-bold text-primary">{pendingUpdate.progress}%</p>
+                            <p className="text-xs text-muted-foreground">New</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Comment</Label>
+                        <div className="p-3 rounded-md border bg-muted">
+                            <p className="text-sm">{pendingUpdate.comment}</p>
+                        </div>
+                    </div>
+                </div>
+            </>
+          )}
+
         </div>
 
-        {activity.pendingUpdate && activity.approvalStatus === 'Pending' && (
+        {pendingUpdate && activity.approvalStatus === 'Pending' && (
             <DialogFooter className="border-t pt-4">
                 <Button onClick={handleDecline} variant="destructive">Decline</Button>
-                <Button onClick={handleAccept} className="bg-green-600 hover:bg-green-700">Accept</Button>
+                <Button onClick={handleApprove} className="bg-green-600 hover:bg-green-700">Approve</Button>
             </DialogFooter>
         )}
       </DialogContent>
