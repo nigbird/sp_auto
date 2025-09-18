@@ -32,9 +32,9 @@ const performanceData = [
 ];
 
 const getPerformanceColor = (achievement: number) => {
-    if (achievement > 80) return "bg-green-500";
-    if (achievement >= 50) return "bg-yellow-500";
-    return "bg-red-500";
+    if (achievement > 80) return "from-green-400/70 to-green-500/70 bg-gradient-to-r";
+    if (achievement >= 50) return "from-yellow-400/70 to-yellow-500/70 bg-gradient-to-r";
+    return "from-red-400/70 to-red-500/70 bg-gradient-to-r";
 };
 
 const getRatingBadgeClass = (rating: string) => {
@@ -72,12 +72,12 @@ export function DirectorsPerformance() {
             </CardHeader>
             <CardContent>
                 {view === 'chart' ? (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         {performanceData.map((item, index) => (
                             <div key={index} className="grid grid-cols-[1fr_2fr] items-center gap-4">
                                 <p className="truncate text-sm font-medium text-right">{item.director}</p>
                                 <div className="flex items-center gap-4">
-                                    <Progress value={item.achievement} className="h-4" indicatorClassName={getPerformanceColor(item.achievement)} />
+                                    <Progress value={item.achievement} className="h-5 bg-gray-200" indicatorClassName={getPerformanceColor(item.achievement)} />
                                     <span className="font-bold text-sm w-16 text-right">{item.achievement.toFixed(1)}%</span>
                                 </div>
                             </div>
