@@ -226,7 +226,7 @@ const Sidebar = React.forwardRef<
         data-side={side}
         {...props}
       >
-        <div data-sidebar="sidebar" className="h-full w-full">
+        <div data-sidebar="sidebar" className="h-full w-full flex flex-col">
             {children}
         </div>
       </div>
