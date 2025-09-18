@@ -101,7 +101,7 @@ export function AppSidebar() {
             <SidebarMenuItem>
               <SidebarMenuButton
                 href="/strategic-plan"
-                isActive={pathname === "/strategic-plan"}
+                isActive={pathname.startsWith("/strategic-plan")}
                 tooltip="Strategic Plan"
               >
                 <Network />
