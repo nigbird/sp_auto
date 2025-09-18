@@ -1,6 +1,7 @@
 
 "use client"
 
+import * as React from "react";
 import { useState } from "react";
 import type { Pillar, Objective } from "@/lib/types";
 import { getPillarActual, getPillarPlan, getObjectiveProgress, getObjectiveWeight, getPillarProgress, getTrafficLightColor } from "@/lib/utils";
