@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState } from "react";
@@ -41,6 +40,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { Activity } from "@/lib/types";
 import { StatusBadge } from "../status-badge";
 import { Progress } from "../ui/progress";
@@ -511,3 +518,5 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
     </div>
   );
 }
+
+    
