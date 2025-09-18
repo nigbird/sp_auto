@@ -467,8 +467,8 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
         </AlertDialogContent>
       </AlertDialog>
 
-        <Dialog open={isDeclineModalOpen} onOpenChange={setIsDeclineModalOpen}>
-            <DialogContent>
+        <AlertDialog open={isDeclineModalOpen} onOpenChange={setIsDeclineModalOpen}>
+            <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>Confirm Decline</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -486,8 +486,8 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
                     <AlertDialogCancel onClick={() => setIsDeclineModalOpen(false)}>Cancel</AlertDialogCancel>
                     <AlertDialogAction onClick={confirmDecline} className="bg-destructive hover:bg-destructive/90">Confirm Decline</AlertDialogAction>
                 </AlertDialogFooter>
-            </DialogContent>
-        </Dialog>
+            </AlertDialogContent>
+        </AlertDialog>
     </div>
   );
 }
