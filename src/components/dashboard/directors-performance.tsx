@@ -32,9 +32,9 @@ const performanceData = [
 ];
 
 const getPerformanceColor = (achievement: number) => {
-    if (achievement > 80) return "from-green-400/80 to-green-500/80 bg-gradient-to-r";
-    if (achievement >= 50) return "from-yellow-400/80 to-yellow-500/80 bg-gradient-to-r";
-    return "from-red-500/90 to-red-600/90 bg-gradient-to-r";
+    if (achievement >= 80) return "from-chart-1/80 to-chart-1/90 bg-gradient-to-r";
+    if (achievement >= 50) return "from-chart-3/80 to-chart-3/90 bg-gradient-to-r";
+    return "from-chart-4/90 to-chart-4/100 bg-gradient-to-r";
 };
 
 const getRatingBadgeClass = (rating: string) => {
