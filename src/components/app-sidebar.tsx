@@ -56,7 +56,7 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <div className="flex flex-1 flex-col justify-between">
-        <SidebarContent className="p-2">
+        <SidebarContent className="flex-1 p-2">
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
