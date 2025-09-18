@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import type { Pillar, Objective } from "@/lib/types";
-import { getPillarActual, getPillarPlan, getObjectiveProgress, getObjectiveWeight } from "@/lib/utils";
+import { getPillarActual, getPillarPlan, getObjectiveProgress, getObjectiveWeight, getPillarProgress, getTrafficLightColor } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "../ui/button";
 import { cn } from "@/lib/utils";
+import { Progress } from "../ui/progress";
 
 function PillarPerformanceTable({ pillars }: { pillars: Pillar[] }) {
     const totalPlan = pillars.reduce((sum, p) => sum + getPillarPlan(p), 0);
@@ -60,47 +61,74 @@ function PillarPerformanceTable({ pillars }: { pillars: Pillar[] }) {
 }
 
 function ObjectivePerformanceTable({ pillars }: { pillars: Pillar[] }) {
-    const allObjectives = pillars.flatMap(p => 
-        p.objectives.map(o => ({ ...o, pillarTitle: p.title }))
-    );
-
-    const totalPlan = allObjectives.reduce((sum, o) => sum + (getObjectiveWeight(o) / 100), 0);
-    const totalActual = allObjectives.reduce((sum, o) => sum + (getObjectiveProgress(o)/100 * getObjectiveWeight(o)/100), 0);
+    const totalPlan = pillars.reduce((sum, p) => sum + getPillarPlan(p), 0);
+    const totalActual = pillars.reduce((sum, p) => sum + getPillarActual(p), 0);
     const totalAchievement = totalPlan > 0 ? (totalActual / totalPlan) * 100 : 0;
 
   return (
         <Table>
           <TableHeader>
             <TableRow className="bg-primary/10 hover:bg-primary/20">
-              <TableHead className="font-bold text-primary">STRATEGIC OBJECTIVE</TableHead>
-              <TableHead className="font-bold text-primary">PILLAR</TableHead>
+              <TableHead className="w-1/2 font-bold text-primary">STRATEGIC PILLAR / STRATEGIC OBJECTIVE</TableHead>
               <TableHead className="text-right font-bold text-primary">Plan</TableHead>
               <TableHead className="text-right font-bold text-primary">Actual</TableHead>
-              <TableHead className="text-right font-bold text-primary">AVERAGE WEIGHTED ACHIEVEMENT</TableHead>
+              <TableHead className="text-right font-bold text-primary w-[25%]">AVERAGE WEIGHTED ACHIEVEMENT</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {allObjectives.map((objective) => {
-              const plan = getObjectiveWeight(objective) / 100;
-              const actual = (getObjectiveProgress(objective) / 100) * plan;
-              const achievement = plan > 0 ? (actual / plan) * 100 : 0;
+            {pillars.map((pillar) => {
+              const pillarPlan = getPillarPlan(pillar);
+              const pillarActual = getPillarActual(pillar);
+              const pillarAchievement = pillarPlan > 0 ? (pillarActual / pillarPlan) * 100 : 0;
+              
               return (
-                <TableRow key={objective.id}>
-                  <TableCell className="font-medium">{objective.statement}</TableCell>
-                  <TableCell>{objective.pillarTitle}</TableCell>
-                  <TableCell className="text-right">{plan.toFixed(1)}</TableCell>
-                  <TableCell className="text-right">{actual.toFixed(1)}</TableCell>
-                  <TableCell className="text-right">{achievement.toFixed(0)}%</TableCell>
-                </TableRow>
+                <React.Fragment key={pillar.id}>
+                    <TableRow className="bg-muted/50 font-bold">
+                        <TableCell>{pillar.title}</TableCell>
+                        <TableCell className="text-right">{pillarPlan.toFixed(1)}</TableCell>
+                        <TableCell className="text-right">{pillarActual.toFixed(1)}</TableCell>
+                        <TableCell className="text-right">
+                             <div className="flex items-center justify-end gap-2">
+                                <span>{pillarAchievement.toFixed(0)}%</span>
+                                <Progress value={pillarAchievement} indicatorClassName={getTrafficLightColor(pillarAchievement)} className="h-2 w-24 bg-muted" />
+                            </div>
+                        </TableCell>
+                    </TableRow>
+                    {pillar.objectives.map(objective => {
+                        const plan = getObjectiveWeight(objective) / 100;
+                        const actual = (getObjectiveProgress(objective) / 100) * plan;
+                        const achievement = plan > 0 ? (actual / plan) * 100 : 0;
+                        const statement = objective.statement || objective.title;
+                        
+                        return (
+                            <TableRow key={objective.id}>
+                                <TableCell className="pl-10">{statement}</TableCell>
+                                <TableCell className="text-right">{plan.toFixed(1)}</TableCell>
+                                <TableCell className="text-right">{actual.toFixed(1)}</TableCell>
+                                <TableCell className="text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                        <span>{achievement.toFixed(0)}%</span>
+                                        <Progress value={achievement} indicatorClassName={getTrafficLightColor(achievement)} className="h-2 w-24 bg-muted" />
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        )
+                    })}
+                </React.Fragment>
               );
             })}
           </TableBody>
           <TableFooter>
             <TableRow className="bg-primary/20 font-bold hover:bg-primary/30">
-              <TableCell colSpan={2}>Total Average Performance</TableCell>
+              <TableCell>Total Average Performance</TableCell>
               <TableCell className="text-right">{totalPlan.toFixed(1)}</TableCell>
               <TableCell className="text-right">{totalActual.toFixed(1)}</TableCell>
-              <TableCell className="text-right">{totalAchievement.toFixed(1)}%</TableCell>
+              <TableCell className="text-right">
+                <div className="flex items-center justify-end gap-2">
+                    <span>{totalAchievement.toFixed(1)}%</span>
+                    <Progress value={totalAchievement} indicatorClassName={getTrafficLightColor(totalAchievement)} className="h-2 w-24 bg-muted" />
+                </div>
+              </TableCell>
             </TableRow>
           </TableFooter>
         </Table>
