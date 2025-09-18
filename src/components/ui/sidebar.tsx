@@ -216,7 +216,7 @@ const Sidebar = React.forwardRef<
       <div
         ref={ref}
         className={cn(
-            "group hidden md:flex flex-col flex-shrink-0 text-sidebar-foreground bg-sidebar transition-all ease-in-out duration-300",
+            "group hidden md:flex flex-col flex-shrink-0 text-sidebar-foreground bg-sidebar transition-all ease-in-out duration-300 h-screen sticky top-0",
             open ? "w-[var(--sidebar-width)]" : "w-[var(--sidebar-width-icon)]",
             className
         )}
@@ -298,7 +298,7 @@ const SidebarInset = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        "flex-1 flex flex-col min-h-screen",
+        "flex-1 flex flex-col h-screen",
         className
       )}
       {...props}

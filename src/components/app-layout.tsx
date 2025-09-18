@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const isStrategicPlanPage = pathname.startsWith('/strategic-plan');
   
   return (
     <SidebarProvider>
@@ -17,7 +16,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <SidebarInset>
           <Header />
           <main className={cn(
-            "flex-1 bg-background p-4 sm:p-6 lg:p-8"
+            "flex-1 overflow-y-auto bg-background p-4 sm:p-6 lg:p-8"
           )}>
             {children}
           </main>
