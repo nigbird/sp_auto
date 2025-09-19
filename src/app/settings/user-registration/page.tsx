@@ -13,8 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function UserRegistrationPage() {
   const { toast } = useToast();
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [leadOwner, setLeadOwner] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("");
@@ -25,11 +24,10 @@ export default function UserRegistrationPage() {
     // In a real app, you'd handle form submission to your backend here.
     toast({
       title: "User Registered",
-      description: `User ${firstName} ${lastName} has been successfully registered.`,
+      description: `User ${leadOwner} has been successfully registered.`,
     });
     // Reset form fields
-    setFirstName("");
-    setLastName("");
+    setLeadOwner("");
     setPhoneNumber("");
     setEmail("");
     setRole("");
@@ -57,15 +55,9 @@ export default function UserRegistrationPage() {
         </CardHeader>
         <CardContent>
           <form className="space-y-6" onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="first-name">First Name</Label>
-                <Input id="first-name" placeholder="John" value={firstName} onChange={e => setFirstName(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="last-name">Last Name</Label>
-                <Input id="last-name" placeholder="Doe" value={lastName} onChange={e => setLastName(e.target.value)} />
-              </div>
+            <div className="space-y-2">
+                <Label htmlFor="lead-owner">Lead/Owner</Label>
+                <Input id="lead-owner" placeholder="John Doe" value={leadOwner} onChange={e => setLeadOwner(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone-number">Phone Number</Label>
