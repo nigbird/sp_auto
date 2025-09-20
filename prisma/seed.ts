@@ -1,24 +1,26 @@
 
 import { PrismaClient } from '@prisma/client';
 
+
+import { Role, UserStatus, PlanStatus, ApprovalStatus } from "@prisma/client";
 const prisma = new PrismaClient();
 
 // Data from src/lib/data.ts (adapted for seeding)
 const users = [
-  { name: "Liam Johnson", email: "liam@corp-plan.com", avatar: "https://picsum.photos/id/1005/100", role: "Manager", status: "Active", createdAt: new Date("2023-10-01") },
-  { name: "Olivia Smith", email: "olivia@corp-plan.com", avatar: "https://picsum.photos/id/1011/100", role: "User", status: "Active", createdAt: new Date("2023-10-05") },
-  { name: "Noah Williams", email: "noah@corp-plan.com", avatar: "https://picsum.photos/id/1012/100", role: "User", status: "Active", createdAt: new Date("2023-10-12") },
-  { name: "Emma Brown", email: "emma@corp-plan.com", avatar: "https://picsum.photos/id/1013/100", role: "User", status: "Active", createdAt: new Date("2023-10-15") },
-  { name: "Oliver Jones", email: "oliver@corp-plan.com", avatar: "https://picsum.photos/id/1014/100", role: "User", status: "Inactive", createdAt: new Date("2023-11-01") },
-  { name: "Admin User", email: "admin@corp-plan.com", avatar: "https://picsum.photos/id/1/100", role: "Administrator", status: "Active", createdAt: new Date("2023-09-01") },
+    { name: "Liam Johnson", email: "liam@corp-plan.com", avatar: "https://picsum.photos/id/1005/100", role: Role.MANAGER, status: UserStatus.ACTIVE, createdAt: new Date("2023-10-01") },
+    { name: "Olivia Smith", email: "olivia@corp-plan.com", avatar: "https://picsum.photos/id/1011/100", role: Role.USER, status: UserStatus.ACTIVE, createdAt: new Date("2023-10-05") },
+    { name: "Noah Williams", email: "noah@corp-plan.com", avatar: "https://picsum.photos/id/1012/100", role: Role.USER, status: UserStatus.ACTIVE, createdAt: new Date("2023-10-12") },
+    { name: "Emma Brown", email: "emma@corp-plan.com", avatar: "https://picsum.photos/id/1013/100", role: Role.USER, status: UserStatus.ACTIVE, createdAt: new Date("2023-10-15") },
+    { name: "Oliver Jones", email: "oliver@corp-plan.com", avatar: "https://picsum.photos/id/1014/100", role: Role.USER, status: UserStatus.INACTIVE, createdAt: new Date("2023-11-01") },
+    { name: "Admin User", email: "admin@corp-plan.com", avatar: "https://picsum.photos/id/1/100", role: Role.ADMINISTRATOR, status: UserStatus.ACTIVE, createdAt: new Date("2023-09-01") },
 ];
 
 const rules = [
-  { id: "1", status: "Completed As Per Target", description: "Performance against target is >= 100%", min: 100, max: Infinity, isSystem: true },
-  { id: "2", status: "On Track", description: "Performance against target is from 70% up to 99.99%", min: 70, max: 99.99, isSystem: false },
-  { id: "3", status: "Delayed", description: "Performance against target is above 0% but less than 70%", min: 0.01, max: 69.99, isSystem: false },
-  { id: "4", status: "Not Started", description: "Performance against target is 0%", min: 0, max: 0, isSystem: true },
-  { id: "5", status: "Overdue", description: "Past deadline and not completed", min: 0, max: 99.99, isSystem: true },
+    { id: "1", status: "Completed As Per Target", description: "Performance against target is >= 100%", min: 100, max: 1e9, isSystem: true },
+    { id: "2", status: "On Track", description: "Performance against target is from 70% up to 99.99%", min: 70, max: 99.99, isSystem: false },
+    { id: "3", status: "Delayed", description: "Performance against target is above 0% but less than 70%", min: 0.01, max: 69.99, isSystem: false },
+    { id: "4", status: "Not Started", description: "Performance against target is 0%", min: 0, max: 0, isSystem: true },
+    { id: "5", status: "Overdue", description: "Past deadline and not completed", min: 0, max: 99.99, isSystem: true },
 ];
 
 const notifications = [
@@ -62,15 +64,20 @@ async function main() {
     }
     console.log(`Seeded ${rules.length} rules.`);
     
+    // Get the first user to associate notifications
+    const firstUser = await prisma.user.findFirst();
     for (const n of notifications) {
-         await prisma.notification.upsert({
+        await prisma.notification.upsert({
             where: { id: n.id },
             update: {},
             create: {
                 id: n.id,
                 message: n.message,
                 date: n.date,
-                read: n.read
+                read: n.read,
+                user: {
+                    connect: { id: firstUser?.id }
+                }
             }
         });
     }
@@ -81,7 +88,7 @@ async function main() {
         startYear: 2024,
         endYear: 2028,
         version: "1.0",
-        status: 'published'
+        status: PlanStatus.PUBLISHED
     };
 
     const strategicPlan = await prisma.strategicPlan.create({
@@ -89,10 +96,13 @@ async function main() {
     });
     console.log(`Created strategic plan "${strategicPlan.planTitle}"`);
 
+    // Get user emails for responsible
+    const olivia = await prisma.user.findUnique({ where: { email: "olivia@corp-plan.com" } });
+    const noah = await prisma.user.findUnique({ where: { email: "noah@corp-plan.com" } });
     const pillar1 = await prisma.pillar.create({
         data: {
             title: "Market Leadership",
-            planId: strategicPlan.id,
+            strategicPlanId: strategicPlan.id,
             objectives: {
                 create: [
                     {
@@ -106,13 +116,13 @@ async function main() {
                                             title: "Q3 Marketing Campaign Launch",
                                             description: "Launch the new marketing campaign for the fall season, including social media, email, and content marketing.",
                                             department: "Marketing",
-                                            responsible: "Olivia Smith",
+                                            responsible: { connect: { id: olivia?.id } },
                                             startDate: new Date("2024-07-01"),
                                             endDate: new Date("2024-09-30"),
                                             status: "Delayed",
                                             weight: 40,
                                             progress: 56,
-                                            approvalStatus: 'Pending',
+                                            approvalStatus: ApprovalStatus.PENDING,
                                         }
                                     ]
                                 }
@@ -129,13 +139,13 @@ async function main() {
                                         title: "Website Redesign Project",
                                         description: "Complete redesign of the corporate website for improved user experience and mobile responsiveness.",
                                         department: "Engineering",
-                                        responsible: "Noah Williams",
+                                        responsible: { connect: { id: noah?.id } },
                                         startDate: new Date("2024-05-01"),
                                         endDate: new Date("2024-07-31"),
                                         status: "Completed As Per Target",
                                         weight: 30,
                                         progress: 100,
-                                        approvalStatus: 'Approved'
+                                        approvalStatus: ApprovalStatus.APPROVED
                                     }
                                 }
                             }
@@ -147,10 +157,13 @@ async function main() {
     });
     console.log(`Seeded pillar: ${pillar1.title}`);
     
+
+    const emma = await prisma.user.findUnique({ where: { email: "emma@corp-plan.com" } });
+    const oliver = await prisma.user.findUnique({ where: { email: "oliver@corp-plan.com" } });
     const pillar2 = await prisma.pillar.create({
         data: {
             title: "Operational Excellence",
-            planId: strategicPlan.id,
+            strategicPlanId: strategicPlan.id,
             objectives: {
                 create: [
                     {
@@ -163,13 +176,13 @@ async function main() {
                                         title: "Employee Wellness Program",
                                         description: "Develop and roll out a new employee wellness program.",
                                         department: "Human Resources",
-                                        responsible: "Emma Brown",
+                                        responsible: { connect: { id: emma?.id } },
                                         startDate: new Date("2024-08-01"),
                                         endDate: new Date("2024-10-31"),
                                         status: "Not Started",
                                         weight: 50,
                                         progress: 0,
-                                        approvalStatus: 'Pending'
+                                        approvalStatus: ApprovalStatus.PENDING
                                     }
                                 }
                             }
@@ -185,13 +198,13 @@ async function main() {
                                         title: "Customer Support Training",
                                         description: "Advanced training for all customer support staff on new product features.",
                                         department: "Support",
-                                        responsible: "Oliver Jones",
+                                        responsible: { connect: { id: oliver?.id } },
                                         startDate: new Date("2024-07-10"),
                                         endDate: new Date("2024-07-20"),
                                         status: "Delayed",
                                         weight: 50,
                                         progress: 50,
-                                        approvalStatus: 'Declined',
+                                        approvalStatus: ApprovalStatus.DECLINED,
                                         declineReason: "The delay reason is not sufficient. Please provide a more detailed recovery plan."
                                     }
                                 }
@@ -202,7 +215,7 @@ async function main() {
             }
         }
     });
-     console.log(`Seeded pillar: ${pillar2.title}`);
+    console.log(`Seeded pillar: ${pillar2.title}`);
 
     console.log(`Seeding finished.`);
 }
