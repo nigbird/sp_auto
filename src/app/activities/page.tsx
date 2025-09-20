@@ -1,11 +1,14 @@
 
-import { getActivities, getRules } from "@/lib/data";
+import { getActivities } from "@/actions/activities";
+import { getRules } from "@/actions/rules";
+import { getUsers } from "@/actions/users";
 import { ActivityTable } from "@/components/dashboard/activity-table";
 import type { Rule } from "@/lib/types";
 
 export default async function ActivitiesPage() {
   const activities = await getActivities();
-  const users = ["Liam Johnson", "Olivia Smith", "Noah Williams", "Emma Brown", "Oliver Jones"];
+  const userList = await getUsers();
+  const users = userList.map(u => u.name);
   const departments = ["Marketing", "Sales", "Engineering", "Human Resources", "Support", "Finance"];
   const rules: Rule[] = await getRules();
   const statuses = rules.map(rule => rule.status);

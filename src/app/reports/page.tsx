@@ -1,4 +1,5 @@
-import { getReportData } from "@/lib/data";
+
+import { getReportData } from "@/actions/reports";
 import { ReportTable } from "@/components/reports/report-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 

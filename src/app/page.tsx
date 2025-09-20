@@ -1,5 +1,6 @@
 
-import { getReportData, getActivities } from "@/lib/data";
+import { getReportData } from "@/actions/reports";
+import { getActivities } from "@/actions/activities";
 import { DashboardClientLayout } from "@/components/dashboard/dashboard-client-layout";
 import { ReportSummaryCards } from "@/components/reports/summary-cards";
 import { generateReportSummary } from "@/lib/utils";

@@ -2,13 +2,14 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { getSavedPlan } from "@/lib/plan-service";
-import type { Activity, ActivityStatus, ActivityUpdate, StrategicPlan, PendingUpdate, Rule } from "@/lib/types";
+import type { Activity, ActivityStatus, PendingUpdate, Rule } from "@/lib/types";
 import { MyActivitySummaryCards } from "@/components/my-activity/my-activity-summary-cards";
 import { MyActivityTaskList } from "@/components/my-activity/my-activity-task-list";
 import { AllActivityTaskList } from "@/components/my-activity/all-activity-task-list";
 import { useToast } from "@/hooks/use-toast";
-import { getActivities, getRules, getUsers } from "@/lib/data";
+import { getActivities, createActivity, submitActivityUpdate } from "@/actions/activities";
+import { getRules } from "@/actions/rules";
+import { getUsers } from "@/actions/users";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { PlusCircle } from "lucide-react";
@@ -29,24 +30,12 @@ export default function MyActivityPage() {
 
   useEffect(() => {
     async function loadInitialData() {
-      const plan: StrategicPlan | null = getSavedPlan();
-      let activities: Activity[] = [];
-      if (plan) {
-        plan.pillars.forEach(pillar => {
-          pillar.objectives.forEach(objective => {
-            objective.initiatives.forEach(initiative => {
-              activities.push(...initiative.activities);
-            });
-          });
-        });
-      } else {
-        activities = await getActivities();
-      }
+      const activities = await getActivities();
       setAllActivities(activities);
       // In a real application, this would be based on the logged-in user's identity.
-      // For this demo, we'll assign tasks to a few specific users.
+      // For this demo, we'll assign tasks to "Liam Johnson".
       const userActivities = activities.filter(
-        (activity) => activity.responsible === "Liam Johnson" || activity.responsible === "Olivia Smith"
+        (activity) => activity.responsible === "Liam Johnson"
       );
       setMyActivities(userActivities);
 
@@ -89,21 +78,23 @@ export default function MyActivityPage() {
     }
   }, [activeFilter, myActivities, overdueActivities, pendingActivities, activeActivities, completedActivities]);
 
-  const handleUpdateActivity = (
+  const handleUpdateActivity = async (
     activityId: string,
     newProgress: number,
     _newStatus: ActivityStatus,
     updateComment: string
   ) => {
-    const newPendingUpdate: PendingUpdate = {
-        user: "Liam Johnson", // Hardcoded for demo
-        date: new Date(),
-        comment: updateComment,
-        progress: newProgress,
-    };
+    // In a real app, userId would come from session
+    await submitActivityUpdate(activityId, newProgress, updateComment, "user-id-placeholder");
     
     const updatedActivities = myActivities.map(activity => {
         if (activity.id === activityId) {
+            const newPendingUpdate: PendingUpdate = {
+                user: "Liam Johnson", // Hardcoded for demo
+                date: new Date(),
+                comment: updateComment,
+                progress: newProgress,
+            };
             return {
                 ...activity,
                 pendingUpdate: newPendingUpdate,
@@ -119,19 +110,18 @@ export default function MyActivityPage() {
     });
   };
 
-  const handleFormSubmit = (values: any) => {
-    const newActivity: Activity = {
-      id: `ACT-${Math.floor(Math.random() * 1000)}`,
-      ...values,
-      kpis: [],
-      lastUpdated: { user: "Admin User", date: new Date() },
-      updates: [],
-      progress: 0,
-      approvalStatus: 'Pending',
-    };
-    setMyActivities([newActivity, ...myActivities]);
-    setAllActivities([newActivity, ...allActivities]); // Also add to all activities list
-    toast({ title: "Activity Created", description: "The new activity has been successfully created." });
+  const handleFormSubmit = async (values: any) => {
+    const newActivity = await createActivity(values);
+
+    setMyActivities(prev => [
+        { ...newActivity, kpis: [], updates: []}, 
+        ...prev
+    ]);
+    setAllActivities(prev => [
+        { ...newActivity, kpis: [], updates: []}, 
+        ...prev
+    ]);
+    toast({ title: "Activity Created", description: "The new activity has been successfully created and is pending approval." });
     setIsCreateFormOpen(false);
   };
 

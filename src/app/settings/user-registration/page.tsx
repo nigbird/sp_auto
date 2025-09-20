@@ -10,27 +10,32 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { createUser } from "@/actions/users";
+import type { User } from "@/lib/types";
+import { useRouter } from "next/navigation";
+
 
 export default function UserRegistrationPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [leadOwner, setLeadOwner] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState("");
+  const [role, setRole] = useState<User['role'] | ''>("");
 
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, you'd handle form submission to your backend here.
+    if (!role) {
+        toast({ title: "Error", description: "Please select a role.", variant: "destructive"});
+        return;
+    }
+    await createUser({ name: leadOwner, email: email, role: role as User['role'] });
     toast({
       title: "User Registered",
       description: `User ${leadOwner} has been successfully registered.`,
     });
-    // Reset form fields
-    setLeadOwner("");
-    setPhoneNumber("");
-    setEmail("");
-    setRole("");
+    router.push('/settings/user-management');
   };
 
   return (
@@ -69,19 +74,19 @@ export default function UserRegistrationPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
-              <Select value={role} onValueChange={setRole}>
+              <Select value={role} onValueChange={(value) => setRole(value as User['role'])}>
                 <SelectTrigger id="role">
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Administrator</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="Administrator">Administrator</SelectItem>
+                  <SelectItem value="Manager">Manager</SelectItem>
+                  <SelectItem value="User">User</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" type="button">Cancel</Button>
+                <Button variant="outline" type="button" onClick={() => router.back()}>Cancel</Button>
                 <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground">
                   <UserPlus className="mr-2 h-4 w-4" />
                   Register User

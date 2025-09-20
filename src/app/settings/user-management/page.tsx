@@ -40,7 +40,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
-import { getUsers } from "@/lib/data";
+import { getUsers, updateUser, deleteUser } from "@/actions/users";
 import type { User } from "@/lib/types";
 import { format } from "date-fns";
 import { UserForm, UserFormValues } from "@/components/settings/user-form";
@@ -63,15 +63,13 @@ export default function UserManagementPage() {
     fetchData();
   }, []);
 
-  const handleToggleStatus = (email: string) => {
-    setUsers(users.map(user =>
-      user.email === email
-        ? { ...user, status: user.status === 'Active' ? 'Inactive' : 'Active' }
-        : user
-    ));
+  const handleToggleStatus = async (user: User) => {
+    const newStatus = user.status === 'Active' ? 'Inactive' : 'Active';
+    await updateUser(user.email, { status: newStatus });
+    setUsers(users.map(u => u.email === user.email ? { ...u, status: newStatus } : u));
     toast({
         title: "Status Updated",
-        description: `User status has been toggled.`,
+        description: `${user.name}'s status has been updated to ${newStatus}.`,
     });
   };
 
@@ -85,8 +83,9 @@ export default function UserManagementPage() {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleUpdateUser = (values: UserFormValues) => {
+  const handleUpdateUser = async (values: UserFormValues) => {
     if (!selectedUser) return;
+    await updateUser(selectedUser.email, { name: values.name, role: values.role });
     setUsers(users.map(user => 
         user.email === selectedUser.email ? { ...user, name: values.name, role: values.role } : user
     ));
@@ -98,8 +97,9 @@ export default function UserManagementPage() {
     });
   };
 
-  const handleDeleteUser = () => {
+  const handleDeleteUser = async () => {
     if (!selectedUser) return;
+    await deleteUser(selectedUser.email);
     setUsers(users.filter(user => user.email !== selectedUser.email));
     setIsDeleteDialogOpen(false);
     setSelectedUser(null);
@@ -190,7 +190,7 @@ export default function UserManagementPage() {
                         <DropdownMenuItem onClick={() => handleEditClick(user)}>
                             Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleToggleStatus(user.email)}>
+                        <DropdownMenuItem onClick={() => handleToggleStatus(user)}>
                           {user.status === 'Active' ? 'Deactivate' : 'Activate'}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />

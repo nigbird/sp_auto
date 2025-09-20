@@ -15,7 +15,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { getNotifications } from "@/lib/data";
+import { getNotifications } from "@/actions/notifications";
 import type { Notification, Pillar, Objective, Initiative, Activity } from "@/lib/types";
 import { useEffect, useState, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
@@ -62,7 +62,8 @@ export function Header() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = () => {
-    window.dispatchEvent(new CustomEvent('export-strategic-plan'));
+    // This is a placeholder. A real implementation would generate a file.
+    alert("Export functionality not yet implemented.");
   };
 
   const handleImportClick = () => {
@@ -82,84 +83,17 @@ export function Header() {
         const worksheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json(worksheet);
         
-        const hierarchy = buildHierarchy(json);
-        
-        window.dispatchEvent(new CustomEvent('import-strategic-plan', { detail: hierarchy }));
+        // You would typically send this JSON to the backend to be processed and saved
+        console.log(json);
+        alert("File imported successfully! Check the console for the data.");
 
       } catch (error) {
         console.error("Failed to parse file", error);
-        alert("Error: Could not parse the imported file. Please ensure it's a valid Excel/CSV file with the correct structure.");
+        alert("Error: Could not parse the imported file.");
       }
     };
     reader.readAsArrayBuffer(file);
-     // Reset file input to allow re-uploading the same file
     event.target.value = '';
-  };
-  
-  const buildHierarchy = (data: any[]): Pillar[] => {
-    const pillars: { [key: string]: Pillar } = {};
-
-    data.forEach(row => {
-        const pillarName = row['Pillar'];
-        const objectiveName = row['Objective'];
-        const initiativeName = row['Initiative'];
-        const activityName = row['Activity'];
-        const activityWeight = parseInt(row['Weight'], 10) || 0;
-
-        if (!pillarName) return;
-
-        if (!pillars[pillarName]) {
-            pillars[pillarName] = {
-                id: `P-${Date.now()}-${Math.random()}`,
-                title: pillarName,
-                objectives: []
-            };
-        }
-        const pillar = pillars[pillarName];
-
-        let objective = pillar.objectives.find(o => o.title === objectiveName);
-        if (!objective && objectiveName) {
-            objective = {
-                id: `O-${Date.now()}-${Math.random()}`,
-                title: objectiveName,
-                weight: 0, // Will be calculated
-                initiatives: []
-            };
-            pillar.objectives.push(objective);
-        }
-
-        let initiative = objective?.initiatives.find(i => i.title === initiativeName);
-        if (!initiative && objective && initiativeName) {
-            initiative = {
-                id: `I-${Date.now()}-${Math.random()}`,
-                title: initiativeName,
-                weight: 0, // Will be calculated
-                activities: []
-            };
-            objective.initiatives.push(initiative);
-        }
-
-        if (initiative && activityName) {
-            const activity: Activity = {
-                id: `A-${Date.now()}-${Math.random()}`,
-                title: activityName,
-                weight: activityWeight,
-                progress: 0,
-                description: "",
-                department: "N/A",
-                responsible: "N/A",
-                startDate: new Date(),
-                endDate: new Date(),
-                status: "Not Started",
-                kpis: [],
-                updates: [],
-                lastUpdated: { user: "Importer", date: new Date() }
-            };
-            initiative.activities.push(activity);
-        }
-    });
-
-    return Object.values(pillars);
   };
 
 

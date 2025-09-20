@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Gavel, PlusCircle, Trash2, Edit, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,28 +9,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-
-type Rule = {
-  id: string;
-  status: string;
-  description: string;
-  min: number;
-  max: number;
-  isSystem: boolean;
-};
-
-const initialRules: Rule[] = [
-  { id: "1", status: "Completed As Per Target", description: "Performance against target is >= 100%", min: 100, max: Infinity, isSystem: true },
-  { id: "2", status: "On Track", description: "Performance against target is from 70% up to 99.99%", min: 70, max: 99.99, isSystem: false },
-  { id: "3", status: "Delayed", description: "Performance against target is above 0% but less than 70%", min: 0.01, max: 69.99, isSystem: false },
-  { id: "4", status: "Not Started", description: "Performance against target is 0%", min: 0, max: 0, isSystem: true },
-];
+import { getRules, updateRule, createRule, deleteRule } from "@/actions/rules";
+import type { Rule } from "@/lib/types";
 
 export default function RulesPage() {
-  const [rules, setRules] = useState<Rule[]>(initialRules);
+  const [rules, setRules] = useState<Rule[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedRule, setEditedRule] = useState<Partial<Rule> | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    getRules().then(setRules);
+  }, []);
 
   const handleEditClick = (rule: Rule) => {
     setEditingId(rule.id);
@@ -42,9 +32,16 @@ export default function RulesPage() {
     setEditedRule(null);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editedRule || !editingId) return;
 
+    await updateRule(editingId, {
+        status: editedRule.status,
+        description: editedRule.description,
+        min: editedRule.min,
+        max: editedRule.max,
+    });
+    
     setRules(rules.map(rule => rule.id === editingId ? { ...rule, ...editedRule } as Rule : rule));
     setEditingId(null);
     setEditedRule(null);
@@ -59,21 +56,20 @@ export default function RulesPage() {
     setEditedRule({ ...editedRule, [field]: value });
   };
 
-  const handleAddRule = () => {
-    const newId = `rule-${Date.now()}`;
-    const newRule: Rule = { 
-        id: newId, 
+  const handleAddRule = async () => {
+    const newRuleData = { 
         status: "New Status", 
         description: "New status description", 
         min: 0, 
-        max: 0, 
-        isSystem: false 
+        max: 0,
     };
-    setRules([...rules, newRule]);
-    handleEditClick(newRule);
+    const newRule = await createRule(newRuleData);
+    setRules([...rules, { ...newRule, min: 0, max: 0, isSystem: false }]);
+    handleEditClick({ ...newRule, min: 0, max: 0, isSystem: false });
   };
 
-  const handleDeleteRule = (id: string) => {
+  const handleDeleteRule = async (id: string) => {
+    await deleteRule(id);
     setRules(rules.filter(rule => rule.id !== id));
     toast({
         title: "Rule Deleted",
@@ -83,10 +79,10 @@ export default function RulesPage() {
   };
 
   const handleSaveChanges = () => {
-    // In a real app, you would save these rules to a database.
+    // This is now handled per-row, but you could have a bulk-update here
     toast({
-      title: "Rules Updated",
-      description: "The performance status rules have been successfully updated.",
+      title: "Rules Saved",
+      description: "All changes to rules have been saved.",
     });
   };
 
@@ -153,7 +149,7 @@ export default function RulesPage() {
                                 value={isEditing ? editedRule?.min : rule.min}
                                 onChange={(e) => handleRuleChange('min', parseFloat(e.target.value))}
                                 className="text-center"
-                                disabled={!isEditing && rule.isSystem}
+                                disabled={!isEditing}
                                 readOnly={!isEditing}
                             />
                         </TableCell>
@@ -164,7 +160,7 @@ export default function RulesPage() {
                                 onChange={(e) => handleRuleChange('max', parseFloat(e.target.value))}
                                 placeholder={isFinite(rule.max) ? "" : "Infinity"}
                                 className="text-center"
-                                disabled={!isEditing && rule.isSystem}
+                                disabled={!isEditing}
                                 readOnly={!isEditing}
                             />
                         </TableCell>
@@ -191,7 +187,7 @@ export default function RulesPage() {
         </CardContent>
         <CardFooter className="justify-end border-t pt-6">
             <Button onClick={handleSaveChanges}>
-                <Gavel className="mr-2 h-4 w-4" /> Save Changes
+                <Gavel className="mr-2 h-4 w-4" /> Save All Changes
             </Button>
         </CardFooter>
       </Card>

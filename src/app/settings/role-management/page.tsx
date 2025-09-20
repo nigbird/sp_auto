@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -19,26 +20,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { getRoles } from "@/actions/roles";
+import { useEffect, useState } from "react";
 
-const roles = [
-    {
-        name: "Administrator",
-        description: "Has all permissions.",
-        permissions: 15
-    },
-    {
-        name: "Manager",
-        description: "Can view reports and manage activities.",
-        permissions: 8
-    },
-    {
-        name: "User",
-        description: "Can only view their own activities.",
-        permissions: 2
-    }
-]
+type Role = {
+    name: string;
+    description: string;
+    permissions: number;
+}
 
 export default function RoleManagementPage() {
+    const [roles, setRoles] = useState<Role[]>([]);
+
+    useEffect(() => {
+        getRoles().then(setRoles);
+    }, []);
+
   return (
     <div className="flex-1 space-y-6">
       <div className="flex items-center justify-between gap-4">
