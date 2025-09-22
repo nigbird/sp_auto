@@ -160,7 +160,7 @@ export async function createStrategicPlan(formData: FormData) {
                                                     startDate: new Date(a.startDate),
                                                     endDate: new Date(a.endDate),
                                                     status: 'Not Started',
-                                                    weight: a.weight,
+                                                    weight: Number(a.weight),
                                                     progress: 0,
                                                     approvalStatus: 'PENDING',
                                                 }
@@ -254,7 +254,7 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
                                                     startDate: new Date(a.startDate),
                                                     endDate: new Date(a.endDate),
                                                     status: 'Not Started',
-                                                    weight: a.weight,
+                                                    weight: Number(a.weight),
                                                     progress: 0,
                                                     approvalStatus: 'PENDING',
                                                 }
