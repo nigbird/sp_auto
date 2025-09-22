@@ -53,7 +53,7 @@ const pillarSchema = z.object({
   id: z.string().optional(),
   title: z.string().min(1, "Pillar Title is required"),
   description: z.string().optional(),
-  objectives: zarray(objectiveSchema).min(1, "At least one objective is required."),
+  objectives: z.array(objectiveSchema).min(1, "At least one objective is required."),
 });
 
 const formSchema = z.object({
@@ -335,3 +335,4 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative }: { pI
         </Card>
     );
 }
+
