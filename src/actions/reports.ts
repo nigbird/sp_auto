@@ -2,24 +2,32 @@
 'use server'
 
 import { prisma } from '@/lib/prisma';
-import type { Pillar } from '@/lib/types';
-import { getStrategicPlan } from './strategic-plan';
+import type { Pillar, StrategicPlan } from '@/lib/types';
+import { getStrategicPlanById } from './strategic-plan';
 
 
 export async function getReportData(): Promise<Pillar[]> {
-    const plan = await getStrategicPlan();
+    // A real app would have a way to select the active plan.
+    // For now, we'll find the first published plan to generate a report.
+    const plans = await prisma.strategicPlan.findMany({
+        where: { status: 'PUBLISHED' },
+        orderBy: { updatedAt: 'desc' },
+        take: 1
+    });
+
+    if (plans.length === 0) return [];
+    
+    const plan = await getStrategicPlanById(plans[0].id);
+
     if (!plan) return [];
 
     const reportPillars: Pillar[] = plan.pillars.map(p => ({
-        id: p.id,
-        title: p.title,
+        ...p,
         description: p.description || '',
         objectives: p.objectives.map(o => ({
-            id: o.id,
-            statement: o.statement,
+            ...o,
             initiatives: o.initiatives.map(i => ({
-                id: i.id,
-                title: i.title,
+                ...i,
                 description: i.description || '',
                 owner: i.owner || '',
                 activities: i.activities.map(a => ({

@@ -1,11 +1,10 @@
 
 "use client";
 
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ArrowLeft, Trash2, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -18,9 +17,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Stepper } from "@/components/ui/stepper";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState, useMemo, useEffect } from "react";
-import { savePlan } from "@/lib/plan-service";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { useState, useMemo, useRef } from "react";
+import { createStrategicPlan } from "@/actions/strategic-plan";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 
 
@@ -28,18 +27,13 @@ const activitySchema = z.object({
   id: z.string().optional(),
   title: z.string().min(1, "Title is required"),
   weight: z.coerce.number().min(1, "Weight must be greater than 0"),
-  deadline: z.string().min(1, "Deadline is required"),
-  owner: z.string().min(1, "Owner is required"),
-  collaborators: z.array(z.string()).optional(),
-  progress: z.number().default(0),
-  status: z.string().default('Not Started'),
-  description: z.string().optional(),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
   department: z.string().min(1, "Department is required"),
   responsible: z.string().min(1, "Responsible person is required"),
-  updates: z.array(z.any()).default([]),
-  lastUpdated: z.any().optional(),
+  description: z.string().optional(),
+  collaborators: z.array(z.string()).optional(),
+  owner: z.string().min(1, "Owner is required"),
 });
 
 const initiativeSchema = z.object({
@@ -65,7 +59,7 @@ const pillarSchema = z.object({
 });
 
 const formSchema = z.object({
-  planTitle: z.string().min(1, "Plan Title is required"),
+  name: z.string().min(1, "Plan Name is required"),
   startYear: z.coerce.number().min(2000),
   endYear: z.coerce.number().min(2000),
   version: z.string().min(1, "Version is required"),
@@ -97,14 +91,14 @@ function generateId(prefix: string) {
 
 export default function CreateStrategicPlanPage() {
     const { toast } = useToast();
-    const router = useRouter();
     const [currentTab, setCurrentTab] = useState(TABS[0].value);
     const [highestCompletedStep, setHighestCompletedStep] = useState(0);
+    const formRef = useRef<HTMLFormElement>(null);
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            planTitle: "Corporate Strategic Plan",
+            name: "Corporate Strategic Plan",
             startYear: new Date().getFullYear(),
             endYear: new Date().getFullYear() + 4,
             version: "1.0",
@@ -125,7 +119,7 @@ export default function CreateStrategicPlanPage() {
                                     owner: "Liam Johnson",
                                     collaborators: [],
                                     activities: [
-                                        { id: generateId('A'), title: "Activity 1.1.1.1", weight: 100, deadline: "", owner: "", collaborators: [], progress:0, status: 'Not Started', startDate: '', endDate: '', department: 'Sales', responsible: 'Liam Johnson', updates: [] },
+                                        { id: generateId('A'), title: "Activity 1.1.1.1", weight: 100, owner: "Liam Johnson", collaborators: [], startDate: '', endDate: '', department: 'Sales', responsible: 'Liam Johnson' },
                                     ]
                                 }
                             ]
@@ -142,70 +136,27 @@ export default function CreateStrategicPlanPage() {
         name: "pillars"
     });
 
-    const onSubmit = async (data: FormValues) => {
-        await savePlan(data, 'published');
+    const handleFormSubmit = (status: 'DRAFT' | 'PUBLISHED') => {
+        const formData = new FormData(formRef.current!);
+        formData.set('pillars', JSON.stringify(form.getValues('pillars')));
+        formData.set('status', status);
+        
         toast({
-            title: "Plan Published!",
-            description: "The new strategic plan has been successfully published.",
+            title: status === 'DRAFT' ? "Saving Draft..." : "Publishing Plan...",
+            description: "Please wait.",
         });
-        router.push('/strategic-plan');
+
+        createStrategicPlan(formData);
     };
-    
-    const handleSaveDraft = async () => {
-        const data = form.getValues();
-        await savePlan(data, 'draft');
-        toast({
-            title: "Draft Saved!",
-            description: "Your strategic plan has been saved as a draft.",
-        });
-        router.push('/strategic-plan');
-    }
 
     const handleNext = async () => {
         const currentTabIndex = TABS.findIndex(t => t.value === currentTab);
-        let isValid = false;
-
-        switch (currentTabIndex) {
-            case 0: // Plan Info
-                isValid = await form.trigger(["planTitle", "startYear", "endYear", "version"]);
-                break;
-            case 1: // Pillars
-                 isValid = await form.trigger("pillars");
-                 const pillars = form.getValues("pillars");
-                 if (pillars.every(p => p.title)) {
-                    isValid = true;
-                 }
-                break;
-            case 2: // Objectives
-                isValid = await form.trigger("pillars");
-                 const pillarsForObjectives = form.getValues("pillars");
-                if (pillarsForObjectives.every(p => p.objectives.length > 0 && p.objectives.every(o => o.statement))) {
-                    isValid = true;
-                }
-                break;
-            case 3: // Initiatives
-                isValid = await form.trigger("pillars");
-                const pillarsForInitiatives = form.getValues("pillars");
-                if (pillarsForInitiatives.every(p => p.objectives.every(o => o.initiatives.length > 0 && o.initiatives.every(i => i.title && i.owner)))) {
-                    isValid = true;
-                }
-                break;
-            case 4: // Activities
-                isValid = await form.trigger("pillars");
-                 const pillarsForActivities = form.getValues("pillars");
-                if (pillarsForActivities.every(p => p.objectives.every(o => o.initiatives.every(i => i.activities.length > 0 && i.activities.every(a => a.title && a.deadline && a.weight > 0))))) {
-                     isValid = true;
-                }
-                break;
-            case 5: // Review
-                isValid = await form.trigger();
-                break;
-        }
-
-        if (isValid && currentTabIndex < TABS.length - 1) {
+        const result = await form.trigger();
+        
+        if (result && currentTabIndex < TABS.length - 1) {
             setHighestCompletedStep(Math.max(highestCompletedStep, currentTabIndex + 1));
             setCurrentTab(TABS[currentTabIndex + 1].value);
-        } else if (!isValid) {
+        } else if (!result) {
              toast({
                 title: "Validation Error",
                 description: "Please fill out all required fields before proceeding.",
@@ -226,7 +177,8 @@ export default function CreateStrategicPlanPage() {
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 space-y-6">
+            <form ref={formRef} className="flex-1 space-y-6">
+                <input type="hidden" {...form.register('pillars')} />
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Button asChild variant="outline" size="icon">
@@ -240,8 +192,8 @@ export default function CreateStrategicPlanPage() {
                         </div>
                     </div>
                      <div className="flex gap-2">
-                        <Button variant="outline" type="button" onClick={handleSaveDraft}>Save Draft</Button>
-                        <Button type="submit">Publish Plan</Button>
+                        <Button variant="outline" type="button" onClick={() => handleFormSubmit('DRAFT')}>Save Draft</Button>
+                        <Button type="button" onClick={() => handleFormSubmit('PUBLISHED')}>Publish Plan</Button>
                     </div>
                 </div>
                 <Card>
@@ -265,10 +217,10 @@ export default function CreateStrategicPlanPage() {
                                     <StepHeader title="Step 1: Define Plan Information" description="Set the basic details for your new strategic plan." />
                                     <FormField
                                         control={form.control}
-                                        name="planTitle"
+                                        name="name"
                                         render={({ field }) => (
                                         <FormItem>
-                                            <Label>Plan Title</Label>
+                                            <Label>Plan Name</Label>
                                             <FormControl>
                                                 <Input {...field} />
                                             </FormControl>
@@ -397,7 +349,6 @@ export default function CreateStrategicPlanPage() {
                                         <StepHeader title="Step 6: Review & Save" description="Review the complete strategic plan hierarchy before publishing." />
                                     <ReviewSection form={form} />
                                 </TabsContent>
-
                             </Tabs>
 
                             <div className="flex justify-between mt-8">
@@ -405,7 +356,7 @@ export default function CreateStrategicPlanPage() {
                                 {currentTab !== TABS[TABS.length - 1].value ? (
                                     <Button type="button" onClick={handleNext}>Next</Button>
                                 ) : (
-                                    <Button type="submit">Publish Plan</Button>
+                                    <Button type="button" onClick={() => handleFormSubmit('PUBLISHED')}>Publish Plan</Button>
                                 )}
                             </div>
                         </div>
@@ -425,31 +376,18 @@ function StepHeader({ title, description }: { title: string, description: string
     )
 }
 
-// Helper to calculate weights
-const calculateInitiativeWeight = (activities: any[] = []) => {
-    return activities.reduce((total, activity) => total + (Number(activity.weight) || 0), 0);
-};
-
-const calculateObjectiveWeight = (initiatives: any[] = []) => {
-    return initiatives.reduce((total, initiative) => total + calculateInitiativeWeight(initiative.activities || []), 0);
-};
-
-const calculatePillarWeight = (objectives: any[] = []) => {
-    return objectives.reduce((total, objective) => total + calculateObjectiveWeight(objective.initiatives || []), 0);
-}
-
+const calculateInitiativeWeight = (activities: any[] = []) => activities.reduce((total, activity) => total + (Number(activity.weight) || 0), 0);
+const calculateObjectiveWeight = (initiatives: any[] = []) => initiatives.reduce((total, initiative) => total + calculateInitiativeWeight(initiative.activities || []), 0);
+const calculatePillarWeight = (objectives: any[] = []) => objectives.reduce((total, objective) => total + calculateObjectiveWeight(objective.initiatives || []), 0);
 
 function PillarObjectiveAccordion({ pIndex, form }: { pIndex: number; form: any }) {
     const { control, watch } = form;
     const { fields: objectiveFields, append: appendObjective, remove: removeObjective } = useFieldArray({ control, name: `pillars.${pIndex}.objectives` });
     const pillarTitle = watch(`pillars.${pIndex}.title`);
-    const objectives = watch(`pillars.${pIndex}.objectives`);
-    const totalPillarWeight = useMemo(() => calculatePillarWeight(objectives), [objectives]);
 
-    
     return (
         <AccordionItem value={`pillar-${pIndex}`}>
-            <AccordionTrigger className="text-xl font-semibold">{pillarTitle} <span className="text-base font-normal text-muted-foreground ml-2">(Total Weight: {totalPillarWeight})</span></AccordionTrigger>
+            <AccordionTrigger className="text-xl font-semibold">{pillarTitle}</AccordionTrigger>
             <AccordionContent className="pl-4 border-l ml-4 space-y-4">
                  {objectiveFields.map((objective, oIndex) => (
                     <Card key={objective.id}>
@@ -504,22 +442,19 @@ function PillarInitiativeAccordion({ pIndex, form }: { pIndex: number; form: any
 }
 
 function ObjectiveInitiativeAccordion({ pIndex, oIndex, form }: { pIndex: number; oIndex: number; form: any }) {
-    const { control, register, watch } = form;
+    const { control, watch } = form;
     const { fields: initiativeFields, append: appendInitiative, remove: removeInitiative } = useFieldArray({ control, name: `pillars.${pIndex}.objectives.${oIndex}.initiatives` });
     const objectiveStatement = watch(`pillars.${pIndex}.objectives.${oIndex}.statement`);
-    const initiatives = watch(`pillars.${pIndex}.objectives.${oIndex}.initiatives`);
-    const totalObjectiveWeight = useMemo(() => calculateObjectiveWeight(initiatives), [initiatives]);
 
     return (
         <AccordionItem value={`objective-${pIndex}-${oIndex}`}>
-            <AccordionTrigger className="font-semibold text-lg">{objectiveStatement} <span className="text-base font-normal text-muted-foreground ml-2">(Total Weight: {totalObjectiveWeight})</span></AccordionTrigger>
+            <AccordionTrigger className="font-semibold text-lg">{objectiveStatement}</AccordionTrigger>
             <AccordionContent className="pl-4 border-l ml-4 space-y-4">
                 {initiativeFields.map((initiative, iIndex) => {
-                     const initiativeWeight = calculateInitiativeWeight(watch(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities`));
                      return (
                          <Card key={initiative.id}>
                             <CardHeader className="flex-row items-center justify-between">
-                                <CardTitle>Initiative {pIndex + 1}.{oIndex + 1}.{iIndex + 1} <span className="text-base font-normal text-muted-foreground ml-2">(Total Weight: {initiativeWeight})</span></CardTitle>
+                                <CardTitle>Initiative {pIndex + 1}.{oIndex + 1}.{iIndex + 1}</CardTitle>
                                  <Button variant="destructive" size="icon" onClick={() => removeInitiative(iIndex)}>
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -604,7 +539,7 @@ function ObjectiveInitiativeAccordion({ pIndex, oIndex, form }: { pIndex: number
 }
 
 function PillarActivityAccordion({ pIndex, form }: { pIndex: number; form: any }) {
-    const { control, watch } = form;
+    const { watch } = form;
     const pillarTitle = watch(`pillars.${pIndex}.title`);
     const objectives = watch(`pillars.${pIndex}.objectives`);
     
@@ -642,26 +577,22 @@ function ObjectiveActivityAccordion({ pIndex, oIndex, form }: { pIndex: number; 
 }
 
 function InitiativeActivityAccordion({ pIndex, oIndex, iIndex, form }: { pIndex: number; oIndex: number; iIndex: number; form: any }) {
-    const { control, register, watch } = form;
+    const { control } = form;
     const { fields: activityFields, append: appendActivity, remove: removeActivity } = useFieldArray({ control, name: `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities` });
-    const initiativeTitle = watch(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.title`);
-    const activities = watch(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities`);
-    const initiativeWeight = useMemo(() => calculateInitiativeWeight(activities), [activities]);
-
+    const initiativeTitle = form.watch(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.title`);
 
     return (
         <AccordionItem value={`initiative-${pIndex}-${oIndex}-${iIndex}`}>
-            <AccordionTrigger className="font-medium text-base">{initiativeTitle} <span className="text-sm font-normal text-muted-foreground ml-2">(Total Weight: {initiativeWeight})</span></AccordionTrigger>
+            <AccordionTrigger className="font-medium text-base">{initiativeTitle}</AccordionTrigger>
             <AccordionContent className="pl-4 border-l ml-4 space-y-4">
                  <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-[10%]">Code</TableHead>
                             <TableHead>Title</TableHead>
                             <TableHead>Weight</TableHead>
-                            <TableHead>Deadline</TableHead>
-                            <TableHead>Owner</TableHead>
-                            <TableHead>Collaborators</TableHead>
+                            <TableHead>Start Date</TableHead>
+                            <TableHead>End Date</TableHead>
+                            <TableHead>Responsible</TableHead>
                             <TableHead>Action</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -669,89 +600,21 @@ function InitiativeActivityAccordion({ pIndex, oIndex, iIndex, form }: { pIndex:
                         {activityFields.map((activity, aIndex) => (
                             <TableRow key={activity.id}>
                                 <TableCell>
-                                <span className="text-sm text-muted-foreground">{pIndex + 1}.{oIndex + 1}.{iIndex + 1}.{aIndex + 1}</span>
+                                     <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.title`} render={({ field }) => <Input {...field} />} />
                                 </TableCell>
                                 <TableCell>
-                                     <FormField
-                                        control={control}
-                                        name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.title`}
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormControl>
-                                                    <Input {...field} placeholder="Activity Title"/>
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
+                                     <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.weight`} render={({ field }) => <Input type="number" {...field} />} />
                                 </TableCell>
                                 <TableCell>
-                                     <FormField
-                                        control={control}
-                                        name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.weight`}
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormControl>
-                                                    <Input type="number" {...field} placeholder="100"/>
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
+                                     <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.startDate`} render={({ field }) => <Input type="date" {...field} />} />
                                 </TableCell>
                                 <TableCell>
-                                     <FormField
-                                        control={control}
-                                        name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.deadline`}
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormControl>
-                                                    <Input type="date" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
+                                     <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.endDate`} render={({ field }) => <Input type="date" {...field} />} />
                                 </TableCell>
                                 <TableCell>
-                                    <FormField
-                                        control={control}
-                                        name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.owner`}
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger className="min-w-[150px]">
-                                                            <SelectValue placeholder="Select..." />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        {peopleOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                                                    </SelectContent>
-                                                </Select>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </TableCell>
-                                    <TableCell>
-                                    <FormField
-                                        control={control}
-                                        name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.collaborators`}
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormControl>
-                                                    <MultiSelect
-                                                        options={peopleOptions}
-                                                        selected={field.value ?? []}
-                                                        onChange={field.onChange}
-                                                        placeholder="Select..."
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
+                                    <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.responsible`} render={({ field }) => (
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{users.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select>
+                                    )} />
                                 </TableCell>
                                 <TableCell>
                                     <Button variant="ghost" size="icon" onClick={() => removeActivity(aIndex)}>
@@ -762,7 +625,7 @@ function InitiativeActivityAccordion({ pIndex, oIndex, iIndex, form }: { pIndex:
                         ))}
                     </TableBody>
                 </Table>
-                <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: generateId('A'), title: `Activity ${pIndex + 1}.${oIndex + 1}.${iIndex + 1}.${activityFields.length + 1}`, weight: 0, deadline: '', owner: '', collaborators: [], progress:0, status: 'Not Started', startDate: '', endDate: '', department: 'Sales', responsible: 'Liam Johnson', updates: [] })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: generateId('A'), title: ``, weight: 0, startDate: '', endDate: '', department: '', responsible: '' })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
                 </Button>
             </AccordionContent>
@@ -770,10 +633,8 @@ function InitiativeActivityAccordion({ pIndex, oIndex, iIndex, form }: { pIndex:
     );
 }
 
-
 function ReviewSection({ form }: { form: any }) {
-    const { getValues, watch } = form;
-    const plan = watch(); // Watch all fields to re-render on change
+    const plan = form.watch();
 
     if (!plan.pillars || plan.pillars.length === 0) {
         return <p>No data entered yet. Please fill out the previous steps.</p>;
@@ -781,7 +642,7 @@ function ReviewSection({ form }: { form: any }) {
     
     return (
         <div className="space-y-4">
-            <h3 className="text-xl font-bold">{plan.planTitle} ({plan.startYear}-{plan.endYear}) v{plan.version}</h3>
+            <h3 className="text-xl font-bold">{plan.name} ({plan.startYear}-{plan.endYear}) v{plan.version}</h3>
             {plan.pillars.map((pillar: any, pIndex: number) => {
                 const pillarWeight = calculatePillarWeight(pillar.objectives);
                 return (
@@ -816,5 +677,3 @@ function ReviewSection({ form }: { form: any }) {
         </div>
     )
 }
-
-    

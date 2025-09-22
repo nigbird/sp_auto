@@ -1,4 +1,5 @@
 
+import type { StrategicPlan as PrismaStrategicPlan, Pillar as PrismaPillar, Objective as PrismaObjective, Initiative as PrismaInitiative, Activity as PrismaActivity } from '@prisma/client';
 
 export type ActivityStatus = "Not Started" | "On Track" | "Completed As Per Target" | "Delayed" | "Overdue" | string;
 export type ApprovalStatus = "Pending" | "Approved" | "Declined";
@@ -22,29 +23,7 @@ export type PendingUpdate = {
   progress: number;
 }
 
-export type Activity = {
-  id: string;
-  title: string;
-  description:string;
-  department: string;
-  responsible: string;
-  owner?: string;
-  collaborators?: string[];
-  startDate: Date | string;
-  endDate: Date | string;
-  status: ActivityStatus;
-  kpis?: KPI[];
-  lastUpdated?: {
-    user: string;
-    date: Date;
-  };
-  updates: ActivityUpdate[];
-  weight: number;
-  progress: number;
-  pendingUpdate?: PendingUpdate;
-  approvalStatus?: ApprovalStatus;
-  declineReason?: string;
-};
+export type Activity = Omit<PrismaActivity, 'initiativeId'>;
 
 export type User = {
   name: string;
@@ -62,30 +41,19 @@ export type Notification = {
   read: boolean;
 };
 
-export type Initiative = {
-    id?: string;
-    title: string;
-    description?: string;
-    weight?: number; // Calculated field
+export type Initiative = Omit<PrismaInitiative, 'objectiveId'> & {
     activities: Activity[];
-    owner?: string;
-    collaborators?: string[];
+    weight?: number;
 }
 
-export type Objective = {
-    id?: string;
-    title?: string; 
-    statement: string;
-    weight?: number; // Calculated field
+export type Objective = Omit<PrismaObjective, 'pillarId'> & {
     initiatives: Initiative[];
+    weight?: number;
 }
 
-export type Pillar = {
-    id?: string;
-    title: string;
-    description?: string;
-    weight?: number; // Calculated field
+export type Pillar = Omit<PrismaPillar, 'strategicPlanId'> & {
     objectives: Objective[];
+    weight?: number;
 }
 
 export type Rule = {
@@ -98,11 +66,7 @@ export type Rule = {
   condition?: (activity: Activity) => boolean;
 };
 
-export type StrategicPlan = {
-  planTitle: string;
-  startYear: number;
-  endYear: number;
-  version: string;
+export type StrategicPlan = Omit<PrismaStrategicPlan, 'status'> & {
+  status: 'DRAFT' | 'PUBLISHED';
   pillars: Pillar[];
-  status: 'draft' | 'published';
 }

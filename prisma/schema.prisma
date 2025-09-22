@@ -1,3 +1,4 @@
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -8,114 +9,78 @@ generator client {
 }
 
 model StrategicPlan {
-  id        String   @id @default(cuid())
-  planTitle String
+  id        String    @id @default(cuid())
+  name      String
   startYear Int
   endYear   Int
   version   String
   status    PlanStatus @default(DRAFT)
   pillars   Pillar[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
 model Pillar {
   id              String         @id @default(cuid())
   title           String
   description     String?
-  strategicPlanId String
-  strategicPlan   StrategicPlan  @relation(fields: [strategicPlanId], references: [id], onDelete: Cascade)
+  strategicPlan   StrategicPlan? @relation(fields: [strategicPlanId], references: [id], onDelete: Cascade)
+  strategicPlanId String?
   objectives      Objective[]
 }
 
 model Objective {
-  id        String       @id @default(cuid())
+  id        String   @id @default(cuid())
   statement String
-  pillarId  String
-  pillar    Pillar       @relation(fields: [pillarId], references: [id], onDelete: Cascade)
+  pillar    Pillar?  @relation(fields: [pillarId], references: [id], onDelete: Cascade)
+  pillarId  String?
   initiatives Initiative[]
 }
 
 model Initiative {
-  id            String      @id @default(cuid())
-  title         String
-  description   String?
-  ownerId       String?
-  owner         User?       @relation("InitiativeOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  objectiveId   String
-  objective     Objective   @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
-  activities    Activity[]
-  collaborators User[]      @relation("InitiativeCollaborators")
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  owner       String?
+  objective   Objective? @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  objectiveId String?
+  activities  Activity[]
 }
 
 model Activity {
-  id              String           @id @default(cuid())
-  title           String
-  description     String?
-  department      String
-  startDate       DateTime
-  endDate         DateTime
-  status          String
-  weight          Float
-  progress        Float
-  approvalStatus  ApprovalStatus?
-  declineReason   String?
-  initiativeId    String
-  initiative      Initiative       @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
-  responsibleId   String
-  responsible     User             @relation("ActivityResponsible", fields: [responsibleId], references: [id])
-  ownerId         String?
-  owner           User?            @relation("ActivityOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  collaborators   User[]           @relation("ActivityCollaborators")
-  kpis            Json?
-  updates         ActivityUpdate[]
-  pendingUpdate   PendingUpdate?
-  lastUpdatedBy   String?
-  lastUpdatedAt   DateTime?
-}
-
-model ActivityUpdate {
-  id         String   @id @default(cuid())
-  comment    String
-  date       DateTime
-  activityId String
-  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model PendingUpdate {
-  id         String   @id @default(cuid())
-  comment    String
-  progress   Float
-  date       DateTime
-  activityId String   @unique
-  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String         @id @default(cuid())
+  title          String
+  description    String
+  department     String
+  responsible    String
+  startDate      DateTime
+  endDate        DateTime
+  status         String
+  weight         Float
+  progress       Float
+  approvalStatus ApprovalStatus @default(PENDING)
+  declineReason  String?
+  pendingUpdate  Json?
+  initiative     Initiative?    @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  initiativeId   String?
+  lastUpdated    DateTime?      @updatedAt
 }
 
 model User {
-  id                      String           @id @default(cuid())
-  email                   String           @unique
-  name                    String
-  avatar                  String?
-  role                    Role             @default(USER)
-  status                  UserStatus       @default(INACTIVE)
-  createdAt               DateTime         @default(now())
-  responsibleForActivities Activity[]       @relation("ActivityResponsible")
-  ownedActivities         Activity[]       @relation("ActivityOwner")
-  collaboratingActivities Activity[]       @relation("ActivityCollaborators")
-  ownedInitiatives        Initiative[]     @relation("InitiativeOwner")
-  collaboratingInitiatives Initiative[]   @relation("InitiativeCollaborators")
-  activityUpdates         ActivityUpdate[]
-  pendingUpdates          PendingUpdate[]
-  notifications           Notification[]
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  avatar        String?
+  role          Role           @default(USER)
+  status        UserStatus     @default(ACTIVE)
+  createdAt     DateTime       @default(now())
+  notifications Notification[]
+  Activity      Activity[]
 }
 
 model Rule {
   id          String  @id @default(cuid())
-  status      String  @unique
+  status      String
   description String
   min         Float
   max         Float
@@ -123,23 +88,12 @@ model Rule {
 }
 
 model Notification {
-  id      String   @id @default(cuid())
+  id      String  @id @default(cuid())
   message String
-  date    DateTime @default(now())
-  read    Boolean  @default(false)
-  userId  String
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-enum PlanStatus {
-  DRAFT
-  PUBLISHED
-}
-
-enum ApprovalStatus {
-  PENDING
-  APPROVED
-  DECLINED
+  date    DateTime
+  read    Boolean @default(false)
+  user    User?   @relation(fields: [userId], references: [id])
+  userId  String?
 }
 
 enum Role {
@@ -151,4 +105,15 @@ enum Role {
 enum UserStatus {
   ACTIVE
   INACTIVE
+}
+
+enum PlanStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  DECLINED
 }
