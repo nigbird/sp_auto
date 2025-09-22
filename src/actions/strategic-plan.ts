@@ -146,6 +146,7 @@ export async function createStrategicPlan(formData: FormData) {
                                         title: i.title,
                                         description: i.description,
                                         owner: i.owner,
+                                        collaborators: i.collaborators,
                                         activities: {
                                             create: i.activities.map((a: any) => {
                                                 const responsibleId = userMap.get(a.responsible);
@@ -240,6 +241,7 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
                                         title: i.title,
                                         description: i.description,
                                         owner: i.owner,
+                                        collaborators: i.collaborators,
                                         activities: {
                                             create: i.activities.map((a: any) => {
                                                  const responsibleId = userMap.get(a.responsible);

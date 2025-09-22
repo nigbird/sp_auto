@@ -7,12 +7,12 @@ const prisma = new PrismaClient();
 
 // Data from src/lib/data.ts (adapted for seeding)
 const users = [
-    { name: "Liam Johnson", email: "liam@corp-plan.com", avatar: "https://picsum.photos/id/1005/100", role: Role.MANAGER, status: UserStatus.ACTIVE, createdAt: new Date("2023-10-01") },
-    { name: "Olivia Smith", email: "olivia@corp-plan.com", avatar: "https://picsum.photos/id/1011/100", role: Role.USER, status: UserStatus.ACTIVE, createdAt: new Date("2023-10-05") },
-    { name: "Noah Williams", email: "noah@corp-plan.com", avatar: "https://picsum.photos/id/1012/100", role: Role.USER, status: UserStatus.ACTIVE, createdAt: new Date("2023-10-12") },
-    { name: "Emma Brown", email: "emma@corp-plan.com", avatar: "https://picsum.photos/id/1013/100", role: Role.USER, status: UserStatus.ACTIVE, createdAt: new Date("2023-10-15") },
-    { name: "Oliver Jones", email: "oliver@corp-plan.com", avatar: "https://picsum.photos/id/1014/100", role: Role.USER, status: UserStatus.INACTIVE, createdAt: new Date("2023-11-01") },
-    { name: "Admin User", email: "admin@corp-plan.com", avatar: "https://picsum.photos/id/1/100", role: Role.ADMINISTRATOR, status: UserStatus.ACTIVE, createdAt: new Date("2023-09-01") },
+    { name: "Liam Johnson", email: "liam@corp-plan.com", avatar: "https://picsum.photos/id/1005/100", role: Role.MANAGER, status: UserStatus.ACTIVE },
+    { name: "Olivia Smith", email: "olivia@corp-plan.com", avatar: "https://picsum.photos/id/1011/100", role: Role.USER, status: UserStatus.ACTIVE },
+    { name: "Noah Williams", email: "noah@corp-plan.com", avatar: "https://picsum.photos/id/1012/100", role: Role.USER, status: UserStatus.ACTIVE },
+    { name: "Emma Brown", email: "emma@corp-plan.com", avatar: "https://picsum.photos/id/1013/100", role: Role.USER, status: UserStatus.ACTIVE },
+    { name: "Oliver Jones", email: "oliver@corp-plan.com", avatar: "https://picsum.photos/id/1014/100", role: Role.USER, status: UserStatus.INACTIVE },
+    { name: "Admin User", email: "admin@corp-plan.com", avatar: "https://picsum.photos/id/1/100", role: Role.ADMINISTRATOR, status: UserStatus.ACTIVE },
 ];
 
 const rules = [
