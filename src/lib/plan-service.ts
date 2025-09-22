@@ -1,4 +1,3 @@
-
 'use server';
 
 // This file is obsolete and its functions have been moved to /src/actions/strategic-plan.ts
