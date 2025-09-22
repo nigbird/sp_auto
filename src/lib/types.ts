@@ -1,5 +1,6 @@
 
-import type { StrategicPlan as PrismaStrategicPlan, Pillar as PrismaPillar, Objective as PrismaObjective, Initiative as PrismaInitiative, Activity as PrismaActivity } from '@prisma/client';
+
+import type { StrategicPlan as PrismaStrategicPlan, Pillar as PrismaPillar, Objective as PrismaObjective, Initiative as PrismaInitiative, Activity as PrismaActivity, User as PrismaUser } from '@prisma/client';
 
 export type ActivityStatus = "Not Started" | "On Track" | "Completed As Per Target" | "Delayed" | "Overdue" | string;
 export type ApprovalStatus = "Pending" | "Approved" | "Declined";
@@ -23,9 +24,12 @@ export type PendingUpdate = {
   progress: number;
 }
 
-export type Activity = Omit<PrismaActivity, 'initiativeId'>;
+export type Activity = Omit<PrismaActivity, 'initiativeId' | 'responsibleId'> & {
+    responsible: PrismaUser | string;
+};
 
 export type User = {
+  id: string;
   name: string;
   email: string;
   avatar: string;
@@ -49,6 +53,7 @@ export type Initiative = Omit<PrismaInitiative, 'objectiveId'> & {
 export type Objective = Omit<PrismaObjective, 'pillarId'> & {
     initiatives: Initiative[];
     weight?: number;
+    title?: string; // For compatibility with older data if needed
 }
 
 export type Pillar = Omit<PrismaPillar, 'strategicPlanId'> & {
