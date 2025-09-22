@@ -88,7 +88,6 @@ const getOneMonthFromToday = () => {
 export default function EditStrategicPlanPage() {
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(true);
-    const formRef = useRef<HTMLFormElement>(null);
     const params = useParams();
     const planId = params.id as string;
 
@@ -110,6 +109,7 @@ export default function EditStrategicPlanPage() {
                             i.activities.forEach((a:any) => {
                                 if (a.startDate) a.startDate = a.startDate.split('T')[0];
                                 if (a.endDate) a.endDate = a.endDate.split('T')[0];
+                                a.responsible = a.responsible.name
                             })
                         })
                     })
@@ -128,8 +128,14 @@ export default function EditStrategicPlanPage() {
     });
 
     const handleFormSubmit = (status: 'DRAFT' | 'PUBLISHED') => {
-        const formData = new FormData(formRef.current!);
-        formData.set('pillars', JSON.stringify(form.getValues('pillars')));
+        const formData = new FormData();
+        const formValues = form.getValues();
+
+        formData.set('name', formValues.name);
+        formData.set('startYear', String(formValues.startYear));
+        formData.set('endYear', String(formValues.endYear));
+        formData.set('version', formValues.version);
+        formData.set('pillars', JSON.stringify(formValues.pillars));
         formData.set('status', status);
         
         toast({
@@ -153,8 +159,7 @@ export default function EditStrategicPlanPage() {
 
     return (
         <Form {...form}>
-            <form ref={formRef} className="flex-1 space-y-6">
-                 <input type="hidden" {...form.register('pillars')} />
+            <form onSubmit={e => e.preventDefault()} className="flex-1 space-y-6">
                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Button asChild variant="outline" size="icon">
@@ -348,5 +353,7 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative }: { pI
         </Card>
     );
 }
+
+    
 
     

@@ -99,7 +99,6 @@ export default function CreateStrategicPlanPage() {
     const { toast } = useToast();
     const [currentTab, setCurrentTab] = useState(TABS[0].value);
     const [highestCompletedStep, setHighestCompletedStep] = useState(0);
-    const formRef = useRef<HTMLFormElement>(null);
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
@@ -143,8 +142,14 @@ export default function CreateStrategicPlanPage() {
     });
 
     const handleFormSubmit = (status: 'DRAFT' | 'PUBLISHED') => {
-        const formData = new FormData(formRef.current!);
-        formData.set('pillars', JSON.stringify(form.getValues('pillars')));
+        const formData = new FormData();
+        const formValues = form.getValues();
+        
+        formData.set('name', formValues.name);
+        formData.set('startYear', String(formValues.startYear));
+        formData.set('endYear', String(formValues.endYear));
+        formData.set('version', formValues.version);
+        formData.set('pillars', JSON.stringify(formValues.pillars));
         formData.set('status', status);
         
         toast({
@@ -183,8 +188,7 @@ export default function CreateStrategicPlanPage() {
 
     return (
         <Form {...form}>
-            <form ref={formRef} className="flex-1 space-y-6">
-                <input type="hidden" {...form.register('pillars')} />
+            <form onSubmit={e => e.preventDefault()} className="flex-1 space-y-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Button asChild variant="outline" size="icon">
@@ -683,5 +687,7 @@ function ReviewSection({ form }: { form: any }) {
         </div>
     )
 }
+
+    
 
     
