@@ -96,6 +96,8 @@ export async function getStrategicPlanById(id: string) {
 
 export async function createStrategicPlan(formData: FormData) {
     const data = Object.fromEntries(formData);
+    console.log('Received data for plan creation:', data);
+
     const pillars = JSON.parse(data.pillars as string);
     const status = data.status as 'DRAFT' | 'PUBLISHED';
 
@@ -108,67 +110,76 @@ export async function createStrategicPlan(formData: FormData) {
     });
     
     if (!validatedFields.success) {
-        console.error(validatedFields.error);
+        console.error("Zod validation failed:", validatedFields.error.flatten());
         throw new Error("Invalid form data.");
     }
     
     const { name, startYear, endYear, version } = validatedFields.data;
 
-    const responsibleUsers = await prisma.user.findMany({
-        where: {
-            name: {
-                in: pillars.flatMap((p: any) => p.objectives.flatMap((o: any) => o.initiatives.flatMap((i: any) => i.activities.map((a: any) => a.responsible))))
+    try {
+        const responsibleUsers = await prisma.user.findMany({
+            where: {
+                name: {
+                    in: pillars.flatMap((p: any) => p.objectives.flatMap((o: any) => o.initiatives.flatMap((i: any) => i.activities.map((a: any) => a.responsible))))
+                }
             }
-        }
-    });
-    const userMap = new Map(responsibleUsers.map(u => [u.name, u.id]));
+        });
+        const userMap = new Map(responsibleUsers.map(u => [u.name, u.id]));
 
 
-    await prisma.strategicPlan.create({
-        data: {
-            name,
-            startYear,
-            endYear,
-            version,
-            status,
-            pillars: {
-                create: pillars.map((p: any) => ({
-                    title: p.title,
-                    description: p.description,
-                    objectives: {
-                        create: p.objectives.map((o: any) => ({
-                            statement: o.statement,
-                            initiatives: {
-                                create: o.initiatives.map((i: any) => ({
-                                    title: i.title,
-                                    description: i.description,
-                                    owner: i.owner,
-                                    activities: {
-                                        create: i.activities.map((a: any) => {
-                                            const responsibleId = userMap.get(a.responsible);
-                                            if (!responsibleId) throw new Error(`User not found: ${a.responsible}`);
-                                            return {
-                                                title: a.title,
-                                                description: a.description || '',
-                                                department: a.department,
-                                                responsibleId: responsibleId,
-                                                startDate: new Date(a.startDate),
-                                                endDate: new Date(a.endDate),
-                                                status: 'Not Started',
-                                                weight: a.weight,
-                                                progress: 0,
-                                                approvalStatus: 'Pending',
-                                            }
-                                        }),
-                                    },
-                                })),
-                            },
-                        })),
-                    },
-                })),
+        await prisma.strategicPlan.create({
+            data: {
+                name,
+                startYear,
+                endYear,
+                version,
+                status,
+                pillars: {
+                    create: pillars.map((p: any) => ({
+                        title: p.title,
+                        description: p.description,
+                        objectives: {
+                            create: p.objectives.map((o: any) => ({
+                                statement: o.statement,
+                                initiatives: {
+                                    create: o.initiatives.map((i: any) => ({
+                                        title: i.title,
+                                        description: i.description,
+                                        owner: i.owner,
+                                        activities: {
+                                            create: i.activities.map((a: any) => {
+                                                const responsibleId = userMap.get(a.responsible);
+                                                if (!responsibleId) {
+                                                    throw new Error(`User not found in database: '${a.responsible}'. Please ensure the name is correct.`);
+                                                }
+                                                return {
+                                                    title: a.title,
+                                                    description: a.description || '',
+                                                    department: a.department,
+                                                    responsibleId: responsibleId,
+                                                    startDate: new Date(a.startDate),
+                                                    endDate: new Date(a.endDate),
+                                                    status: 'Not Started',
+                                                    weight: a.weight,
+                                                    progress: 0,
+                                                    approvalStatus: 'Pending',
+                                                }
+                                            }),
+                                        },
+                                    })),
+                                },
+                            })),
+                        },
+                    })),
+                },
             },
-        },
-    });
+        });
+    } catch (error) {
+        console.error("Error during strategic plan creation:", error);
+        // Re-throwing the original error is often more informative
+        throw error;
+    }
+
 
     revalidatePath('/strategic-plan');
     redirect('/strategic-plan');
@@ -189,71 +200,78 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
     });
 
     if (!validatedFields.success) {
-        console.error(validatedFields.error);
+        console.error("Zod validation failed on update:", validatedFields.error.flatten());
         throw new Error("Invalid form data for update.");
     }
     
     const { name, startYear, endYear, version } = validatedFields.data;
 
-    const responsibleUsers = await prisma.user.findMany({
-        where: {
-            name: {
-                in: pillars.flatMap((p: any) => p.objectives.flatMap((o: any) => o.initiatives.flatMap((i: any) => i.activities.map((a: any) => a.responsible))))
+    try {
+        const responsibleUsers = await prisma.user.findMany({
+            where: {
+                name: {
+                    in: pillars.flatMap((p: any) => p.objectives.flatMap((o: any) => o.initiatives.flatMap((i: any) => i.activities.map((a: any) => a.responsible))))
+                }
             }
-        }
-    });
-    const userMap = new Map(responsibleUsers.map(u => [u.name, u.id]));
+        });
+        const userMap = new Map(responsibleUsers.map(u => [u.name, u.id]));
 
-    // In a real scenario, you'd do a deep comparison and update/create/delete
-    // nested entities. For simplicity, we'll delete and re-create pillars.
-    await prisma.pillar.deleteMany({ where: { strategicPlanId: id }});
+        // In a real scenario, you'd do a deep comparison and update/create/delete
+        // nested entities. For simplicity, we'll delete and re-create pillars.
+        await prisma.pillar.deleteMany({ where: { strategicPlanId: id }});
 
-    await prisma.strategicPlan.update({
-        where: { id },
-        data: {
-            name,
-            startYear,
-            endYear,
-            version,
-            status,
-            pillars: {
-                create: pillars.map((p: any) => ({
-                    title: p.title,
-                    description: p.description,
-                    objectives: {
-                        create: p.objectives.map((o: any) => ({
-                            statement: o.statement,
-                            initiatives: {
-                                create: o.initiatives.map((i: any) => ({
-                                    title: i.title,
-                                    description: i.description,
-                                    owner: i.owner,
-                                    activities: {
-                                        create: i.activities.map((a: any) => {
-                                             const responsibleId = userMap.get(a.responsible);
-                                            if (!responsibleId) throw new Error(`User not found: ${a.responsible}`);
-                                            return {
-                                                title: a.title,
-                                                description: a.description || '',
-                                                department: a.department,
-                                                responsibleId: responsibleId,
-                                                startDate: new Date(a.startDate),
-                                                endDate: new Date(a.endDate),
-                                                status: 'Not Started',
-                                                weight: a.weight,
-                                                progress: 0,
-                                                approvalStatus: 'Pending',
-                                            }
-                                        }),
-                                    },
-                                })),
-                            },
-                        })),
-                    },
-                })),
+        await prisma.strategicPlan.update({
+            where: { id },
+            data: {
+                name,
+                startYear,
+                endYear,
+                version,
+                status,
+                pillars: {
+                    create: pillars.map((p: any) => ({
+                        title: p.title,
+                        description: p.description,
+                        objectives: {
+                            create: p.objectives.map((o: any) => ({
+                                statement: o.statement,
+                                initiatives: {
+                                    create: o.initiatives.map((i: any) => ({
+                                        title: i.title,
+                                        description: i.description,
+                                        owner: i.owner,
+                                        activities: {
+                                            create: i.activities.map((a: any) => {
+                                                 const responsibleId = userMap.get(a.responsible);
+                                                if (!responsibleId) {
+                                                    throw new Error(`User not found in database: '${a.responsible}'. Please ensure the name is correct.`);
+                                                }
+                                                return {
+                                                    title: a.title,
+                                                    description: a.description || '',
+                                                    department: a.department,
+                                                    responsibleId: responsibleId,
+                                                    startDate: new Date(a.startDate),
+                                                    endDate: new Date(a.endDate),
+                                                    status: 'Not Started',
+                                                    weight: a.weight,
+                                                    progress: 0,
+                                                    approvalStatus: 'Pending',
+                                                }
+                                            }),
+                                        },
+                                    })),
+                                },
+                            })),
+                        },
+                    })),
+                },
             },
-        },
-    });
+        });
+    } catch (error) {
+        console.error("Error during strategic plan update:", error);
+        throw error;
+    }
     
     revalidatePath('/strategic-plan');
     revalidatePath(`/strategic-plan/${id}`);
@@ -291,3 +309,4 @@ export async function deleteStrategicPlan(id: string) {
     
 
     
+
