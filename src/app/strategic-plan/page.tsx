@@ -36,7 +36,6 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { ObjectiveItem } from "@/components/strategic-plan/objective-item";
 import { useToast } from "@/hooks/use-toast";
-import { revalidatePath } from "next/cache";
 
 
 type ItemType = "Pillar" | "Objective" | "Initiative" | "Activity";
