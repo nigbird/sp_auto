@@ -95,9 +95,9 @@ export async function getStrategicPlanById(id: string) {
 }
 
 export async function createStrategicPlan(formData: FormData) {
-    const data = Object.fromEntries(formData);
-    console.log('Received data for plan creation:', data);
+    console.log('Received data for plan creation:', Object.fromEntries(formData));
 
+    const data = Object.fromEntries(formData);
     const pillars = JSON.parse(data.pillars as string);
     const status = data.status as 'DRAFT' | 'PUBLISHED';
 
@@ -305,11 +305,3 @@ export async function deleteStrategicPlan(id: string) {
     revalidatePath('/strategic-plan');
     redirect('/strategic-plan');
 }
-
-    
-
-    
-
-
-
-    
