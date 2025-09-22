@@ -103,33 +103,7 @@ export function Header() {
         <SidebarTrigger className="md:hidden" />
       </div>
 
-      <div className="flex w-full items-center gap-4 md:ml_auto md:gap-2 lg:gap-4">
-        <form className="ml-auto flex-1 sm:flex-initial">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search activities..."
-              className="pl-8 sm:w-[300px] md:w-[200px] lg:w-[300px]"
-            />
-          </div>
-        </form>
-        <Button variant="outline" size="sm" onClick={handleImportClick}>
-          <Upload className="mr-2 h-4 w-4" />
-          Import
-        </Button>
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          accept=".xlsx, .xls, .csv"
-          className="hidden"
-        />
-        <Button variant="outline" size="sm" onClick={handleExport}>
-          <Download className="mr-2 h-4 w-4" />
-          Export
-        </Button>
-        <Notifications />
+      <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
       </div>
     </header>
   );
