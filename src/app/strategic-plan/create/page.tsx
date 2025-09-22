@@ -21,6 +21,7 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { useState, useMemo, useRef } from "react";
 import { createStrategicPlan } from "@/actions/strategic-plan";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
+import { format } from "date-fns";
 
 
 const activitySchema = z.object({
@@ -32,8 +33,6 @@ const activitySchema = z.object({
   department: z.string().min(1, "Department is required"),
   responsible: z.string().min(1, "Responsible person is required"),
   description: z.string().optional(),
-  collaborators: z.array(z.string()).optional(),
-  owner: z.string().min(1, "Owner is required"),
 });
 
 const initiativeSchema = z.object({
@@ -88,6 +87,13 @@ function generateId(prefix: string) {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
+const getToday = () => format(new Date(), 'yyyy-MM-dd');
+const getOneMonthFromToday = () => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    return format(d, 'yyyy-MM-dd');
+}
+
 
 export default function CreateStrategicPlanPage() {
     const { toast } = useToast();
@@ -119,7 +125,7 @@ export default function CreateStrategicPlanPage() {
                                     owner: "Liam Johnson",
                                     collaborators: [],
                                     activities: [
-                                        { id: generateId('A'), title: "Activity 1.1.1.1", weight: 100, owner: "Liam Johnson", collaborators: [], startDate: '', endDate: '', department: 'Sales', responsible: 'Liam Johnson' },
+                                        { id: generateId('A'), title: "Activity 1.1.1.1", weight: 100, description: '', startDate: getToday(), endDate: getOneMonthFromToday(), department: 'Sales', responsible: 'Liam Johnson' },
                                     ]
                                 }
                             ]
@@ -530,7 +536,7 @@ function ObjectiveInitiativeAccordion({ pIndex, oIndex, form }: { pIndex: number
                         </Card>
                      )
                 })}
-                <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ id: generateId('I'), title: `Initiative ${pIndex+1}.${oIndex+1}.${initiativeFields.length+1}`, description: "", owner: "", collaborators: [], activities: [] })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ id: generateId('I'), title: `Initiative ${pIndex+1}.${oIndex+1}.${initiativeFields.length+1}`, description: "", owner: "Liam Johnson", collaborators: [], activities: [] })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Initiative
                 </Button>
             </AccordionContent>
@@ -625,7 +631,7 @@ function InitiativeActivityAccordion({ pIndex, oIndex, iIndex, form }: { pIndex:
                         ))}
                     </TableBody>
                 </Table>
-                <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: generateId('A'), title: ``, weight: 0, startDate: '', endDate: '', department: '', responsible: '' })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: generateId('A'), title: ``, weight: 0, startDate: getToday(), endDate: getOneMonthFromToday(), department: '', responsible: 'Liam Johnson' })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
                 </Button>
             </AccordionContent>
@@ -677,3 +683,5 @@ function ReviewSection({ form }: { form: any }) {
         </div>
     )
 }
+
+    

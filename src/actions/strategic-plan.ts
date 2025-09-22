@@ -7,12 +7,45 @@ import type { StrategicPlan as StrategicPlanType } from '@/lib/types';
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
 
+const activitySchema = z.object({
+  id: z.string().optional(),
+  title: z.string().min(1, "Title is required"),
+  weight: z.coerce.number().min(0, "Weight must be positive"),
+  startDate: z.string().min(1, "Start date is required"),
+  endDate: z.string().min(1, "End date is required"),
+  department: z.string().min(1, "Department is required"),
+  responsible: z.string().min(1, "Responsible person is required"),
+  description: z.string().optional(),
+});
+
+const initiativeSchema = z.object({
+  id: z.string().optional(),
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  owner: z.string().min(1, "Owner is required"),
+  collaborators: z.array(z.string()).optional(),
+  activities: z.array(activitySchema).min(1, "At least one activity is required."),
+});
+
+const objectiveSchema = z.object({
+  id: z.string().optional(),
+  statement: z.string().min(1, "Objective Statement is required"),
+  initiatives: z.array(initiativeSchema).min(1, "At least one initiative is required."),
+});
+
+const pillarSchema = z.object({
+  id: z.string().optional(),
+  title: z.string().min(1, "Pillar Title is required"),
+  description: z.string().optional(),
+  objectives: z.array(objectiveSchema).min(1, "At least one objective is required."),
+});
+
 const planSchema = z.object({
   name: z.string().min(1, "Plan Name is required"),
   startYear: z.coerce.number().min(2000),
   endYear: z.coerce.number().min(2000),
   version: z.string().min(1, "Version is required"),
-  pillars: z.array(z.any()), // Simplified for server action
+  pillars: z.array(pillarSchema), // Simplified for server action
 });
 
 
@@ -29,12 +62,17 @@ export async function getStrategicPlanById(id: string) {
         where: { id },
         include: {
             pillars: {
+                orderBy: { createdAt: 'asc' },
                 include: {
                     objectives: {
+                        orderBy: { createdAt: 'asc' },
                         include: {
                             initiatives: {
+                                orderBy: { createdAt: 'asc' },
                                 include: {
-                                    activities: true,
+                                    activities: {
+                                        orderBy: { createdAt: 'asc' },
+                                    },
                                 },
                             },
                         },
@@ -73,6 +111,17 @@ export async function createStrategicPlan(formData: FormData) {
     
     const { name, startYear, endYear, version } = validatedFields.data;
 
+    // Get user emails for responsible
+    const users = await prisma.user.findMany({
+        where: {
+            name: {
+                in: pillars.flatMap((p: any) => p.objectives.flatMap((o: any) => o.initiatives.flatMap((i: any) => i.activities.map((a: any) => a.responsible))))
+            }
+        }
+    });
+    const userMap = new Map(users.map(u => [u.name, u.id]));
+
+
     await prisma.strategicPlan.create({
         data: {
             name,
@@ -93,18 +142,22 @@ export async function createStrategicPlan(formData: FormData) {
                                     description: i.description,
                                     owner: i.owner,
                                     activities: {
-                                        create: i.activities.map((a: any) => ({
-                                            title: a.title,
-                                            description: a.description || '',
-                                            department: a.department,
-                                            responsible: a.responsible,
-                                            startDate: new Date(a.startDate),
-                                            endDate: new Date(a.endDate),
-                                            status: 'Not Started',
-                                            weight: a.weight,
-                                            progress: 0,
-                                            approvalStatus: 'Pending',
-                                        })),
+                                        create: i.activities.map((a: any) => {
+                                            const responsibleId = userMap.get(a.responsible);
+                                            if (!responsibleId) throw new Error(`User not found: ${a.responsible}`);
+                                            return {
+                                                title: a.title,
+                                                description: a.description || '',
+                                                department: a.department,
+                                                responsibleId: responsibleId,
+                                                startDate: new Date(a.startDate),
+                                                endDate: new Date(a.endDate),
+                                                status: 'Not Started',
+                                                weight: a.weight,
+                                                progress: 0,
+                                                approvalStatus: 'Pending',
+                                            }
+                                        }),
                                     },
                                 })),
                             },
@@ -140,6 +193,16 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
     
     const { name, startYear, endYear, version } = validatedFields.data;
 
+    // Get user emails for responsible
+    const users = await prisma.user.findMany({
+        where: {
+            name: {
+                in: pillars.flatMap((p: any) => p.objectives.flatMap((o: any) => o.initiatives.flatMap((i: any) => i.activities.map((a: any) => a.responsible))))
+            }
+        }
+    });
+    const userMap = new Map(users.map(u => [u.name, u.id]));
+
     // In a real scenario, you'd do a deep comparison and update/create/delete
     // nested entities. For simplicity, we'll delete and re-create pillars.
     await prisma.pillar.deleteMany({ where: { strategicPlanId: id }});
@@ -165,18 +228,22 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
                                     description: i.description,
                                     owner: i.owner,
                                     activities: {
-                                        create: i.activities.map((a: any) => ({
-                                            title: a.title,
-                                            description: a.description || '',
-                                            department: a.department,
-                                            responsible: a.responsible,
-                                            startDate: new Date(a.startDate),
-                                            endDate: new Date(a.endDate),
-                                            status: 'Not Started',
-                                            weight: a.weight,
-                                            progress: 0,
-                                            approvalStatus: 'Pending',
-                                        })),
+                                        create: i.activities.map((a: any) => {
+                                             const responsibleId = userMap.get(a.responsible);
+                                            if (!responsibleId) throw new Error(`User not found: ${a.responsible}`);
+                                            return {
+                                                title: a.title,
+                                                description: a.description || '',
+                                                department: a.department,
+                                                responsibleId: responsibleId,
+                                                startDate: new Date(a.startDate),
+                                                endDate: new Date(a.endDate),
+                                                status: 'Not Started',
+                                                weight: a.weight,
+                                                progress: 0,
+                                                approvalStatus: 'Pending',
+                                            }
+                                        }),
                                     },
                                 })),
                             },
@@ -203,7 +270,21 @@ export async function publishStrategicPlan(id: string) {
 }
 
 export async function deleteStrategicPlan(id: string) {
+    // Make sure to delete related records in the correct order if cascading delete is not set up
+    const plan = await prisma.strategicPlan.findUnique({
+        where: { id },
+        include: { pillars: { include: { objectives: { include: { initiatives: { include: { activities: true }}}}}}}
+    });
+
+    if (plan) {
+        // This is complex, for now we will rely on cascading delete in the DB
+        // Or handle it manually. For this app, let's assume cascade is on.
+    }
+    
     await prisma.strategicPlan.delete({ where: { id } });
+
     revalidatePath('/strategic-plan');
     redirect('/strategic-plan');
 }
+
+    
