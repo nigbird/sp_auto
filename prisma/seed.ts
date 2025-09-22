@@ -16,17 +16,17 @@ const users = [
 ];
 
 const rules = [
-    { id: "1", status: "Completed As Per Target", description: "Performance against target is >= 100%", min: 100, max: 1e9, isSystem: true },
-    { id: "2", status: "On Track", description: "Performance against target is from 70% up to 99.99%", min: 70, max: 99.99, isSystem: false },
-    { id: "3", status: "Delayed", description: "Performance against target is above 0% but less than 70%", min: 0.01, max: 69.99, isSystem: false },
-    { id: "4", status: "Not Started", description: "Performance against target is 0%", min: 0, max: 0, isSystem: true },
-    { id: "5", status: "Overdue", description: "Past deadline and not completed", min: 0, max: 99.99, isSystem: true },
+    { status: "Completed As Per Target", description: "Performance against target is >= 100%", min: 100, max: 1e9, isSystem: true },
+    { status: "On Track", description: "Performance against target is from 70% up to 99.99%", min: 70, max: 99.99, isSystem: false },
+    { status: "Delayed", description: "Performance against target is above 0% but less than 70%", min: 0.01, max: 69.99, isSystem: false },
+    { status: "Not Started", description: "Performance against target is 0%", min: 0, max: 0, isSystem: true },
+    { status: "Overdue", description: "Past deadline and not completed", min: 0, max: 99.99, isSystem: true },
 ];
 
 const notifications = [
-    { id: "1", message: "Activity 'Customer Support Training' is delayed.", date: new Date(), read: false },
-    { id: "2", message: "Noah Williams completed 'Website Redesign Project'.", date: new Date(Date.now() - 1000 * 60 * 60 * 2), read: false },
-    { id: "3", message: "Deadline for 'New CRM System Implementation' is approaching.", date: new Date(Date.now() - 1000 * 60 * 60 * 24), read: true },
+    { message: "Activity 'Customer Support Training' is delayed.", date: new Date(), read: false },
+    { message: "Noah Williams completed 'Website Redesign Project'.", date: new Date(Date.now() - 1000 * 60 * 60 * 2), read: false },
+    { message: "Deadline for 'New CRM System Implementation' is approaching.", date: new Date(Date.now() - 1000 * 60 * 60 * 24), read: true },
 ];
 
 
@@ -36,49 +36,45 @@ async function main() {
     for (const u of users) {
         const user = await prisma.user.upsert({
             where: { email: u.email },
-            update: u,
+            update: {},
             create: u,
         });
         console.log(`Created user with id: ${user.id}`);
     }
     
-    for (const r of rules) {
-        await prisma.rule.upsert({
-            where: { id: r.id },
-            update: {
-                status: r.status,
-                description: r.description,
-                min: r.min,
-                max: r.max,
-                isSystem: r.isSystem,
-            },
-            create: {
-                id: r.id,
-                status: r.status,
-                description: r.description,
-                min: r.min,
-                max: r.max,
-                isSystem: r.isSystem,
-            },
-        });
-    }
+    // Use a transaction to ensure all rules are created or none are.
+    await prisma.$transaction(
+      rules.map((r) =>
+        prisma.rule.upsert({
+          where: { status: r.status }, // Using a unique field for where clause
+          update: {
+            description: r.description,
+            min: r.min,
+            max: r.max,
+            isSystem: r.isSystem,
+          },
+          create: {
+            status: r.status,
+            description: r.description,
+            min: r.min,
+            max: r.max,
+            isSystem: r.isSystem,
+          },
+        })
+      )
+    );
     console.log(`Seeded ${rules.length} rules.`);
     
     // Get the first user to associate notifications
     const firstUser = await prisma.user.findFirst();
     if(firstUser) {
         for (const n of notifications) {
-            await prisma.notification.upsert({
-                where: { id: n.id },
-                update: {},
-                create: {
-                    id: n.id,
+             await prisma.notification.create({
+                data: {
                     message: n.message,
                     date: n.date,
                     read: n.read,
-                    user: {
-                        connect: { id: firstUser.id }
-                    }
+                    userId: firstUser.id,
                 }
             });
         }
@@ -118,13 +114,15 @@ async function main() {
                         initiatives: {
                             create: {
                                 title: "Aggressive Marketing & Sales",
+                                owner: 'Admin User',
+                                collaborators: ['Olivia Smith'],
                                 activities: {
                                     create: [
                                         {
                                             title: "Q3 Marketing Campaign Launch",
                                             description: "Launch the new marketing campaign for the fall season, including social media, email, and content marketing.",
                                             department: "Marketing",
-                                            responsible: { connect: { id: olivia.id } },
+                                            responsibleId: olivia.id,
                                             startDate: new Date("2024-07-01"),
                                             endDate: new Date("2024-09-30"),
                                             status: "Delayed",
@@ -142,12 +140,14 @@ async function main() {
                         initiatives: {
                             create: {
                                 title: "Digital Presence Overhaul",
+                                owner: 'Admin User',
+                                collaborators: ['Noah Williams'],
                                 activities: {
                                     create: {
                                         title: "Website Redesign Project",
                                         description: "Complete redesign of the corporate website for improved user experience and mobile responsiveness.",
                                         department: "Engineering",
-                                        responsible: { connect: { id: noah.id } },
+                                        responsibleId: noah.id,
                                         startDate: new Date("2024-05-01"),
                                         endDate: new Date("2024-07-31"),
                                         status: "Completed As Per Target",
@@ -184,12 +184,14 @@ async function main() {
                         initiatives: {
                             create: {
                                 title: "Workplace Wellness",
+                                owner: 'Admin User',
+                                collaborators: ['Emma Brown'],
                                 activities: {
                                     create: {
                                         title: "Employee Wellness Program",
                                         description: "Develop and roll out a new employee wellness program.",
                                         department: "Human Resources",
-                                        responsible: { connect: { id: emma.id } },
+                                        responsibleId: emma.id,
                                         startDate: new Date("2024-08-01"),
                                         endDate: new Date("2024-10-31"),
                                         status: "Not Started",
@@ -206,12 +208,14 @@ async function main() {
                         initiatives: {
                             create: {
                                 title: "Support Enhancement",
+                                owner: 'Admin User',
+                                collaborators: ['Oliver Jones'],
                                 activities: {
                                     create: {
                                         title: "Customer Support Training",
                                         description: "Advanced training for all customer support staff on new product features.",
                                         department: "Support",
-                                        responsible: { connect: { id: oliver.id } },
+                                        responsibleId: oliver.id,
                                         startDate: new Date("2024-07-10"),
                                         endDate: new Date("2024-07-20"),
                                         status: "Delayed",
