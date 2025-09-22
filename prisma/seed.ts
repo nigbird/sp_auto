@@ -66,25 +66,28 @@ async function main() {
     
     // Get the first user to associate notifications
     const firstUser = await prisma.user.findFirst();
-    for (const n of notifications) {
-        await prisma.notification.upsert({
-            where: { id: n.id },
-            update: {},
-            create: {
-                id: n.id,
-                message: n.message,
-                date: n.date,
-                read: n.read,
-                user: {
-                    connect: { id: firstUser?.id }
+    if(firstUser) {
+        for (const n of notifications) {
+            await prisma.notification.upsert({
+                where: { id: n.id },
+                update: {},
+                create: {
+                    id: n.id,
+                    message: n.message,
+                    date: n.date,
+                    read: n.read,
+                    user: {
+                        connect: { id: firstUser.id }
+                    }
                 }
-            }
-        });
+            });
+        }
+        console.log(`Seeded ${notifications.length} notifications.`);
     }
-    console.log(`Seeded ${notifications.length} notifications.`);
+
 
     const planData = {
-        planTitle: 'Corporate Strategic Plan',
+        name: 'Corporate Strategic Plan',
         startYear: 2024,
         endYear: 2028,
         version: "1.0",
@@ -94,11 +97,16 @@ async function main() {
     const strategicPlan = await prisma.strategicPlan.create({
         data: planData,
     });
-    console.log(`Created strategic plan "${strategicPlan.planTitle}"`);
+    console.log(`Created strategic plan "${strategicPlan.name}"`);
 
     // Get user emails for responsible
     const olivia = await prisma.user.findUnique({ where: { email: "olivia@corp-plan.com" } });
     const noah = await prisma.user.findUnique({ where: { email: "noah@corp-plan.com" } });
+    if (!olivia || !noah) {
+        console.error("Could not find required users for seeding pillars");
+        return;
+    }
+
     const pillar1 = await prisma.pillar.create({
         data: {
             title: "Market Leadership",
@@ -116,7 +124,7 @@ async function main() {
                                             title: "Q3 Marketing Campaign Launch",
                                             description: "Launch the new marketing campaign for the fall season, including social media, email, and content marketing.",
                                             department: "Marketing",
-                                            responsible: { connect: { id: olivia?.id } },
+                                            responsible: { connect: { id: olivia.id } },
                                             startDate: new Date("2024-07-01"),
                                             endDate: new Date("2024-09-30"),
                                             status: "Delayed",
@@ -139,7 +147,7 @@ async function main() {
                                         title: "Website Redesign Project",
                                         description: "Complete redesign of the corporate website for improved user experience and mobile responsiveness.",
                                         department: "Engineering",
-                                        responsible: { connect: { id: noah?.id } },
+                                        responsible: { connect: { id: noah.id } },
                                         startDate: new Date("2024-05-01"),
                                         endDate: new Date("2024-07-31"),
                                         status: "Completed As Per Target",
@@ -160,6 +168,11 @@ async function main() {
 
     const emma = await prisma.user.findUnique({ where: { email: "emma@corp-plan.com" } });
     const oliver = await prisma.user.findUnique({ where: { email: "oliver@corp-plan.com" } });
+    if (!emma || !oliver) {
+        console.error("Could not find required users for seeding pillars");
+        return;
+    }
+
     const pillar2 = await prisma.pillar.create({
         data: {
             title: "Operational Excellence",
@@ -176,7 +189,7 @@ async function main() {
                                         title: "Employee Wellness Program",
                                         description: "Develop and roll out a new employee wellness program.",
                                         department: "Human Resources",
-                                        responsible: { connect: { id: emma?.id } },
+                                        responsible: { connect: { id: emma.id } },
                                         startDate: new Date("2024-08-01"),
                                         endDate: new Date("2024-10-31"),
                                         status: "Not Started",
@@ -198,7 +211,7 @@ async function main() {
                                         title: "Customer Support Training",
                                         description: "Advanced training for all customer support staff on new product features.",
                                         department: "Support",
-                                        responsible: { connect: { id: oliver?.id } },
+                                        responsible: { connect: { id: oliver.id } },
                                         startDate: new Date("2024-07-10"),
                                         endDate: new Date("2024-07-20"),
                                         status: "Delayed",
@@ -229,5 +242,3 @@ main()
     await prisma.$disconnect();
     process.exit(1);
   });
-
-    
