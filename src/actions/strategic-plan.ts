@@ -72,6 +72,9 @@ export async function getStrategicPlanById(id: string) {
                                 include: {
                                     activities: {
                                         orderBy: { createdAt: 'asc' },
+                                        include: {
+                                            responsible: true,
+                                        }
                                     },
                                 },
                             },
@@ -111,15 +114,14 @@ export async function createStrategicPlan(formData: FormData) {
     
     const { name, startYear, endYear, version } = validatedFields.data;
 
-    // Get user emails for responsible
-    const users = await prisma.user.findMany({
+    const responsibleUsers = await prisma.user.findMany({
         where: {
             name: {
                 in: pillars.flatMap((p: any) => p.objectives.flatMap((o: any) => o.initiatives.flatMap((i: any) => i.activities.map((a: any) => a.responsible))))
             }
         }
     });
-    const userMap = new Map(users.map(u => [u.name, u.id]));
+    const userMap = new Map(responsibleUsers.map(u => [u.name, u.id]));
 
 
     await prisma.strategicPlan.create({
@@ -193,15 +195,14 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
     
     const { name, startYear, endYear, version } = validatedFields.data;
 
-    // Get user emails for responsible
-    const users = await prisma.user.findMany({
+    const responsibleUsers = await prisma.user.findMany({
         where: {
             name: {
                 in: pillars.flatMap((p: any) => p.objectives.flatMap((o: any) => o.initiatives.flatMap((i: any) => i.activities.map((a: any) => a.responsible))))
             }
         }
     });
-    const userMap = new Map(users.map(u => [u.name, u.id]));
+    const userMap = new Map(responsibleUsers.map(u => [u.name, u.id]));
 
     // In a real scenario, you'd do a deep comparison and update/create/delete
     // nested entities. For simplicity, we'll delete and re-create pillars.
@@ -286,5 +287,7 @@ export async function deleteStrategicPlan(id: string) {
     revalidatePath('/strategic-plan');
     redirect('/strategic-plan');
 }
+
+    
 
     
