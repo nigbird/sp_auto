@@ -9,15 +9,15 @@ generator client {
 }
 
 model StrategicPlan {
-  id        String    @id @default(cuid())
-  name      String
-  startYear Int
-  endYear   Int
-  version   String
-  status    PlanStatus @default(DRAFT)
-  pillars   Pillar[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id         String    @id @default(cuid())
+  name       String
+  startYear  Int
+  endYear    Int
+  version    String
+  status     PlanStatus
+  pillars    Pillar[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 model Pillar {
@@ -30,15 +30,15 @@ model Pillar {
 }
 
 model Objective {
-  id        String   @id @default(cuid())
-  statement String
-  pillar    Pillar?  @relation(fields: [pillarId], references: [id], onDelete: Cascade)
-  pillarId  String?
+  id          String      @id @default(cuid())
+  statement   String
+  pillar      Pillar?     @relation(fields: [pillarId], references: [id], onDelete: Cascade)
+  pillarId    String?
   initiatives Initiative[]
 }
 
 model Initiative {
-  id          String   @id @default(cuid())
+  id          String     @id @default(cuid())
   title       String
   description String?
   owner       String?
@@ -48,34 +48,44 @@ model Initiative {
 }
 
 model Activity {
-  id             String         @id @default(cuid())
-  title          String
-  description    String
-  department     String
-  responsible    String
-  startDate      DateTime
-  endDate        DateTime
-  status         String
-  weight         Float
-  progress       Float
-  approvalStatus ApprovalStatus @default(PENDING)
-  declineReason  String?
-  pendingUpdate  Json?
-  initiative     Initiative?    @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
-  initiativeId   String?
-  lastUpdated    DateTime?      @updatedAt
+  id              String         @id @default(cuid())
+  title           String
+  description     String?
+  department      String
+  startDate       DateTime
+  endDate         DateTime
+  status          String
+  weight          Int
+  progress        Int
+  approvalStatus  ApprovalStatus
+  declineReason   String?
+  lastUpdated     DateTime?      @updatedAt
+  pendingUpdate   Json?
+  initiative      Initiative?    @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  initiativeId    String?
+  responsibleId   String?
+  responsible     User?          @relation(fields: [responsibleId], references: [id])
 }
 
 model User {
   id            String         @id @default(cuid())
   name          String
   email         String         @unique
-  avatar        String?
-  role          Role           @default(USER)
-  status        UserStatus     @default(ACTIVE)
+  avatar        String
+  role          Role
+  status        UserStatus
   createdAt     DateTime       @default(now())
   notifications Notification[]
-  Activity      Activity[]
+  activities    Activity[]
+}
+
+model Notification {
+  id      String   @id @default(cuid())
+  message String
+  date    DateTime
+  read    Boolean
+  user    User?    @relation(fields: [userId], references: [id])
+  userId  String?
 }
 
 model Rule {
@@ -84,16 +94,7 @@ model Rule {
   description String
   min         Float
   max         Float
-  isSystem    Boolean @default(false)
-}
-
-model Notification {
-  id      String  @id @default(cuid())
-  message String
-  date    DateTime
-  read    Boolean @default(false)
-  user    User?   @relation(fields: [userId], references: [id])
-  userId  String?
+  isSystem    Boolean
 }
 
 enum Role {
