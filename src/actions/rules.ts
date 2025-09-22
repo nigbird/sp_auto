@@ -7,11 +7,11 @@ import type { Rule } from '@/lib/types';
 
 export async function getRules(): Promise<Rule[]> {
     const rules = await prisma.rule.findMany();
-    // Prisma returns Decimal for float types, need to convert to number
+    // Prisma returns Float fields as numbers, so no conversion is needed.
     return rules.map(rule => ({
         ...rule,
-        min: rule.min.toNumber(),
-        max: rule.max.toNumber(),
+        min: rule.min,
+        max: rule.max,
     }));
 }
 
