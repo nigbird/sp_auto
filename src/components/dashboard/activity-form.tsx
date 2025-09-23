@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { format } from "date-fns"
 import { CalendarIcon, RefreshCcw } from "lucide-react"
+import { useState, useEffect } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -23,7 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import type { Activity } from "@/lib/types"
+import type { Activity, StrategicPlan, Pillar, Objective, Initiative } from "@/lib/types"
 import { ScrollArea } from "../ui/scroll-area"
 
 const activitySchema = z.object({
@@ -35,6 +36,9 @@ const activitySchema = z.object({
   endDate: z.date({ required_error: "An end date is required." }),
   status: z.string({ required_error: "Please select a status." }),
   weight: z.coerce.number().min(0).max(100),
+  initiativeId: z.string().optional(),
+  pillarId: z.string().optional(),
+  objectiveId: z.string().optional(),
 })
 
 type ActivityFormProps = {
@@ -45,22 +49,49 @@ type ActivityFormProps = {
   statuses: string[];
   onReset: (activityId: string) => void;
   onCancel: () => void;
+  strategicPlan?: StrategicPlan | null;
 }
 
-export function ActivityForm({ onSubmit, activity, users, departments, statuses, onReset, onCancel }: ActivityFormProps) {
+export function ActivityForm({ onSubmit, activity, users, departments, statuses, onReset, onCancel, strategicPlan }: ActivityFormProps) {
   const form = useForm<z.infer<typeof activitySchema>>({
     resolver: zodResolver(activitySchema),
     defaultValues: {
       title: activity?.title ?? "",
       description: activity?.description ?? "",
       department: activity?.department ?? "",
-      responsible: activity?.responsible ?? "",
+      responsible: activity?.responsible as string ?? "",
       startDate: activity?.startDate ? new Date(activity.startDate) : undefined,
       endDate: activity?.endDate ? new Date(activity.endDate) : undefined,
       status: activity?.status ?? "Not Started",
       weight: activity?.weight ?? 50,
+      initiativeId: activity?.initiativeId ?? undefined,
     },
   })
+  
+  const [selectedPillar, setSelectedPillar] = useState<Pillar | null>(null);
+  const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
+
+  const pillarId = form.watch("pillarId");
+  const objectiveId = form.watch("objectiveId");
+
+  useEffect(() => {
+    if (pillarId) {
+      setSelectedPillar(strategicPlan?.pillars.find(p => p.id === pillarId) ?? null);
+    } else {
+      setSelectedPillar(null);
+    }
+    form.setValue("objectiveId", undefined);
+    form.setValue("initiativeId", undefined);
+  }, [pillarId, strategicPlan, form]);
+
+  useEffect(() => {
+    if (objectiveId) {
+      setSelectedObjective(selectedPillar?.objectives.find(o => o.id === objectiveId) ?? null);
+    } else {
+      setSelectedObjective(null);
+    }
+    form.setValue("initiativeId", undefined);
+  }, [objectiveId, selectedPillar, form]);
 
   const getSubmitButtonText = () => {
     if (activity) {
@@ -77,6 +108,70 @@ export function ActivityForm({ onSubmit, activity, users, departments, statuses,
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <ScrollArea className="h-[60vh] p-1">
           <div className="space-y-6 pr-6">
+            {strategicPlan && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="pillarId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Pillar</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a Pillar" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {strategicPlan.pillars.map(pillar => <SelectItem key={pillar.id} value={pillar.id}>{pillar.title}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="objectiveId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Objective</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value ?? ""} disabled={!selectedPillar}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select an Objective" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {selectedPillar?.objectives.map(objective => <SelectItem key={objective.id} value={objective.id}>{objective.statement}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="initiativeId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Initiative</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value ?? ""} disabled={!selectedObjective}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select an Initiative" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {selectedObjective?.initiatives.map(initiative => <SelectItem key={initiative.id} value={initiative.id}>{initiative.title}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
             <FormField
               control={form.control}
               name="title"

@@ -23,8 +23,10 @@ export type PendingUpdate = {
   progress: number;
 }
 
-export type Activity = Omit<PrismaActivity, 'initiativeId' | 'responsibleId'> & {
+export type Activity = Omit<PrismaActivity, 'responsibleId'> & {
     responsible: PrismaUser | string;
+    kpis: KPI[];
+    updates: ActivityUpdate[];
 };
 
 export type User = {

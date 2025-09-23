@@ -7,26 +7,42 @@ import { prisma } from '@/lib/prisma';
 import type { Activity } from '@/lib/types';
 import { calculateActivityStatus } from '@/lib/utils';
 
-export async function getActivities(): Promise<Activity[]> {
+export async function getActivities(strategicPlanId?: string): Promise<Activity[]> {
     const activities = await prisma.activity.findMany({
+        where: {
+            strategicPlanId: strategicPlanId
+        },
+        include: {
+            responsible: true
+        },
         orderBy: {
             endDate: 'asc'
         }
     });
-    return activities.map(a => ({
+
+    const plainActivities = JSON.parse(JSON.stringify(activities));
+    
+    return plainActivities.map((a: any) => ({
         ...a,
         kpis: [],
         updates: [],
     }));
 }
 
-export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updates' | 'progress' | 'approvalStatus'>) {
+export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updates' | 'progress' | 'approvalStatus'> & { initiativeId?: string, strategicPlanId: string }) {
     const newActivity = await prisma.activity.create({
         data: {
-            ...data,
+            title: data.title,
+            description: data.description,
+            department: data.department,
+            responsibleId: data.responsible as string, // This needs to be the ID
             startDate: new Date(data.startDate),
             endDate: new Date(data.endDate),
+            weight: data.weight,
+            initiativeId: data.initiativeId,
+            strategicPlanId: data.strategicPlanId,
             progress: 0,
+            status: 'Not Started',
             approvalStatus: 'PENDING'
         }
     });
@@ -34,6 +50,7 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
     revalidatePath('/my-activity');
     return newActivity;
 }
+
 
 export async function updateActivity(activityId: string, data: Partial<Omit<Activity, 'id'>>) {
     const updatedActivity = await prisma.activity.update({

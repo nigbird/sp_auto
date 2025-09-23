@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import type { Activity, ActivityStatus, PendingUpdate, Rule } from "@/lib/types";
+import type { Activity, ActivityStatus, PendingUpdate, Rule, StrategicPlan, Pillar, Objective, Initiative } from "@/lib/types";
 import { MyActivitySummaryCards } from "@/components/my-activity/my-activity-summary-cards";
 import { MyActivityTaskList } from "@/components/my-activity/my-activity-task-list";
 import { AllActivityTaskList } from "@/components/my-activity/all-activity-task-list";
@@ -10,8 +10,10 @@ import { useToast } from "@/hooks/use-toast";
 import { getActivities, createActivity, submitActivityUpdate } from "@/actions/activities";
 import { getRules } from "@/actions/rules";
 import { getUsers } from "@/actions/users";
+import { listStrategicPlans, getStrategicPlanById } from "@/actions/strategic-plan";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PlusCircle } from "lucide-react";
 import { ActivityForm } from "@/components/dashboard/activity-form";
 
@@ -26,33 +28,62 @@ export default function MyActivityPage() {
   const [users, setUsers] = useState<string[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
+  const [strategicPlans, setStrategicPlans] = useState<StrategicPlan[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<StrategicPlan | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     async function loadInitialData() {
-      const activities = await getActivities();
-      setAllActivities(activities);
-      // In a real application, this would be based on the logged-in user's identity.
-      // For this demo, we'll assign tasks to "Liam Johnson".
-      const userActivities = activities.filter(
-        (activity) => activity.responsible === "Liam Johnson"
-      );
-      setMyActivities(userActivities);
-
-      const userList = await getUsers();
-      setUsers(userList.map(u => u.name));
+      const [userList, rules, plans] = await Promise.all([
+        getUsers(),
+        getRules(),
+        listStrategicPlans(),
+      ]);
       
-      const uniqueDepartments = ["All", ...new Set(activities.map((a) => a.department))];
-      setDepartments(uniqueDepartments);
-
-      const rules: Rule[] = await getRules();
+      setUsers(userList.map(u => u.name));
       setStatuses(rules.map(rule => rule.status));
+      
+      const publishedPlans = plans.filter(p => p.status === 'PUBLISHED');
+      setStrategicPlans(publishedPlans);
+
+      if (publishedPlans.length > 0) {
+        const defaultPlanId = publishedPlans[0].id;
+        setSelectedPlanId(defaultPlanId);
+        const planDetails = await getStrategicPlanById(defaultPlanId);
+        setSelectedPlan(planDetails);
+      }
     }
     loadInitialData();
   }, []);
 
+  useEffect(() => {
+    async function loadActivitiesForPlan() {
+      if (!selectedPlanId) {
+        setAllActivities([]);
+        return;
+      };
+
+      const activities = await getActivities(selectedPlanId);
+      setAllActivities(activities);
+      const uniqueDepartments = ["All", ...new Set(activities.map((a) => a.department))];
+      setDepartments(uniqueDepartments);
+    }
+    loadActivitiesForPlan();
+  }, [selectedPlanId]);
+
+
+  useEffect(() => {
+    // In a real application, this would be based on the logged-in user's identity.
+    // For this demo, we'll assign tasks to "Liam Johnson".
+    const userActivities = allActivities.filter(
+      (activity) => (activity.responsible as any)?.name === "Liam Johnson" || activity.responsible === "Liam Johnson"
+    );
+    setMyActivities(userActivities);
+  }, [allActivities]);
+
   const overdueActivities = useMemo(() => myActivities.filter(a => a.status === 'Delayed' || a.status === 'Overdue'), [myActivities]);
-  const pendingActivities = useMemo(() => myActivities.filter(a => a.status === 'Not Started'), [myActivities]);
+  const pendingActivities = useMemo(() => myActivities.filter(a => a.status === 'Not Started' || (a.status !== 'Completed As Per Target' && new Date(a.startDate) <= new Date())), [myActivities]);
   const activeActivities = useMemo(() => myActivities.filter(a => a.status === 'On Track'), [myActivities]);
   const completedActivities = useMemo(() => myActivities.filter(a => a.status === 'Completed As Per Target'), [myActivities]);
 
@@ -111,19 +142,29 @@ export default function MyActivityPage() {
   };
 
   const handleFormSubmit = async (values: any) => {
-    const newActivity = await createActivity(values);
+    if (!selectedPlanId) {
+      toast({ title: "Error", description: "A strategic plan must be selected.", variant: "destructive" });
+      return;
+    }
+    const newActivity = await createActivity({ ...values, strategicPlanId: selectedPlanId });
 
     setMyActivities(prev => [
-        { ...newActivity, kpis: [], updates: []}, 
+        { ...newActivity, kpis: [], updates: [], responsible: users.find(u=> u === values.responsible) || "Unknown" }, 
         ...prev
     ]);
     setAllActivities(prev => [
-        { ...newActivity, kpis: [], updates: []}, 
+        { ...newActivity, kpis: [], updates: [], responsible: users.find(u=> u === values.responsible) || "Unknown" }, 
         ...prev
     ]);
     toast({ title: "Activity Created", description: "The new activity has been successfully created and is pending approval." });
     setIsCreateFormOpen(false);
   };
+  
+  const handlePlanChange = async (planId: string) => {
+    setSelectedPlanId(planId);
+    const planDetails = await getStrategicPlanById(planId);
+    setSelectedPlan(planDetails);
+  }
 
   const taskListTitle = useMemo(() => {
     const titles: Record<FilterType, string> = {
@@ -146,27 +187,40 @@ export default function MyActivityPage() {
             Your personal dashboard for managing all assigned tasks and tracking performance.
             </p>
         </div>
-        <Dialog open={isCreateFormOpen} onOpenChange={setIsCreateFormOpen}>
-            <DialogTrigger asChild>
-                <Button>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Create Activity
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>Create New Activity</DialogTitle>
-                </DialogHeader>
-                <ActivityForm 
-                    onSubmit={handleFormSubmit}
-                    users={users}
-                    departments={departments}
-                    statuses={statuses}
-                    onReset={() => {}}
-                    onCancel={() => setIsCreateFormOpen(false)}
-                />
-            </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-4">
+          <Select value={selectedPlanId ?? ""} onValueChange={handlePlanChange}>
+            <SelectTrigger className="w-[280px]">
+              <SelectValue placeholder="Select a Strategic Plan" />
+            </SelectTrigger>
+            <SelectContent>
+              {strategicPlans.map(plan => (
+                <SelectItem key={plan.id} value={plan.id}>{plan.name} ({plan.version})</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Dialog open={isCreateFormOpen} onOpenChange={setIsCreateFormOpen}>
+              <DialogTrigger asChild>
+                  <Button disabled={!selectedPlanId}>
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Create Activity
+                  </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-3xl">
+                  <DialogHeader>
+                      <DialogTitle>Create New Activity</DialogTitle>
+                  </DialogHeader>
+                  <ActivityForm 
+                      onSubmit={handleFormSubmit}
+                      users={users}
+                      departments={departments}
+                      statuses={statuses}
+                      onReset={() => {}}
+                      onCancel={() => setIsCreateFormOpen(false)}
+                      strategicPlan={selectedPlan}
+                  />
+              </DialogContent>
+          </Dialog>
+        </div>
       </div>
       <MyActivitySummaryCards
         activities={myActivities}
