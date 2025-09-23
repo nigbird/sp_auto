@@ -23,7 +23,7 @@ export default function MyActivityPage() {
   const [allActivities, setAllActivities] = useState<Activity[]>([]);
   const [myActivities, setMyActivities] = useState<Activity[]>([]);
   const [filteredActivities, setFilteredActivities] = useState<Activity[]>([]);
-  const [activeFilter, setActiveFilter] = useState<FilterType>("Delayed");
+  const [activeFilter, setActiveFilter] = useState<FilterType>("All");
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -77,7 +77,7 @@ export default function MyActivityPage() {
       setAllActivities(activities);
       setSelectedPlan(planDetails);
 
-      const uniqueDepartments = ["All", ...new Set(activities.map((a) => a.department).filter(d => d !== "All"))];
+      const uniqueDepartments = ["All", ...new Set(activities.map((a) => a.department).filter(d => d && d !== "All"))];
       setDepartments(uniqueDepartments);
     }
     loadActivitiesForPlan();
@@ -97,7 +97,7 @@ export default function MyActivityPage() {
     }
   }, [allActivities, currentUser]);
   
-  const overdueActivities = useMemo(() => myActivities.filter(a => a.status === 'Delayed' || a.status === 'Overdue'), [myActivities]);
+  const overdueActivities = useMemo(() => myActivities.filter(a => new Date(a.endDate) < new Date() && a.status !== 'Completed As Per Target'), [myActivities]);
   const pendingActivities = useMemo(() => myActivities.filter(a => a.status === 'Not Started' && new Date(a.startDate) <= new Date()), [myActivities]);
   const activeActivities = useMemo(() => myActivities.filter(a => a.status === 'On Track'), [myActivities]);
   const completedActivities = useMemo(() => myActivities.filter(a => a.status === 'Completed As Per Target'), [myActivities]);
@@ -122,7 +122,7 @@ export default function MyActivityPage() {
         setFilteredActivities(myActivities);
         break;
       default:
-        setFilteredActivities(overdueActivities);
+        setFilteredActivities(myActivities);
     }
   }, [activeFilter, myActivities, overdueActivities, pendingActivities, activeActivities, completedActivities]);
 
