@@ -7,12 +7,13 @@ import { AlertTriangle, Clock, CheckCircle, Target, Hourglass, List } from "luci
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
-type FilterType = "Delayed" | "Not Started" | "On Track" | "Completed As Per Target" | "All";
+type FilterType = "Delayed" | "Not Started" | "On Track" | "Completed As Per Target" | "Overdue" | "All";
 
 type MyActivitySummaryCardsProps = {
   activities: Activity[];
   activeFilter: FilterType;
   onFilterChange: (filter: FilterType) => void;
+  overdueCount: number;
   pendingCount: number;
   activeCount: number;
   completedCount: number;
@@ -23,18 +24,13 @@ export function MyActivitySummaryCards({
   activities,
   activeFilter,
   onFilterChange,
+  overdueCount,
   pendingCount,
   activeCount,
   completedCount,
   allCount,
 }: MyActivitySummaryCardsProps) {
-  const overdueTasks = activities.filter(a => a.status === 'Delayed' || a.status === 'Overdue').length;
   
-  const completedTasks = activities.filter(a => a.status === 'Completed As Per Target');
-  const onTimePerformance = completedTasks.length > 0
-    ? Math.round((completedTasks.filter(a => a.status !== 'Delayed').length / completedTasks.length) * 100)
-    : 100;
-
   const cardClasses = (filter: FilterType) =>
     cn(
       "cursor-pointer hover:bg-muted/50 transition-colors",
@@ -49,7 +45,7 @@ export function MyActivitySummaryCards({
           <AlertTriangle className="h-4 w-4 text-destructive" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{overdueTasks}</div>
+          <div className="text-2xl font-bold">{overdueCount}</div>
           <p className="text-xs text-muted-foreground">Tasks past their due date</p>
         </CardContent>
       </Card>

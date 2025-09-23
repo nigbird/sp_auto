@@ -50,8 +50,6 @@ export default function MyActivityPage() {
       if (publishedPlans.length > 0) {
         const defaultPlanId = publishedPlans[0].id;
         setSelectedPlanId(defaultPlanId);
-        const planDetails = await getStrategicPlanById(defaultPlanId);
-        setSelectedPlan(planDetails);
       }
     }
     loadInitialData();
@@ -61,11 +59,18 @@ export default function MyActivityPage() {
     async function loadActivitiesForPlan() {
       if (!selectedPlanId) {
         setAllActivities([]);
+        setSelectedPlan(null);
         return;
       };
 
-      const activities = await getActivities(selectedPlanId);
+      const [activities, planDetails] = await Promise.all([
+        getActivities(selectedPlanId),
+        getStrategicPlanById(selectedPlanId)
+      ]);
+      
       setAllActivities(activities);
+      setSelectedPlan(planDetails);
+
       const uniqueDepartments = ["All", ...new Set(activities.map((a) => a.department))];
       setDepartments(uniqueDepartments);
     }
@@ -81,15 +86,17 @@ export default function MyActivityPage() {
     );
     setMyActivities(userActivities);
   }, [allActivities]);
-
+  
   const overdueActivities = useMemo(() => myActivities.filter(a => a.status === 'Delayed' || a.status === 'Overdue'), [myActivities]);
-  const pendingActivities = useMemo(() => myActivities.filter(a => a.status === 'Not Started' || (a.status !== 'Completed As Per Target' && new Date(a.startDate) <= new Date())), [myActivities]);
+  const pendingActivities = useMemo(() => myActivities.filter(a => a.status === 'Not Started' && new Date(a.startDate) <= new Date()), [myActivities]);
   const activeActivities = useMemo(() => myActivities.filter(a => a.status === 'On Track'), [myActivities]);
   const completedActivities = useMemo(() => myActivities.filter(a => a.status === 'Completed As Per Target'), [myActivities]);
+
 
   useEffect(() => {
     switch (activeFilter) {
       case "Delayed":
+      case "Overdue":
         setFilteredActivities(overdueActivities);
         break;
       case "Not Started":
@@ -177,8 +184,6 @@ export default function MyActivityPage() {
   
   const handlePlanChange = async (planId: string) => {
     setSelectedPlanId(planId);
-    const planDetails = await getStrategicPlanById(planId);
-    setSelectedPlan(planDetails);
   }
 
   const taskListTitle = useMemo(() => {
@@ -241,6 +246,7 @@ export default function MyActivityPage() {
         activities={myActivities}
         activeFilter={activeFilter}
         onFilterChange={setActiveFilter}
+        overdueCount={overdueActivities.length}
         pendingCount={pendingActivities.length}
         activeCount={activeActivities.length}
         completedCount={completedActivities.length}
