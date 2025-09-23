@@ -163,7 +163,7 @@ export async function createStrategicPlan(formData: FormData) {
                                                     status: 'Not Started',
                                                     weight: Number(a.weight),
                                                     progress: 0,
-                                                    approvalStatus: 'PENDING',
+                                                    approvalStatus: 'APPROVED',
                                                 }
                                             }),
                                         },
@@ -260,7 +260,7 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
                                                     status: 'Not Started',
                                                     weight: Number(a.weight),
                                                     progress: 0,
-                                                    approvalStatus: 'PENDING',
+                                                    approvalStatus: 'APPROVED',
                                                 }
                                             }),
                                         },

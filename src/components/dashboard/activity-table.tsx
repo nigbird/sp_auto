@@ -48,7 +48,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Activity } from "@/lib/types";
+import type { Activity, User } from "@/lib/types";
 import { StatusBadge } from "../status-badge";
 import { Progress } from "../ui/progress";
 import { ActivityForm } from "./activity-form";
@@ -295,6 +295,10 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
     {
       accessorKey: "responsible",
       header: "Responsible",
+      cell: ({ row }) => {
+        const responsible = row.getValue("responsible") as User;
+        return responsible?.name || 'N/A';
+      }
     },
     {
       accessorKey: "endDate",
