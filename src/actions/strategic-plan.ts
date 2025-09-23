@@ -201,8 +201,10 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
     });
 
     if (!validatedFields.success) {
-        console.error("Zod validation failed on update:", validatedFields.error.flatten());
-        throw new Error("Invalid form data for update.");
+        return {
+            success: false,
+            errors: validatedFields.error.flatten().fieldErrors,
+        };
     }
     
     const { name, startYear, endYear, version } = validatedFields.data;
@@ -272,7 +274,11 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
         });
     } catch (error) {
         console.error("Error during strategic plan update:", error);
-        throw error;
+        return {
+            success: false,
+            // A more specific error could be returned, but for now this is a safe fallback.
+            errors: { _form: ["An unexpected error occurred while updating the plan."] }
+        }
     }
     
     revalidatePath('/strategic-plan');

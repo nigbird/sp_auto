@@ -127,7 +127,7 @@ export default function EditStrategicPlanPage() {
         name: "pillars"
     });
 
-    const handleFormSubmit = (status: 'DRAFT' | 'PUBLISHED') => {
+    const handleFormSubmit = async (status: 'DRAFT' | 'PUBLISHED') => {
         const formData = new FormData();
         const formValues = form.getValues();
 
@@ -143,7 +143,24 @@ export default function EditStrategicPlanPage() {
             description: "Please wait.",
         });
 
-        updateStrategicPlan(planId, formData);
+        const result = await updateStrategicPlan(planId, formData);
+        if (result?.success === false) {
+             toast({
+                title: "Validation Error",
+                description: "Please correct the errors and try again.",
+                variant: "destructive",
+            });
+            // Clear existing errors
+            form.clearErrors();
+            // Set new errors
+            for (const [field, messages] of Object.entries(result.errors)) {
+                // This handles nested fields like `pillars.0.title`
+                form.setError(field as any, {
+                    type: 'manual',
+                    message: (messages as string[]).join(', '),
+                });
+            }
+        }
     };
 
     if (isLoading) {
@@ -174,7 +191,7 @@ export default function EditStrategicPlanPage() {
                     </div>
                      <div className="flex gap-2">
                         <Button variant="outline" type="button" onClick={() => handleFormSubmit('DRAFT')}>Save Draft</Button>
-                        <Button type="button" onClick={() => handleFormSubmit('PUBLISHED')}>Update & Publish</Button>
+                        <Button type="button" onClick={() => form.handleSubmit(() => handleFormSubmit('PUBLISHED'))()}>Update & Publish</Button>
                     </div>
                 </div>
                 <Card>
