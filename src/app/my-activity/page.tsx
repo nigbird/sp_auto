@@ -26,6 +26,7 @@ export default function MyActivityPage() {
   const [activeFilter, setActiveFilter] = useState<FilterType>("Delayed");
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [departments, setDepartments] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
   const [strategicPlans, setStrategicPlans] = useState<StrategicPlan[]>([]);
@@ -42,6 +43,11 @@ export default function MyActivityPage() {
       ]);
       
       setUsers(userList);
+      // In a real app, you would get the logged-in user from a session.
+      // For this demo, we'll find the admin user to demonstrate the role-based view.
+      const adminUser = userList.find(u => u.email === 'admin@corp-plan.com');
+      setCurrentUser(adminUser || userList.find(u => u.name === "Liam Johnson") || null);
+
       setStatuses(rules.map(rule => rule.status));
       
       const publishedPlans = plans.filter(p => p.status === 'PUBLISHED');
@@ -79,13 +85,17 @@ export default function MyActivityPage() {
 
 
   useEffect(() => {
-    // In a real application, this would be based on the logged-in user's identity.
-    // For this demo, we'll assign tasks to "Liam Johnson".
-    const userActivities = allActivities.filter(
-      (activity) => (activity.responsible as any)?.name === "Liam Johnson"
-    );
-    setMyActivities(userActivities);
-  }, [allActivities]);
+    if (currentUser?.role === 'ADMINISTRATOR') {
+        setMyActivities(allActivities);
+    } else {
+        // In a real application, this would be based on the logged-in user's identity.
+        // For this demo, we'll assign tasks to "Liam Johnson".
+        const userActivities = allActivities.filter(
+          (activity) => (activity.responsible as any)?.name === "Liam Johnson"
+        );
+        setMyActivities(userActivities);
+    }
+  }, [allActivities, currentUser]);
   
   const overdueActivities = useMemo(() => myActivities.filter(a => a.status === 'Delayed' || a.status === 'Overdue'), [myActivities]);
   const pendingActivities = useMemo(() => myActivities.filter(a => a.status === 'Not Started' && new Date(a.startDate) <= new Date()), [myActivities]);
@@ -122,13 +132,14 @@ export default function MyActivityPage() {
     _newStatus: ActivityStatus,
     updateComment: string
   ) => {
+    if (!currentUser) return;
     // In a real app, userId would come from session
-    await submitActivityUpdate(activityId, newProgress, updateComment, "user-id-placeholder");
+    await submitActivityUpdate(activityId, newProgress, updateComment, currentUser.id);
     
     const updatedActivities = myActivities.map(activity => {
         if (activity.id === activityId) {
             const newPendingUpdate: PendingUpdate = {
-                user: "Liam Johnson", // Hardcoded for demo
+                user: currentUser.name,
                 date: new Date(),
                 comment: updateComment,
                 progress: newProgress,
