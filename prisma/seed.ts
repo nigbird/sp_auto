@@ -129,6 +129,7 @@ async function main() {
                                             weight: 40,
                                             progress: 56,
                                             approvalStatus: ApprovalStatus.PENDING,
+                                            strategicPlanId: strategicPlan.id,
                                         }
                                     ]
                                 }
@@ -153,7 +154,8 @@ async function main() {
                                         status: "Completed As Per Target",
                                         weight: 30,
                                         progress: 100,
-                                        approvalStatus: ApprovalStatus.APPROVED
+                                        approvalStatus: ApprovalStatus.APPROVED,
+                                        strategicPlanId: strategicPlan.id,
                                     }
                                 }
                             }
@@ -197,7 +199,8 @@ async function main() {
                                         status: "Not Started",
                                         weight: 50,
                                         progress: 0,
-                                        approvalStatus: ApprovalStatus.PENDING
+                                        approvalStatus: ApprovalStatus.PENDING,
+                                        strategicPlanId: strategicPlan.id,
                                     }
                                 }
                             }
@@ -222,7 +225,8 @@ async function main() {
                                         weight: 50,
                                         progress: 50,
                                         approvalStatus: ApprovalStatus.DECLINED,
-                                        declineReason: "The delay reason is not sufficient. Please provide a more detailed recovery plan."
+                                        declineReason: "The delay reason is not sufficient. Please provide a more detailed recovery plan.",
+                                        strategicPlanId: strategicPlan.id,
                                     }
                                 }
                             }
