@@ -22,7 +22,7 @@ import {
   getObjectiveProgress,
   getInitiativeProgress,
 } from "@/lib/utils";
-import type { Pillar, Objective, Initiative, Activity } from "@/lib/types";
+import type { Pillar, Objective, Initiative, Activity, User } from "@/lib/types";
 
 export function ReportTable({ data }: { data: Pillar[] }) {
   const [openStates, setOpenStates] = React.useState<Record<string, boolean>>({});
@@ -179,12 +179,13 @@ const InitiativeRow = ({ initiative, openStates, toggleOpen }: { initiative: Ini
 };
 
 const ActivityRow = ({ activity }: { activity: Activity }) => {
+  const responsible = activity.responsible as User;
   return (
     <TableRow>
       <TableCell className="w-[40%] pl-20">{activity.title}</TableCell>
-      <TableCell>{activity.responsible}</TableCell>
-      <TableCell>{format(activity.startDate, "PP")}</TableCell>
-      <TableCell>{format(activity.endDate, "PP")}</TableCell>
+      <TableCell>{responsible?.name || 'N/A'}</TableCell>
+      <TableCell>{format(new Date(activity.startDate), "PP")}</TableCell>
+      <TableCell>{format(new Date(activity.endDate), "PP")}</TableCell>
       <TableCell>
         <StatusBadge status={activity.status} />
       </TableCell>

@@ -8,7 +8,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import type { Activity } from "@/lib/types";
+import type { Activity, User } from "@/lib/types";
 import { format, formatDistanceToNow } from "date-fns";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/status-badge";
@@ -29,8 +29,8 @@ type ActivityDetailsDialogProps = {
 
 const ApprovalStatusBadge = ({ status }: { status: Activity['approvalStatus'] }) => {
     if (!status) return null;
-    const variant = status === 'Approved' ? 'default' : status === 'Declined' ? 'destructive' : 'secondary';
-    const className = status === 'Approved' ? 'bg-green-500/20 text-green-700 border-green-400' : status === 'Declined' ? 'bg-red-500/20 text-red-700 border-red-400' : '';
+    const variant = status === 'APPROVED' ? 'default' : status === 'DECLINED' ? 'destructive' : 'secondary';
+    const className = status === 'APPROVED' ? 'bg-green-500/20 text-green-700 border-green-400' : status === 'DECLINED' ? 'bg-red-500/20 text-red-700 border-red-400' : '';
     return <Badge variant={variant} className={className}>{status}</Badge>
 }
 
@@ -46,6 +46,7 @@ export function ActivityDetailsDialog({
   }
   
   const { pendingUpdate, progress: currentProgress } = activity;
+  const responsible = activity.responsible as User;
 
   const handleApprove = () => {
     onApprove(activity.id);
@@ -54,7 +55,7 @@ export function ActivityDetailsDialog({
     onDecline(activity.id);
   }
 
-  const showApprovalButtons = activity.approvalStatus === 'Pending';
+  const showApprovalButtons = activity.approvalStatus === 'PENDING';
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -78,7 +79,7 @@ export function ActivityDetailsDialog({
                     </div>
                     <div className="space-y-1">
                     <Label>Responsible</Label>
-                    <p className="text-sm font-medium">{activity.responsible}</p>
+                    <p className="text-sm font-medium">{responsible?.name || 'N/A'}</p>
                     </div>
                     <div className="space-y-1">
                     <Label>Start Date</Label>
@@ -107,7 +108,7 @@ export function ActivityDetailsDialog({
                     </div>
                 </div>
 
-                {activity.approvalStatus === 'Declined' && activity.declineReason && (
+                {activity.approvalStatus === 'DECLINED' && activity.declineReason && (
                     <div className="space-y-2">
                     <Label>Reason for Decline</Label>
                     <div className="p-3 rounded-md border bg-muted text-sm text-destructive">
