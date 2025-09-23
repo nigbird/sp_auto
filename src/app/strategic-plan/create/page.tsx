@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useForm, useFieldArray } from "react-hook-form";
@@ -75,12 +74,12 @@ const departments = ["Marketing", "Sales", "Engineering", "Human Resources", "Su
 const peopleOptions = [...users, ...departments].map(p => ({ value: p, label: p }));
 
 const TABS = [
-    { value: "plan-info", title: "Plan Info" },
-    { value: "pillars", title: "Pillar" },
-    { value: "objectives", title: "Objective" },
-    { value: "initiatives", title: "Initiative" },
-    { value: "activities", title: "Activities" },
-    { value: "review", title: "Review & Save" }
+    { value: "plan-info", title: "Plan Info", fields: ['name', 'startYear', 'endYear', 'version'] as const },
+    { value: "pillars", title: "Pillar", fields: ['pillars'] as const },
+    { value: "objectives", title: "Objective", fields: ['pillars'] as const },
+    { value: "initiatives", title: "Initiative", fields: ['pillars'] as const },
+    { value: "activities", title: "Activities", fields: ['pillars'] as const },
+    { value: "review", title: "Review & Save", fields: [] as const }
 ];
 
 function generateId(prefix: string) {
@@ -133,7 +132,7 @@ export default function CreateStrategicPlanPage() {
                 }
             ]
         },
-        mode: "onChange"
+        mode: "onBlur"
     });
 
     const { fields: pillarFields, append: appendPillar, remove: removePillar } = useFieldArray({
@@ -145,12 +144,12 @@ export default function CreateStrategicPlanPage() {
         const formData = new FormData();
         const formValues = form.getValues();
         
-        formData.set('name', formValues.name);
-        formData.set('startYear', String(formValues.startYear));
-        formData.set('endYear', String(formValues.endYear));
-        formData.set('version', formValues.version);
-        formData.set('pillars', JSON.stringify(formValues.pillars));
-        formData.set('status', status);
+        formData.append('name', formValues.name);
+        formData.append('startYear', String(formValues.startYear));
+        formData.append('endYear', String(formValues.endYear));
+        formData.append('version', formValues.version);
+        formData.append('pillars', JSON.stringify(formValues.pillars));
+        formData.append('status', status);
         
         toast({
             title: status === 'DRAFT' ? "Saving Draft..." : "Publishing Plan...",
@@ -162,7 +161,12 @@ export default function CreateStrategicPlanPage() {
 
     const handleNext = async () => {
         const currentTabIndex = TABS.findIndex(t => t.value === currentTab);
-        const result = await form.trigger();
+        const currentTabInfo = TABS[currentTabIndex];
+
+        let result = true;
+        if(currentTabInfo.fields.length > 0) {
+            result = await form.trigger(currentTabInfo.fields);
+        }
         
         if (result && currentTabIndex < TABS.length - 1) {
             setHighestCompletedStep(Math.max(highestCompletedStep, currentTabIndex + 1));
@@ -322,7 +326,7 @@ export default function CreateStrategicPlanPage() {
                                                 </CardContent>
                                             </Card>
                                         ))}
-                                        <Button type="button" variant="outline" onClick={() => appendPillar({ id: generateId('P'), title: `Pillar ${pillarFields.length + 1}`, description: "", objectives: [] })}>
+                                        <Button type="button" variant="outline" onClick={() => appendPillar({ id: generateId('P'), title: `Pillar ${pillarFields.length + 1}`, description: "", objectives: [{ id: generateId('O'), statement: "New Objective", initiatives: [{ id: generateId('I'), title: "New Initiative", owner: 'Liam Johnson', activities: [{ id: generateId('A'), title: "New Activity", weight: 100, startDate: getToday(), endDate: getOneMonthFromToday(), department: 'Sales', responsible: 'Liam Johnson' }] }] }] })}>
                                             <PlusCircle className="mr-2 h-4 w-4" /> Add Pillar
                                         </Button>
                                     </div>
@@ -330,25 +334,25 @@ export default function CreateStrategicPlanPage() {
 
                                 <TabsContent value="objectives" className="space-y-6">
                                         <StepHeader title="Step 3: Define Objectives" description="An Objective is a specific, measurable goal that supports a Pillar." />
-                                    <Accordion type="multiple" defaultValue={pillarFields.map((_, pIndex) => `pillar-${pIndex}`)}>
+                                    <Accordion type="multiple" defaultValue={pillarFields.map((p) => p.id || `pillar-${p.title}`)}>
                                         {pillarFields.map((pillar, pIndex) => (
                                             <PillarObjectiveAccordion key={pillar.id} pIndex={pIndex} form={form} />
                                         ))}
                                     </Accordion>
                                 </TabsContent>
 
-                                    <TabsContent value="initiatives" className="space-y-6">
-                                        <StepHeader title="Step 4: Define Initiatives" description="An Initiative is a specific project or program designed to achieve an Objective." />
-                                    <Accordion type="multiple" defaultValue={pillarFields.map((_, pIndex) => `pillar-${pIndex}`)}>
+                                <TabsContent value="initiatives" className="space-y-6">
+                                    <StepHeader title="Step 4: Define Initiatives" description="An Initiative is a specific project or program designed to achieve an Objective." />
+                                    <Accordion type="multiple" defaultValue={pillarFields.map((p) => p.id || `pillar-${p.title}`)}>
                                         {pillarFields.map((pillar, pIndex) => (
                                             <PillarInitiativeAccordion key={pillar.id} pIndex={pIndex} form={form} />
                                         ))}
                                     </Accordion>
                                 </TabsContent>
 
-                                    <TabsContent value="activities" className="space-y-6">
-                                        <StepHeader title="Step 5: Define Activities" description="An Activity is a specific task required to complete an Initiative." />
-                                    <Accordion type="multiple" defaultValue={pillarFields.map((_, pIndex) => `pillar-${pIndex}`)}>
+                                <TabsContent value="activities" className="space-y-6">
+                                    <StepHeader title="Step 5: Define Activities" description="An Activity is a specific task required to complete an Initiative." />
+                                    <Accordion type="multiple" defaultValue={pillarFields.map((p) => p.id || `pillar-${p.title}`)}>
                                         {pillarFields.map((pillar, pIndex) => (
                                             <PillarActivityAccordion key={pillar.id} pIndex={pIndex} form={form} />
                                         ))}
@@ -394,9 +398,10 @@ function PillarObjectiveAccordion({ pIndex, form }: { pIndex: number; form: any 
     const { control, watch } = form;
     const { fields: objectiveFields, append: appendObjective, remove: removeObjective } = useFieldArray({ control, name: `pillars.${pIndex}.objectives` });
     const pillarTitle = watch(`pillars.${pIndex}.title`);
+    const pillarId = watch(`pillars.${pIndex}.id`);
 
     return (
-        <AccordionItem value={`pillar-${pIndex}`}>
+        <AccordionItem value={pillarId || `pillar-${pIndex}`}>
             <AccordionTrigger className="text-xl font-semibold">{pillarTitle}</AccordionTrigger>
             <AccordionContent className="pl-4 border-l ml-4 space-y-4">
                  {objectiveFields.map((objective, oIndex) => (
@@ -424,7 +429,7 @@ function PillarObjectiveAccordion({ pIndex, form }: { pIndex: number; form: any 
                         </CardContent>
                     </Card>
                  ))}
-                 <Button type="button" variant="outline" size="sm" onClick={() => appendObjective({ id: generateId('O'), statement: `Objective ${pIndex + 1}.${objectiveFields.length + 1}`, initiatives: [] })}>
+                 <Button type="button" variant="outline" size="sm" onClick={() => appendObjective({ id: generateId('O'), statement: `Objective ${pIndex + 1}.${objectiveFields.length + 1}`, initiatives: [{ id: generateId('I'), title: "New Initiative", owner: 'Liam Johnson', activities: [{ id: generateId('A'), title: "New Activity", weight: 100, startDate: getToday(), endDate: getOneMonthFromToday(), department: 'Sales', responsible: 'Liam Johnson' }] }] })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Objective
                 </Button>
             </AccordionContent>
@@ -433,15 +438,16 @@ function PillarObjectiveAccordion({ pIndex, form }: { pIndex: number; form: any 
 }
 
 function PillarInitiativeAccordion({ pIndex, form }: { pIndex: number; form: any }) {
-    const { control, watch } = form;
+    const { watch } = form;
     const pillarTitle = watch(`pillars.${pIndex}.title`);
     const objectives = watch(`pillars.${pIndex}.objectives`);
+    const pillarId = watch(`pillars.${pIndex}.id`);
     
     return (
-        <AccordionItem value={`pillar-${pIndex}`}>
+        <AccordionItem value={pillarId || `pillar-${pIndex}`}>
             <AccordionTrigger className="text-xl font-semibold">{pillarTitle}</AccordionTrigger>
             <AccordionContent className="pl-4 border-l ml-4 space-y-4">
-                <Accordion type="multiple" className="space-y-4" defaultValue={objectives.map((_: any, oIndex: number) => `objective-${pIndex}-${oIndex}`)}>
+                <Accordion type="multiple" className="space-y-4" defaultValue={objectives.map((o: any) => o.id || `objective-${o.statement}`)}>
                     {objectives.map((_objective: any, oIndex: number) => (
                        <ObjectiveInitiativeAccordion key={_objective.id} pIndex={pIndex} oIndex={oIndex} form={form} />
                     ))}
@@ -454,11 +460,11 @@ function PillarInitiativeAccordion({ pIndex, form }: { pIndex: number; form: any
 function ObjectiveInitiativeAccordion({ pIndex, oIndex, form }: { pIndex: number; oIndex: number; form: any }) {
     const { control, watch } = form;
     const { fields: initiativeFields, append: appendInitiative, remove: removeInitiative } = useFieldArray({ control, name: `pillars.${pIndex}.objectives.${oIndex}.initiatives` });
-    const objectiveStatement = watch(`pillars.${pIndex}.objectives.${oIndex}.statement`);
+    const objective = watch(`pillars.${pIndex}.objectives.${oIndex}`);
 
     return (
-        <AccordionItem value={`objective-${pIndex}-${oIndex}`}>
-            <AccordionTrigger className="font-semibold text-lg">{objectiveStatement}</AccordionTrigger>
+        <AccordionItem value={objective.id || `objective-${pIndex}-${oIndex}`}>
+            <AccordionTrigger className="font-semibold text-lg">{objective.statement}</AccordionTrigger>
             <AccordionContent className="pl-4 border-l ml-4 space-y-4">
                 {initiativeFields.map((initiative, iIndex) => {
                      return (
@@ -540,7 +546,7 @@ function ObjectiveInitiativeAccordion({ pIndex, oIndex, form }: { pIndex: number
                         </Card>
                      )
                 })}
-                <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ id: generateId('I'), title: `Initiative ${pIndex+1}.${oIndex+1}.${initiativeFields.length+1}`, description: "", owner: "Liam Johnson", collaborators: [], activities: [] })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ id: generateId('I'), title: `Initiative ${pIndex+1}.${oIndex+1}.${initiativeFields.length+1}`, description: "", owner: "Liam Johnson", collaborators: [], activities: [{ id: generateId('A'), title: "New Activity", weight: 100, startDate: getToday(), endDate: getOneMonthFromToday(), department: 'Sales', responsible: 'Liam Johnson' }] })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Initiative
                 </Button>
             </AccordionContent>
@@ -551,13 +557,14 @@ function ObjectiveInitiativeAccordion({ pIndex, oIndex, form }: { pIndex: number
 function PillarActivityAccordion({ pIndex, form }: { pIndex: number; form: any }) {
     const { watch } = form;
     const pillarTitle = watch(`pillars.${pIndex}.title`);
+    const pillarId = watch(`pillars.${pIndex}.id`);
     const objectives = watch(`pillars.${pIndex}.objectives`);
     
     return (
-        <AccordionItem value={`pillar-${pIndex}`}>
+        <AccordionItem value={pillarId || `pillar-${pIndex}`}>
             <AccordionTrigger className="text-xl font-semibold">{pillarTitle}</AccordionTrigger>
             <AccordionContent className="pl-4 border-l ml-4 space-y-4">
-                <Accordion type="multiple" className="space-y-4" defaultValue={objectives.map((_: any, oIndex: number) => `objective-${pIndex}-${oIndex}`)}>
+                <Accordion type="multiple" className="space-y-4" defaultValue={objectives.map((o: any) => o.id || `objective-${o.statement}`)}>
                     {objectives.map((_objective: any, oIndex: number) => (
                        <ObjectiveActivityAccordion key={_objective.id} pIndex={pIndex} oIndex={oIndex} form={form} />
                     ))}
@@ -569,14 +576,14 @@ function PillarActivityAccordion({ pIndex, form }: { pIndex: number; form: any }
 
 function ObjectiveActivityAccordion({ pIndex, oIndex, form }: { pIndex: number; oIndex: number; form: any }) {
     const { watch } = form;
-    const objectiveStatement = watch(`pillars.${pIndex}.objectives.${oIndex}.statement`);
+    const objective = watch(`pillars.${pIndex}.objectives.${oIndex}`);
     const initiatives = watch(`pillars.${pIndex}.objectives.${oIndex}.initiatives`);
 
     return (
-        <AccordionItem value={`objective-${pIndex}-${oIndex}`}>
-            <AccordionTrigger className="font-semibold text-lg">Objective {pIndex + 1}.{oIndex + 1}: {objectiveStatement}</AccordionTrigger>
+        <AccordionItem value={objective.id || `objective-${pIndex}-${oIndex}`}>
+            <AccordionTrigger className="font-semibold text-lg">{objective.statement}</AccordionTrigger>
             <AccordionContent className="pl-4 border-l ml-4 space-y-4">
-                <Accordion type="multiple" className="space-y-4" defaultValue={initiatives.map((_: any, iIndex: number) => `initiative-${pIndex}-${oIndex}-${iIndex}`)}>
+                <Accordion type="multiple" className="space-y-4" defaultValue={initiatives.map((i: any) => i.id || `initiative-${i.title}`)}>
                     {initiatives.map((_initiative: any, iIndex: number) => (
                         <InitiativeActivityAccordion key={_initiative.id} pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} form={form} />
                     ))}
@@ -589,11 +596,11 @@ function ObjectiveActivityAccordion({ pIndex, oIndex, form }: { pIndex: number; 
 function InitiativeActivityAccordion({ pIndex, oIndex, iIndex, form }: { pIndex: number; oIndex: number; iIndex: number; form: any }) {
     const { control } = form;
     const { fields: activityFields, append: appendActivity, remove: removeActivity } = useFieldArray({ control, name: `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities` });
-    const initiativeTitle = form.watch(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.title`);
+    const initiative = form.watch(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}`);
 
     return (
-        <AccordionItem value={`initiative-${pIndex}-${oIndex}-${iIndex}`}>
-            <AccordionTrigger className="font-medium text-base">{initiativeTitle}</AccordionTrigger>
+        <AccordionItem value={initiative.id || `initiative-${pIndex}-${oIndex}-${iIndex}`}>
+            <AccordionTrigger className="font-medium text-base">{initiative.title}</AccordionTrigger>
             <AccordionContent className="pl-4 border-l ml-4 space-y-4">
                  <Table>
                     <TableHeader>
@@ -687,7 +694,3 @@ function ReviewSection({ form }: { form: any }) {
         </div>
     )
 }
-
-    
-
-    
