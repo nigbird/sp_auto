@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma';
 import type { Activity } from '@/lib/types';
 import { calculateActivityStatus } from '@/lib/utils';
+import type { ApprovalStatus, User } from '@prisma/client';
 
 export async function getActivities(strategicPlanId?: string): Promise<Activity[]> {
     const activities = await prisma.activity.findMany({
@@ -56,16 +57,27 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
 }
 
 
-export async function updateActivity(activityId: string, data: Partial<Omit<Activity, 'id'>>) {
+export async function updateActivity(activityId: string, data: Partial<Omit<Activity, 'id' | 'responsible' | 'kpis' | 'updates'>> & { responsible?: string, approvalStatus?: ApprovalStatus }) {
+    const activityData: any = { ...data };
+    if (data.startDate) activityData.startDate = new Date(data.startDate);
+    if (data.endDate) activityData.endDate = new Date(data.endDate);
+    if (data.responsible) activityData.responsibleId = data.responsible;
+    
+    // Explicitly set status if progress is changed
+    if (data.progress !== undefined) {
+        const currentActivity = await prisma.activity.findUnique({ where: { id: activityId }});
+        if (currentActivity) {
+            activityData.status = calculateActivityStatus({ ...currentActivity, progress: data.progress, endDate: new Date(currentActivity.endDate) });
+        }
+    }
+    
+    activityData.updatedAt = new Date();
+
     const updatedActivity = await prisma.activity.update({
         where: { id: activityId },
-        data: {
-            ...data,
-            startDate: data.startDate ? new Date(data.startDate) : undefined,
-            endDate: data.endDate ? new Date(data.endDate) : undefined,
-            updatedAt: new Date()
-        }
+        data: activityData
     });
+
     revalidatePath('/activities');
     revalidatePath('/my-activity');
     return updatedActivity;
@@ -78,8 +90,7 @@ export async function deleteActivity(activityId: string) {
 }
 
 export async function submitActivityUpdate(activityId: string, progress: number, comment: string, userId: string) {
-    // In a real app, you would get the user from the session
-    const user = await prisma.user.findFirst();
+    const user = await prisma.user.findUnique({ where: { id: userId }});
     if (!user) throw new Error("User not found");
 
     const pendingUpdate = {
@@ -92,7 +103,8 @@ export async function submitActivityUpdate(activityId: string, progress: number,
     await prisma.activity.update({
         where: { id: activityId },
         data: {
-            pendingUpdate: JSON.stringify(pendingUpdate)
+            pendingUpdate: JSON.stringify(pendingUpdate),
+            approvalStatus: 'PENDING'
         }
     });
     revalidatePath('/my-activity');
@@ -100,25 +112,33 @@ export async function submitActivityUpdate(activityId: string, progress: number,
 
 export async function approveActivityUpdate(activityId: string) {
     const activity = await prisma.activity.findUnique({ where: { id: activityId }});
-    if (!activity || !activity.pendingUpdate) return;
-    
-    const pendingUpdate = JSON.parse(activity.pendingUpdate as string);
+    if (!activity) return;
 
-    // In a real app, you would log who made the update
-    // const updater = await prisma.user.findUnique({ where: { id: pendingUpdate.userId }});
+    let updateData: any = {};
 
-    const newStatus = calculateActivityStatus({ ...activity, progress: pendingUpdate.progress, endDate: new Date(activity.endDate) });
-    
-    await prisma.activity.update({
-        where: { id: activityId },
-        data: {
+    if (activity.pendingUpdate) {
+        const pendingUpdate = JSON.parse(activity.pendingUpdate as string);
+        const newStatus = calculateActivityStatus({ ...activity, progress: pendingUpdate.progress, endDate: new Date(activity.endDate) });
+        
+        updateData = {
             progress: pendingUpdate.progress,
             status: newStatus,
             pendingUpdate: null,
             approvalStatus: 'APPROVED',
+            declineReason: null,
             updatedAt: new Date(),
-            // In a real app, you'd properly handle updates history
+        };
+    } else {
+        // This is for approving a newly created activity that has no pending update yet.
+        updateData = {
+             approvalStatus: 'APPROVED',
+             declineReason: null,
         }
+    }
+    
+    await prisma.activity.update({
+        where: { id: activityId },
+        data: updateData
     });
     revalidatePath('/activities');
     revalidatePath('/my-activity');

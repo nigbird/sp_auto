@@ -7,7 +7,7 @@ import { MyActivitySummaryCards } from "@/components/my-activity/my-activity-sum
 import { MyActivityTaskList } from "@/components/my-activity/my-activity-task-list";
 import { AllActivityTaskList } from "@/components/my-activity/all-activity-task-list";
 import { useToast } from "@/hooks/use-toast";
-import { getActivities, createActivity, submitActivityUpdate } from "@/actions/activities";
+import { getActivities, createActivity, submitActivityUpdate, updateActivity } from "@/actions/activities";
 import { getRules } from "@/actions/rules";
 import { getUsers } from "@/actions/users";
 import { listStrategicPlans, getStrategicPlanById } from "@/actions/strategic-plan";
@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PlusCircle } from "lucide-react";
 import { ActivityForm } from "@/components/dashboard/activity-form";
 
-type FilterType = "Delayed" | "Not Started" | "On Track" | "Completed As Per Target" | "Overdue" | "All";
+type FilterType = "Overdue" | "Not Started" | "On Track" | "Completed As Per Target" | "All" | "Pending Approval" | "Declined";
 
 export default function MyActivityPage() {
   const [allActivities, setAllActivities] = useState<Activity[]>([]);
@@ -32,6 +32,7 @@ export default function MyActivityPage() {
   const [strategicPlans, setStrategicPlans] = useState<StrategicPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<StrategicPlan | null>(null);
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -43,8 +44,6 @@ export default function MyActivityPage() {
       ]);
       
       setUsers(userList);
-      // In a real app, you would get the logged-in user from a session.
-      // For this demo, we'll find the admin user to demonstrate the role-based view.
       const adminUser = userList.find(u => u.email === 'admin@corp-plan.com');
       setCurrentUser(adminUser || userList.find(u => u.name === "Liam Johnson") || null);
 
@@ -88,8 +87,6 @@ export default function MyActivityPage() {
     if (currentUser?.role === 'ADMINISTRATOR') {
         setMyActivities(allActivities);
     } else {
-        // In a real application, this would be based on the logged-in user's identity.
-        // For this demo, we'll assign tasks to "Liam Johnson".
         const userActivities = allActivities.filter(
           (activity) => (activity.responsible as any)?.name === "Liam Johnson"
         );
@@ -97,15 +94,18 @@ export default function MyActivityPage() {
     }
   }, [allActivities, currentUser]);
   
-  const overdueActivities = useMemo(() => myActivities.filter(a => new Date(a.endDate) < new Date() && a.status !== 'Completed As Per Target'), [myActivities]);
-  const pendingActivities = useMemo(() => myActivities.filter(a => a.status === 'Not Started' && new Date(a.startDate) <= new Date()), [myActivities]);
-  const activeActivities = useMemo(() => myActivities.filter(a => a.status === 'On Track'), [myActivities]);
-  const completedActivities = useMemo(() => myActivities.filter(a => a.status === 'Completed As Per Target'), [myActivities]);
+  const approvedActivities = useMemo(() => myActivities.filter(a => a.approvalStatus === 'APPROVED'), [myActivities]);
+  
+  const overdueActivities = useMemo(() => approvedActivities.filter(a => new Date(a.endDate) < new Date() && a.status !== 'Completed As Per Target'), [approvedActivities]);
+  const pendingActivities = useMemo(() => approvedActivities.filter(a => a.status === 'Not Started' && new Date(a.startDate) <= new Date()), [approvedActivities]);
+  const activeActivities = useMemo(() => approvedActivities.filter(a => a.status === 'On Track'), [approvedActivities]);
+  const completedActivities = useMemo(() => approvedActivities.filter(a => a.status === 'Completed As Per Target'), [approvedActivities]);
+  const pendingApprovalActivities = useMemo(() => myActivities.filter(a => a.approvalStatus === 'PENDING'), [myActivities]);
+  const declinedActivities = useMemo(() => myActivities.filter(a => a.approvalStatus === 'DECLINED'), [myActivities]);
 
 
   useEffect(() => {
     switch (activeFilter) {
-      case "Delayed":
       case "Overdue":
         setFilteredActivities(overdueActivities);
         break;
@@ -118,13 +118,17 @@ export default function MyActivityPage() {
       case "Completed As Per Target":
         setFilteredActivities(completedActivities);
         break;
-      case "All":
-        setFilteredActivities(myActivities);
+      case "Pending Approval":
+        setFilteredActivities(pendingApprovalActivities);
         break;
+      case "Declined":
+        setFilteredActivities(declinedActivities);
+        break;
+      case "All":
       default:
-        setFilteredActivities(myActivities);
+        setFilteredActivities(approvedActivities);
     }
-  }, [activeFilter, myActivities, overdueActivities, pendingActivities, activeActivities, completedActivities]);
+  }, [activeFilter, approvedActivities, overdueActivities, pendingActivities, activeActivities, completedActivities, pendingApprovalActivities, declinedActivities]);
 
   const handleUpdateActivity = async (
     activityId: string,
@@ -133,7 +137,6 @@ export default function MyActivityPage() {
     updateComment: string
   ) => {
     if (!currentUser) return;
-    // In a real app, userId would come from session
     await submitActivityUpdate(activityId, newProgress, updateComment, currentUser.id);
     
     const updatedActivities = myActivities.map(activity => {
@@ -147,6 +150,7 @@ export default function MyActivityPage() {
             return {
                 ...activity,
                 pendingUpdate: newPendingUpdate,
+                approvalStatus: 'PENDING'
             };
         }
         return activity;
@@ -170,40 +174,55 @@ export default function MyActivityPage() {
         return;
     }
 
-    const newActivityData = { ...values, responsible: responsibleUser.id, strategicPlanId: selectedPlanId };
+    if (editingActivity) {
+      await updateActivity(editingActivity.id, { ...values, approvalStatus: 'PENDING' });
+      const updatedActivity = {
+          ...editingActivity,
+          ...values,
+          responsible: responsibleUser,
+          approvalStatus: 'PENDING',
+          declineReason: null,
+      } as Activity;
 
-    const newActivity = await createActivity(newActivityData);
+      setAllActivities(prev => prev.map(act => act.id === editingActivity.id ? updatedActivity : act));
+      toast({ title: "Activity Resubmitted", description: "The activity has been resubmitted for approval." });
 
-    const fullNewActivity = { 
-        ...newActivity, 
-        kpis: [], 
-        updates: [], 
-        responsible: responsibleUser,
-        startDate: new Date(newActivity.startDate),
-        endDate: new Date(newActivity.endDate),
-    };
-    
-    setAllActivities(prev => [fullNewActivity, ...prev]);
-
-    if (fullNewActivity.responsible.name === "Liam Johnson") {
-         setMyActivities(prev => [fullNewActivity, ...prev]);
+    } else {
+        const newActivityData = { ...values, responsible: responsibleUser.id, strategicPlanId: selectedPlanId };
+        const newActivity = await createActivity(newActivityData);
+        const fullNewActivity = { 
+            ...newActivity, 
+            kpis: [], 
+            updates: [], 
+            responsible: responsibleUser,
+            startDate: new Date(newActivity.startDate),
+            endDate: new Date(newActivity.endDate),
+        };
+        setAllActivities(prev => [fullNewActivity, ...prev]);
+        toast({ title: "Activity Created", description: "The new activity has been successfully created and is pending approval." });
     }
    
-    toast({ title: "Activity Created", description: "The new activity has been successfully created and is pending approval." });
     setIsCreateFormOpen(false);
+    setEditingActivity(null);
   };
   
   const handlePlanChange = async (planId: string) => {
     setSelectedPlanId(planId);
   }
 
+  const handleEditDeclined = (activity: Activity) => {
+    setEditingActivity(activity);
+    setIsCreateFormOpen(true);
+  }
+
   const taskListTitle = useMemo(() => {
     const titles: Record<FilterType, string> = {
-      Delayed: "Overdue",
+      Overdue: "Overdue",
       "Not Started": "Pending",
       "On Track": "Active",
       "Completed As Per Target": "Completed",
-      Overdue: "Overdue",
+      "Pending Approval": "Pending Approval",
+      Declined: "Declined",
       All: "All Activities"
     };
     return titles[activeFilter];
@@ -229,7 +248,10 @@ export default function MyActivityPage() {
               ))}
             </SelectContent>
           </Select>
-          <Dialog open={isCreateFormOpen} onOpenChange={setIsCreateFormOpen}>
+          <Dialog open={isCreateFormOpen} onOpenChange={(isOpen) => {
+                if (!isOpen) setEditingActivity(null);
+                setIsCreateFormOpen(isOpen);
+            }}>
               <DialogTrigger asChild>
                   <Button disabled={!selectedPlanId}>
                       <PlusCircle className="mr-2 h-4 w-4" />
@@ -238,15 +260,15 @@ export default function MyActivityPage() {
               </DialogTrigger>
               <DialogContent className="sm:max-w-3xl">
                   <DialogHeader>
-                      <DialogTitle>Create New Activity</DialogTitle>
+                      <DialogTitle>{editingActivity ? 'Edit Activity' : 'Create New Activity'}</DialogTitle>
                   </DialogHeader>
                   <ActivityForm 
                       onSubmit={handleFormSubmit}
+                      activity={editingActivity}
                       users={users as any}
-                      departments={departments}
                       statuses={statuses}
                       onReset={() => {}}
-                      onCancel={() => setIsCreateFormOpen(false)}
+                      onCancel={() => { setIsCreateFormOpen(false); setEditingActivity(null); }}
                       strategicPlan={selectedPlan}
                   />
               </DialogContent>
@@ -254,14 +276,15 @@ export default function MyActivityPage() {
         </div>
       </div>
       <MyActivitySummaryCards
-        activities={myActivities}
         activeFilter={activeFilter}
         onFilterChange={setActiveFilter}
         overdueCount={overdueActivities.length}
         pendingCount={pendingActivities.length}
         activeCount={activeActivities.length}
         completedCount={completedActivities.length}
-        allCount={myActivities.length}
+        allCount={approvedActivities.length}
+        pendingApprovalCount={pendingApprovalActivities.length}
+        declinedCount={declinedActivities.length}
       />
       {activeFilter === 'All' ? (
         <AllActivityTaskList 
@@ -275,6 +298,7 @@ export default function MyActivityPage() {
             count={filteredActivities.length} 
             activities={filteredActivities} 
             onUpdateActivity={handleUpdateActivity}
+            onEditDeclined={handleEditDeclined}
         />
       )}
     </div>

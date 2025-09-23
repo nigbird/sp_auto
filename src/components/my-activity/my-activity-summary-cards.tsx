@@ -1,16 +1,13 @@
 
 "use client";
 
-import type { Activity } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, Clock, CheckCircle, Target, Hourglass, List } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
+import { AlertTriangle, Clock, CheckCircle, Hourglass, List, ShieldQuestion, ShieldX } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type FilterType = "Delayed" | "Not Started" | "On Track" | "Completed As Per Target" | "Overdue" | "All";
+type FilterType = "Overdue" | "Not Started" | "On Track" | "Completed As Per Target" | "All" | "Pending Approval" | "Declined";
 
 type MyActivitySummaryCardsProps = {
-  activities: Activity[];
   activeFilter: FilterType;
   onFilterChange: (filter: FilterType) => void;
   overdueCount: number;
@@ -18,10 +15,11 @@ type MyActivitySummaryCardsProps = {
   activeCount: number;
   completedCount: number;
   allCount: number;
+  pendingApprovalCount: number;
+  declinedCount: number;
 };
 
 export function MyActivitySummaryCards({ 
-  activities,
   activeFilter,
   onFilterChange,
   overdueCount,
@@ -29,6 +27,8 @@ export function MyActivitySummaryCards({
   activeCount,
   completedCount,
   allCount,
+  pendingApprovalCount,
+  declinedCount,
 }: MyActivitySummaryCardsProps) {
   
   const cardClasses = (filter: FilterType) =>
@@ -37,58 +37,30 @@ export function MyActivitySummaryCards({
       activeFilter === filter && "bg-muted ring-2 ring-primary"
     );
 
+  const cards = [
+    { filter: "Pending Approval", title: "Pending Approval", count: pendingApprovalCount, icon: <ShieldQuestion className="h-4 w-4 text-blue-500" />, description: "Awaiting review" },
+    { filter: "Declined", title: "Declined", count: declinedCount, icon: <ShieldX className="h-4 w-4 text-destructive" />, description: "Needs revision" },
+    { filter: "Overdue", title: "Overdue Tasks", count: overdueCount, icon: <AlertTriangle className="h-4 w-4 text-destructive" />, description: "Tasks past due date" },
+    { filter: "Not Started", title: "Pending Tasks", count: pendingCount, icon: <Hourglass className="h-4 w-4 text-muted-foreground" />, description: "Tasks not yet started" },
+    { filter: "On Track", title: "Active Tasks", count: activeCount, icon: <Clock className="h-4 w-4 text-muted-foreground" />, description: "Tasks in-progress" },
+    { filter: "Completed As Per Target", title: "Completed Tasks", count: completedCount, icon: <CheckCircle className="h-4 w-4 text-green-500" />, description: "Tasks completed" },
+    { filter: "All", title: "All Approved", count: allCount, icon: <List className="h-4 w-4 text-muted-foreground" />, description: "All approved tasks" },
+  ];
+
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-      <Card className={cardClasses("Delayed")} onClick={() => onFilterChange("Delayed")}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Overdue Tasks</CardTitle>
-          <AlertTriangle className="h-4 w-4 text-destructive" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{overdueCount}</div>
-          <p className="text-xs text-muted-foreground">Tasks past their due date</p>
-        </CardContent>
-      </Card>
-      <Card className={cardClasses("Not Started")} onClick={() => onFilterChange("Not Started")}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
-          <Hourglass className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{pendingCount}</div>
-         <p className="text-xs text-muted-foreground">Tasks not yet started</p>
-        </CardContent>
-      </Card>
-      <Card className={cardClasses("On Track")} onClick={() => onFilterChange("On Track")}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Active Tasks</CardTitle>
-          <Clock className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{activeCount}</div>
-           <p className="text-xs text-muted-foreground">Tasks currently in-progress</p>
-        </CardContent>
-      </Card>
-      <Card className={cardClasses("Completed As Per Target")} onClick={() => onFilterChange("Completed As Per Target")}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Completed Tasks</CardTitle>
-          <CheckCircle className="h-4 w-4 text-green-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{completedCount}</div>
-          <p className="text-xs text-muted-foreground">Tasks you have completed</p>
-        </CardContent>
-      </Card>
-      <Card className={cardClasses("All")} onClick={() => onFilterChange("All")}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">All Activities</CardTitle>
-          <List className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{allCount}</div>
-          <p className="text-xs text-muted-foreground">All of your assigned tasks</p>
-        </CardContent>
-      </Card>
+    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+      {cards.map(card => (
+        <Card key={card.filter} className={cardClasses(card.filter)} onClick={() => onFilterChange(card.filter)}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
+            {card.icon}
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{card.count}</div>
+            <p className="text-xs text-muted-foreground">{card.description}</p>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }
