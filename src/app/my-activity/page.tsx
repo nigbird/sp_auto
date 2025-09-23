@@ -77,7 +77,7 @@ export default function MyActivityPage() {
       setAllActivities(activities);
       setSelectedPlan(planDetails);
 
-      const uniqueDepartments = ["All", ...new Set(activities.map((a) => a.department))];
+      const uniqueDepartments = ["All", ...new Set(activities.map((a) => a.department).filter(d => d !== "All"))];
       setDepartments(uniqueDepartments);
     }
     loadActivitiesForPlan();

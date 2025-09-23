@@ -199,26 +199,7 @@ export function ActivityForm({ onSubmit, activity, users, departments, statuses,
               )}
             />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="department"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Department</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a department" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {departments.map(dept => <SelectItem key={dept} value={dept}>{dept}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              
               <FormField
                 control={form.control}
                 name="responsible"
@@ -239,6 +220,28 @@ export function ActivityForm({ onSubmit, activity, users, departments, statuses,
                   </FormItem>
                 )}
               />
+                 <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            {statuses.map(status => (
+                                <SelectItem key={status} value={status}>{status}</SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
@@ -319,28 +322,7 @@ export function ActivityForm({ onSubmit, activity, users, departments, statuses,
                 />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Status</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                            {statuses.map(status => (
-                                <SelectItem key={status} value={status}>{status}</SelectItem>
-                            ))}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
+               
                 <FormField
                     control={form.control}
                     name="weight"
