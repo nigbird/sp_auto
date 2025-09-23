@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import type { Activity, ActivityStatus, PendingUpdate, Rule, StrategicPlan, Pillar, Objective, Initiative } from "@/lib/types";
+import type { Activity, ActivityStatus, PendingUpdate, Rule, StrategicPlan, Pillar, Objective, Initiative, User } from "@/lib/types";
 import { MyActivitySummaryCards } from "@/components/my-activity/my-activity-summary-cards";
 import { MyActivityTaskList } from "@/components/my-activity/my-activity-task-list";
 import { AllActivityTaskList } from "@/components/my-activity/all-activity-task-list";
@@ -25,7 +25,7 @@ export default function MyActivityPage() {
   const [filteredActivities, setFilteredActivities] = useState<Activity[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterType>("Delayed");
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
-  const [users, setUsers] = useState<string[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
   const [strategicPlans, setStrategicPlans] = useState<StrategicPlan[]>([]);
@@ -41,7 +41,7 @@ export default function MyActivityPage() {
         listStrategicPlans(),
       ]);
       
-      setUsers(userList.map(u => u.name));
+      setUsers(userList);
       setStatuses(rules.map(rule => rule.status));
       
       const publishedPlans = plans.filter(p => p.status === 'PUBLISHED');
@@ -77,7 +77,7 @@ export default function MyActivityPage() {
     // In a real application, this would be based on the logged-in user's identity.
     // For this demo, we'll assign tasks to "Liam Johnson".
     const userActivities = allActivities.filter(
-      (activity) => (activity.responsible as any)?.name === "Liam Johnson" || activity.responsible === "Liam Johnson"
+      (activity) => (activity.responsible as any)?.name === "Liam Johnson"
     );
     setMyActivities(userActivities);
   }, [allActivities]);
@@ -146,16 +146,31 @@ export default function MyActivityPage() {
       toast({ title: "Error", description: "A strategic plan must be selected.", variant: "destructive" });
       return;
     }
-    const newActivity = await createActivity({ ...values, strategicPlanId: selectedPlanId });
+    const responsibleUser = users.find(u => u.id === values.responsible);
+    if (!responsibleUser) {
+        toast({ title: "Error", description: "Invalid responsible user selected.", variant: "destructive" });
+        return;
+    }
 
-    setMyActivities(prev => [
-        { ...newActivity, kpis: [], updates: [], responsible: users.find(u=> u === values.responsible) || "Unknown" }, 
-        ...prev
-    ]);
-    setAllActivities(prev => [
-        { ...newActivity, kpis: [], updates: [], responsible: users.find(u=> u === values.responsible) || "Unknown" }, 
-        ...prev
-    ]);
+    const newActivityData = { ...values, responsible: responsibleUser.id, strategicPlanId: selectedPlanId };
+
+    const newActivity = await createActivity(newActivityData);
+
+    const fullNewActivity = { 
+        ...newActivity, 
+        kpis: [], 
+        updates: [], 
+        responsible: responsibleUser,
+        startDate: new Date(newActivity.startDate),
+        endDate: new Date(newActivity.endDate),
+    };
+    
+    setAllActivities(prev => [fullNewActivity, ...prev]);
+
+    if (fullNewActivity.responsible.name === "Liam Johnson") {
+         setMyActivities(prev => [fullNewActivity, ...prev]);
+    }
+   
     toast({ title: "Activity Created", description: "The new activity has been successfully created and is pending approval." });
     setIsCreateFormOpen(false);
   };
@@ -211,7 +226,7 @@ export default function MyActivityPage() {
                   </DialogHeader>
                   <ActivityForm 
                       onSubmit={handleFormSubmit}
-                      users={users}
+                      users={users as any}
                       departments={departments}
                       statuses={statuses}
                       onReset={() => {}}

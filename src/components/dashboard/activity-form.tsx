@@ -59,7 +59,7 @@ export function ActivityForm({ onSubmit, activity, users, departments, statuses,
       title: activity?.title ?? "",
       description: activity?.description ?? "",
       department: activity?.department ?? "",
-      responsible: activity?.responsible as string ?? "",
+      responsible: (activity?.responsible as any)?.id ?? "",
       startDate: activity?.startDate ? new Date(activity.startDate) : undefined,
       endDate: activity?.endDate ? new Date(activity.endDate) : undefined,
       status: activity?.status ?? "Not Started",
@@ -95,7 +95,7 @@ export function ActivityForm({ onSubmit, activity, users, departments, statuses,
 
   const getSubmitButtonText = () => {
     if (activity) {
-      if (activity.approvalStatus === 'Declined') {
+      if (activity.approvalStatus === 'DECLINED') {
         return "Resubmit for Approval";
       }
       return "Save Changes";
@@ -232,7 +232,7 @@ export function ActivityForm({ onSubmit, activity, users, departments, statuses,
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {users.map(user => <SelectItem key={user} value={user}>{user}</SelectItem>)}
+                        {users.map((user:any) => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -359,7 +359,7 @@ export function ActivityForm({ onSubmit, activity, users, departments, statuses,
         </ScrollArea>
         <div className="flex justify-between items-center pt-4">
             <div>
-              {activity && activity.approvalStatus === 'Declined' && (
+              {activity && activity.approvalStatus === 'DECLINED' && (
                 <p className="text-sm text-destructive">This activity was declined. Please edit and resubmit.</p>
               )}
             </div>
