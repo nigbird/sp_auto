@@ -6,11 +6,9 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { getPillarProgress, getObjectiveProgress, getInitiativeProgress, getTrafficLightColor, getObjectiveWeight, getInitiativeWeight } from "@/lib/utils";
+import { getObjectiveWeight, getInitiativeWeight, getPillarWeight } from "@/lib/utils";
 import type { Pillar, Objective, Initiative, Activity, User } from "@/lib/types";
 import { ArrowLeft, Edit, Trash2, CheckCircle, User as UserIcon, Calendar, Weight, Info } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
-import { StatusBadge } from "@/components/status-badge";
 
 
 // Server action wrappers
@@ -64,17 +62,15 @@ function HierarchyView({ pillars }: { pillars: Pillar[] }) {
 }
 
 function PillarItem({ pillar }: { pillar: Pillar }) {
-    const progress = getPillarProgress(pillar);
+    const weight = getPillarWeight(pillar);
     return (
         <Card className="overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between p-4 bg-muted/30">
                 <h3 className="flex-1 text-lg font-semibold">{pillar.title}</h3>
                 <div className="flex items-center gap-4">
                     <div className="text-right">
-                        <p className="font-bold">{progress.toFixed(1)}%</p>
-                        <p className="text-xs text-muted-foreground">Progress</p>
+                        <p className="font-semibold text-sm">Wt: {weight.toFixed(1)}%</p>
                     </div>
-                    <div className={`w-4 h-4 rounded-full ${getTrafficLightColor(progress)}`}></div>
                 </div>
             </CardHeader>
             {pillar.objectives.length > 0 && (
@@ -87,7 +83,6 @@ function PillarItem({ pillar }: { pillar: Pillar }) {
 }
 
 function ObjectiveItem({ objective }: { objective: Objective }) {
-    const progress = getObjectiveProgress(objective);
     const weight = getObjectiveWeight(objective);
     const title = objective.statement || objective.title;
     return (
@@ -98,11 +93,6 @@ function ObjectiveItem({ objective }: { objective: Objective }) {
                     <div className="text-right">
                         <p className="font-semibold text-sm">Wt: {weight.toFixed(1)}%</p>
                     </div>
-                    <div className="text-right">
-                        <p className="font-bold">{progress.toFixed(1)}%</p>
-                        <p className="text-xs text-muted-foreground">Progress</p>
-                    </div>
-                    <div className={`w-3.5 h-3.5 rounded-full ${getTrafficLightColor(progress)}`}></div>
                 </div>
             </CardHeader>
              {objective.initiatives.length > 0 && (
@@ -115,7 +105,6 @@ function ObjectiveItem({ objective }: { objective: Objective }) {
 }
 
 function InitiativeItem({ initiative }: { initiative: Initiative }) {
-    const progress = getInitiativeProgress(initiative);
     const weight = getInitiativeWeight(initiative);
     return (
         <Card className="overflow-hidden bg-background/70">
@@ -128,11 +117,6 @@ function InitiativeItem({ initiative }: { initiative: Initiative }) {
                     <div className="text-right">
                         <p className="font-semibold text-sm">Wt: {weight.toFixed(1)}%</p>
                     </div>
-                    <div className="text-right">
-                        <p className="font-bold">{progress.toFixed(1)}%</p>
-                        <p className="text-xs text-muted-foreground">Progress</p>
-                    </div>
-                    <div className={`w-3 h-3 rounded-full ${getTrafficLightColor(progress)}`}></div>
                 </div>
             </CardHeader>
             {initiative.activities.length > 0 && (
@@ -150,14 +134,7 @@ function ActivityItem({ activity }: { activity: Activity }) {
         <div className="p-3 rounded-md border bg-background">
             <div className="flex justify-between items-start">
                 <p className="font-medium text-sm mb-2">{activity.title}</p>
-                <div className="flex items-center gap-4">
-                    <StatusBadge status={activity.status} />
-                    <div className="text-right">
-                        <p className="font-bold text-sm">{activity.progress.toFixed(1)}%</p>
-                    </div>
-                </div>
             </div>
-            <Progress value={activity.progress} indicatorClassName={getTrafficLightColor(activity.progress)} className="h-1.5" />
             <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 text-xs text-muted-foreground">
                  <div className="flex items-center gap-1.5">
                     <UserIcon className="h-3 w-3"/>

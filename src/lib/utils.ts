@@ -31,7 +31,7 @@ export const getObjectiveWeight = (objective: Objective): number => {
     }, 0);
 }
 
-const getPillarWeight = (pillar: Pillar): number => {
+export const getPillarWeight = (pillar: Pillar): number => {
      return pillar.objectives.reduce((sum, objective) => {
         return sum + getObjectiveWeight(objective);
     }, 0);
