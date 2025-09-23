@@ -11,6 +11,23 @@ import type { Pillar, Objective, Initiative, Activity } from "@/lib/types";
 import { ChevronDown, ChevronRight, Edit, Trash2, CheckCircle } from "lucide-react";
 
 
+
+// Server action wrappers
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+
+async function deletePlanAction(formData: FormData) {
+  "use server";
+  const planId = formData.get("planId") as string;
+  await deleteStrategicPlan(planId);
+}
+
+async function publishPlanAction(formData: FormData) {
+  "use server";
+  const planId = formData.get("planId") as string;
+  await publishStrategicPlan(planId);
+}
+
 function ActionButtons({ planId, status }: { planId: string, status: string }) {
     return (
         <div className="flex gap-2">
@@ -19,13 +36,15 @@ function ActionButtons({ planId, status }: { planId: string, status: string }) {
                     <Edit className="mr-2 h-4 w-4" /> Edit
                 </Link>
             </Button>
-            <form action={() => deleteStrategicPlan(planId)}>
-                 <Button variant="destructive" type="submit">
+            <form action={deletePlanAction}>
+                <input type="hidden" name="planId" value={planId} />
+                <Button variant="destructive" type="submit">
                     <Trash2 className="mr-2 h-4 w-4" /> Delete
                 </Button>
             </form>
             {status !== 'PUBLISHED' && (
-                 <form action={() => publishStrategicPlan(planId)}>
+                <form action={publishPlanAction}>
+                    <input type="hidden" name="planId" value={planId} />
                     <Button type="submit">
                         <CheckCircle className="mr-2 h-4 w-4" /> Publish
                     </Button>

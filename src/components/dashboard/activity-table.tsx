@@ -64,10 +64,10 @@ import { Textarea } from "../ui/textarea";
 import { Badge } from "../ui/badge";
 
 const ApprovalStatusBadge = ({ status }: { status: Activity['approvalStatus'] }) => {
-    if (!status) return null;
-    const variant = status === 'Approved' ? 'default' : status === 'Declined' ? 'destructive' : 'secondary';
-    const className = status === 'Approved' ? 'bg-green-500/20 text-green-700 border-green-400' : status === 'Declined' ? 'bg-red-500/20 text-red-700 border-red-400' : '';
-    return <Badge variant={variant} className={className}>{status}</Badge>
+  if (!status) return null;
+  const variant = status === 'APPROVED' ? 'default' : status === 'DECLINED' ? 'destructive' : 'secondary';
+  const className = status === 'APPROVED' ? 'bg-green-500/20 text-green-700 border-green-400' : status === 'DECLINED' ? 'bg-red-500/20 text-red-700 border-red-400' : '';
+  return <Badge variant={variant} className={className}>{status}</Badge>
 }
 
 export function ActivityTable({ activities, users, departments, statuses }: { activities: Activity[], users: string[], departments: string[], statuses: string[] }) {
@@ -92,8 +92,8 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
       const updatedActivity = {
         ...editingActivity, 
         ...values, 
-        lastUpdated: {user: 'Admin User', date: new Date()},
-        approvalStatus: 'Pending' as const, // Reset on edit
+        updatedAt: new Date(),
+        approvalStatus: 'PENDING' as const, // Reset on edit
         declineReason: undefined
       };
       setData(data.map(act => act.id === editingActivity.id ? updatedActivity : act));
@@ -104,10 +104,10 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
         id: `ACT-${Math.floor(Math.random() * 1000)}`,
         ...values,
         kpis: [],
-        lastUpdated: { user: "Admin User", date: new Date() },
+        updatedAt: new Date(),
         updates: [],
         progress: 0,
-        approvalStatus: 'Pending',
+        approvalStatus: 'PENDING',
       };
       setData([newActivity, ...data]);
       toast({ title: "Activity Created", description: "The new activity has been submitted for approval." });
@@ -155,7 +155,7 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
               title: "Activity Approved",
               description: `The activity "${act.title}" has been approved.`,
             });
-           updatedActivity = { ...act, approvalStatus: 'Approved' as const };
+           updatedActivity = { ...act, approvalStatus: 'APPROVED' as const };
         } else { // Approving a progress update
             const { progress, comment, user, date } = act.pendingUpdate!;
             const newStatus = calculateActivityStatus({ ...act, progress });
@@ -167,10 +167,10 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
               ...act,
               progress: progress,
               status: newStatus,
-              lastUpdated: { user, date },
+        updatedAt: date,
               updates: [...act.updates, { user, date, comment }],
               pendingUpdate: undefined,
-              approvalStatus: 'Approved' as const,
+              approvalStatus: 'APPROVED' as const,
               declineReason: undefined,
             };
         }
@@ -208,23 +208,23 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
               description: `The activity "${act.title}" has been declined.`,
               variant: "destructive"
             });
-            updatedActivity = { 
-                ...act, 
-                approvalStatus: 'Declined' as const,
-                declineReason: declineReason,
-            };
+      updatedActivity = { 
+        ...act, 
+        approvalStatus: 'DECLINED' as const,
+        declineReason: declineReason,
+      };
         } else { // Declining a progress update
             toast({
               title: "Update Declined",
               description: `The pending update for "${act.title}" has been declined.`,
               variant: "destructive"
             });
-            updatedActivity = { 
-                ...act, 
-                pendingUpdate: undefined, 
-                approvalStatus: 'Declined' as const,
-                declineReason: declineReason,
-            };
+      updatedActivity = { 
+        ...act, 
+        pendingUpdate: undefined, 
+        approvalStatus: 'DECLINED' as const,
+        declineReason: declineReason,
+      };
         }
 
         setViewingActivity(updatedActivity); // Update details view if open
@@ -246,10 +246,10 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
         });
         const updatedActivity = { 
           ...act, 
-          approvalStatus: 'Pending' as const,
+          approvalStatus: 'PENDING' as const,
           declineReason: undefined,
         };
-        setEditingActivity(updatedActivity);
+  setEditingActivity(updatedActivity);
         setIsCreateFormOpen(true);
         return updatedActivity;
       }
@@ -268,7 +268,7 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
       header: "Title",
       cell: ({ row }) => {
         const activity = row.original;
-        const needsAttention = activity.approvalStatus === 'Pending';
+  const needsAttention = activity.approvalStatus === 'PENDING';
         return (
           <div className="flex items-center gap-2">
             {needsAttention && <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" title="Needs review"></span>}
@@ -332,9 +332,9 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
       cell: ({ row }) => {
         const activity = row.original;
         let detailsText = 'View Details';
-        if (activity.approvalStatus === 'Pending') {
-            detailsText = activity.pendingUpdate ? 'Review Progress Update' : 'Review New Activity';
-        }
+    if (activity.approvalStatus === 'PENDING') {
+      detailsText = activity.pendingUpdate ? 'Review Progress Update' : 'Review New Activity';
+    }
         
         return (
           <DropdownMenu>
@@ -379,9 +379,9 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
 
   const isFiltered = table.getState().columnFilters.length > 0
   const approvalStatusOptions = [
-    { label: 'Pending', value: 'Pending' },
-    { label: 'Approved', value: 'Approved' },
-    { label: 'Declined', value: 'Declined' },
+  { label: 'Pending', value: 'PENDING' },
+  { label: 'Approved', value: 'APPROVED' },
+  { label: 'Declined', value: 'DECLINED' },
   ];
 
   return (

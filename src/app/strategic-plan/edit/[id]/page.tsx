@@ -260,12 +260,20 @@ function PillarAccordion({ pIndex, form, removePillar }: { pIndex: number; form:
 
     return (
         <AccordionItem value={form.getValues(`pillars.${pIndex}.id`)}>
-            <AccordionTrigger className="text-xl font-semibold p-4 bg-muted/50 rounded-t-lg">
-                <div className="flex items-center justify-between w-full">
+            <div className="flex items-center justify-between w-full">
+                <AccordionTrigger className="text-xl font-semibold p-4 bg-muted/50 rounded-t-lg flex-1">
                     <span>{pillarTitle}</span>
-                    <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); removePillar()}} className="mr-2 hover:bg-destructive/20"><Trash2 className="h-4 w-4 text-destructive"/></Button>
-                </div>
-            </AccordionTrigger>
+                </AccordionTrigger>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); removePillar(); }}
+                    className="mr-2 hover:bg-destructive/20"
+                    type="button"
+                >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+            </div>
             <AccordionContent className="p-4 border border-t-0 rounded-b-lg space-y-4">
                  <FormField control={control} name={`pillars.${pIndex}.title`} render={({ field }) => <FormItem><Label>Pillar Title</Label><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>} />
                  <FormField control={control} name={`pillars.${pIndex}.description`} render={({ field }) => <FormItem><Label>Pillar Description</Label><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>} />

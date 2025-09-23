@@ -20,14 +20,14 @@ export async function getActivities(): Promise<Activity[]> {
     }));
 }
 
-export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updates' | 'progress' | 'approvalStatus' | 'lastUpdated'>) {
+export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updates' | 'progress' | 'approvalStatus'>) {
     const newActivity = await prisma.activity.create({
         data: {
             ...data,
             startDate: new Date(data.startDate),
             endDate: new Date(data.endDate),
             progress: 0,
-            approvalStatus: 'Pending'
+            approvalStatus: 'PENDING'
         }
     });
     revalidatePath('/activities');
@@ -42,7 +42,7 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
             ...data,
             startDate: data.startDate ? new Date(data.startDate) : undefined,
             endDate: data.endDate ? new Date(data.endDate) : undefined,
-            lastUpdated: new Date()
+            updatedAt: new Date()
         }
     });
     revalidatePath('/activities');
@@ -94,8 +94,8 @@ export async function approveActivityUpdate(activityId: string) {
             progress: pendingUpdate.progress,
             status: newStatus,
             pendingUpdate: null,
-            approvalStatus: 'Approved',
-            lastUpdated: new Date(),
+            approvalStatus: 'APPROVED',
+            updatedAt: new Date(),
             // In a real app, you'd properly handle updates history
         }
     });
@@ -108,7 +108,7 @@ export async function declineActivityUpdate(activityId: string, reason: string) 
         where: { id: activityId },
         data: {
             pendingUpdate: null,
-            approvalStatus: 'Declined',
+            approvalStatus: 'DECLINED',
             declineReason: reason
         }
     });

@@ -62,16 +62,12 @@ export async function getStrategicPlanById(id: string) {
         where: { id },
         include: {
             pillars: {
-                orderBy: { createdAt: 'asc' },
                 include: {
                     objectives: {
-                        orderBy: { createdAt: 'asc' },
                         include: {
                             initiatives: {
-                                orderBy: { createdAt: 'asc' },
                                 include: {
                                     activities: {
-                                        orderBy: { createdAt: 'asc' },
                                         include: {
                                             responsible: true,
                                         }
@@ -88,7 +84,21 @@ export async function getStrategicPlanById(id: string) {
     if (!plan) {
         return null;
     }
-    
+
+    // Sort nested arrays by createdAt ascending
+    plan.pillars.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    plan.pillars.forEach(pillar => {
+        pillar.objectives.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        pillar.objectives.forEach(objective => {
+            objective.initiatives.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+            objective.initiatives.forEach(initiative => {
+                initiative.activities.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+            });
+        });
+    });
+    if (!plan) {
+        return null;
+    }
     // Convert dates to string to avoid serialization issues
     const plainPlan = JSON.parse(JSON.stringify(plan));
     return plainPlan as StrategicPlanType;
