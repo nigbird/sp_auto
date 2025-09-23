@@ -13,7 +13,7 @@ export function calculateWeightedProgress(items: { weight: number; progress: num
   const totalWeight = items.reduce((sum, item) => sum + item.weight, 0);
   if (totalWeight === 0) return 0;
   const weightedSum = items.reduce((sum, item) => sum + item.progress * item.weight, 0);
-  return Math.round(weightedSum / totalWeight);
+  return weightedSum / totalWeight;
 }
 
 
@@ -21,7 +21,7 @@ function sumActivityWeights(activities: Activity[]): number {
     return activities.reduce((sum, activity) => sum + activity.weight, 0);
 }
 
-const getInitiativeWeight = (initiative: Initiative): number => {
+export const getInitiativeWeight = (initiative: Initiative): number => {
     return sumActivityWeights(initiative.activities);
 }
 
@@ -91,7 +91,7 @@ export function generateReportSummary(pillars: Pillar[]): ReportSummary {
       objective.initiatives.forEach(initiative => {
         totalActivities += initiative.activities.length;
         initiative.activities.forEach(activity => {
-          if (activity.status === "Delayed" || (activity.endDate < new Date() && activity.status !== 'Completed As Per Target')) {
+          if (activity.status === "Delayed" || (new Date(activity.endDate) < new Date() && activity.status !== 'Completed As Per Target')) {
             overdueActivities++;
           }
         });

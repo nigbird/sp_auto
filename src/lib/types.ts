@@ -1,5 +1,4 @@
 
-
 import type { StrategicPlan as PrismaStrategicPlan, Pillar as PrismaPillar, Objective as PrismaObjective, Initiative as PrismaInitiative, Activity as PrismaActivity, User as PrismaUser } from '@prisma/client';
 
 export type ActivityStatus = "Not Started" | "On Track" | "Completed As Per Target" | "Delayed" | "Overdue" | string;
@@ -53,6 +52,7 @@ export type Initiative = Omit<PrismaInitiative, 'objectiveId'> & {
 export type Objective = Omit<PrismaObjective, 'pillarId'> & {
     initiatives: Initiative[];
     weight?: number;
+    statement: string; // Ensure statement is always present
     title?: string; // For compatibility with older data if needed
 }
 
