@@ -293,7 +293,7 @@ function PillarAccordion({ pIndex, form, removePillar }: { pIndex: number; form:
             </div>
             <AccordionContent className="p-4 border border-t-0 rounded-b-lg space-y-4">
                  <FormField control={control} name={`pillars.${pIndex}.title`} render={({ field }) => <FormItem><Label>Pillar Title</Label><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>} />
-                 <FormField control={control} name={`pillars.${pIndex}.description`} render={({ field }) => <FormItem><Label>Pillar Description</Label><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>} />
+                 <FormField control={control} name={`pillars.${pIndex}.description`} render={({ field }) => <FormItem><Label>Pillar Description</Label><FormControl><Textarea {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>} />
                  
                  <h3 className="font-semibold text-lg mt-4">Objectives</h3>
                  <Accordion type="multiple" className="space-y-4" defaultValue={objectiveFields.map(o => o.id || '')}>
@@ -349,7 +349,7 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative }: { pI
             </CardHeader>
             <CardContent className="space-y-4 p-4">
                 <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.title`} render={({ field }) => <FormItem><Label>Title</Label><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>} />
-                <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.description`} render={({ field }) => <FormItem><Label>Description</Label><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>} />
+                <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.description`} render={({ field }) => <FormItem><Label>Description</Label><FormControl><Textarea {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>} />
                 <div className="grid grid-cols-2 gap-4">
                     <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.owner`} render={({ field }) => <FormItem><Label>Owner</Label><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{peopleOptions.map(o=><SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>} />
                     <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.collaborators`} render={({ field }) => <FormItem><Label>Collaborators</Label><FormControl><MultiSelect options={peopleOptions} selected={field.value ?? []} onChange={field.onChange}/></FormControl><FormMessage /></FormItem>} />
@@ -378,6 +378,8 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative }: { pI
         </Card>
     );
 }
+
+    
 
     
 
