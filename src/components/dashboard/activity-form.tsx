@@ -350,5 +350,3 @@ export function ActivityForm({ onSubmit, activity, users, statuses, onReset, onC
     </Form>
   )
 }
-
-    
