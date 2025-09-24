@@ -117,7 +117,9 @@ export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPla
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {strategicPlan.pillars.map(pillar => <SelectItem key={pillar.id} value={pillar.id}>{pillar.title}</SelectItem>)}
+                          {strategicPlan.pillars.map(pillar => (
+                            <SelectItem key={pillar.id} value={pillar.id}>{pillar.title}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -137,7 +139,9 @@ export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPla
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {selectedPillar?.objectives.map(objective => <SelectItem key={objective.id} value={objective.id}>{objective.statement}</SelectItem>)}
+                          {selectedPillar?.objectives.map(objective => (
+                            <SelectItem key={objective.id} value={objective.id}>{objective.statement}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -157,7 +161,9 @@ export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPla
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {selectedObjective?.initiatives.map(initiative => <SelectItem key={initiative.id} value={initiative.id}>{initiative.title}</SelectItem>)}
+                          {selectedObjective?.initiatives.map(initiative => (
+                            <SelectItem key={initiative.id} value={initiative.id}>{initiative.title}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -197,20 +203,22 @@ export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPla
                 control={form.control}
                 name="responsible"
                 render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Responsible Person</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select a user" />
-                        </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                        {users.map((user) => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
+          <FormItem>
+          <FormLabel>Responsible Person</FormLabel>
+          <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <FormControl>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a user" />
+            </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+            {users.map((user) => (
+              <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+            ))}
+            </SelectContent>
+          </Select>
+          <FormMessage />
+          </FormItem>
                 )}
                 />
 
@@ -297,15 +305,15 @@ export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPla
                 <FormField
                     control={form.control}
                     name="weight"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Weight (%)</FormLabel>
-                            <FormControl>
-                                <Input type="number" placeholder="50" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Weight (%)</FormLabel>
+              <FormControl>
+                <Input type="number" placeholder="50" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
                     />
             </div>
           </div>

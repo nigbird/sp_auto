@@ -76,7 +76,10 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
     const activityData: any = { ...data };
     if (data.startDate) activityData.startDate = new Date(data.startDate);
     if (data.endDate) activityData.endDate = new Date(data.endDate);
-    if (data.responsible) activityData.responsibleId = data.responsible;
+    if (data.responsible) {
+        activityData.responsibleId = data.responsible;
+        delete activityData.responsible;
+    }
     
     // Explicitly set status if progress is changed
     if (data.progress !== undefined) {

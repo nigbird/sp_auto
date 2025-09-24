@@ -8,7 +8,7 @@ import type { Rule } from "@/lib/types";
 export default async function ActivitiesPage() {
   const activities = await getActivities();
   const userList = await getUsers();
-  const users = userList.map(u => u.name);
+  const users = userList.map(u => ({ id: u.id, name: u.name }));
   const departments = ["Marketing", "Sales", "Engineering", "Human Resources", "Support", "Finance"];
   const rules: Rule[] = await getRules();
   const statuses = rules.map(rule => rule.status);
