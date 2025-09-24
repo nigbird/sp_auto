@@ -4,7 +4,7 @@
 import * as React from "react"
 import type { Activity, ActivityStatus, ApprovalStatus } from "@/lib/types";
 import { format, formatDistanceToNow } from "date-fns";
-import { AlertTriangle, ChevronDown, ChevronUp, Hourglass, Clock, CheckCircle, ShieldQuestion, ShieldX, Edit, Check } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, Hourglass, Clock, CheckCircle, ShieldQuestion, ShieldX, Edit, Check, List } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
 import { Slider } from "../ui/slider";
@@ -204,10 +204,10 @@ export function MyActivityTaskList({ title, count, activities, onUpdateActivity,
   
   const titleIcon: Record<string, React.ReactNode> = {
     Overdue: <AlertTriangle className="text-destructive" />,
-    "Pending Tasks": <Hourglass className="text-muted-foreground" />,
-    Active: <Clock className="text-muted-foreground" />,
+    "Not Started": <Hourglass className="text-muted-foreground" />,
+    "On Track": <Clock className="text-muted-foreground" />,
     Completed: <CheckCircle className="text-green-500" />,
-    "All Activities": <List className="text-muted-foreground" />,
+    "All Approved": <List className="text-muted-foreground" />,
   };
 
   if (activities.length === 0) {
