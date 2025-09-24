@@ -17,7 +17,7 @@ import { Textarea } from "../ui/textarea";
 import { Label } from "../ui/label";
 import { calculateActivityStatus } from "@/lib/utils";
 import { Progress } from "../ui/progress";
-import { Tooltip, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "../ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../ui/alert-dialog";
 
 const ApprovalBadge = ({ status, reason }: { status: ApprovalStatus; reason?: string | null }) => {
