@@ -45,7 +45,7 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
         approvalStatus = 'APPROVED';
     } else {
         // If created manually, check the role.
-        if (creator.role === 'Administrator') {
+        if (creator.role === 'ADMINISTRATOR') {
             approvalStatus = 'APPROVED';
         } else {
             approvalStatus = 'PENDING';
