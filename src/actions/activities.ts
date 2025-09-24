@@ -100,15 +100,12 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
     return updatedActivity;
 }
 
-export async function deleteActivity(activityId: string) {
-    await prisma.activity.delete({ where: { id: activityId } });
-    revalidatePath('/activities');
-    revalidatePath('/my-activity');
-}
-
 export async function submitActivityUpdate(activityId: string, progress: number, comment: string, userId: string) {
     const user = await prisma.user.findUnique({ where: { id: userId }});
     if (!user) throw new Error("User not found");
+
+    const activity = await prisma.activity.findUnique({ where: { id: activityId } });
+    if (!activity) throw new Error("Activity not found");
 
     const pendingUpdate = {
         user: user.name,
@@ -117,13 +114,24 @@ export async function submitActivityUpdate(activityId: string, progress: number,
         progress,
     };
 
+    const updateData: any = {
+        pendingUpdate: JSON.stringify(pendingUpdate),
+        approvalStatus: 'PENDING'
+    };
+
+    // If this is the first update, transition the status from "Not Started"
+    if (activity.status === 'Not Started') {
+        const newStatus = calculateActivityStatus({ ...activity, progress });
+        if (newStatus !== 'Not Started') {
+            updateData.status = newStatus;
+        }
+    }
+
     await prisma.activity.update({
         where: { id: activityId },
-        data: {
-            pendingUpdate: JSON.stringify(pendingUpdate),
-            approvalStatus: 'PENDING'
-        }
+        data: updateData
     });
+
     revalidatePath('/my-activity');
 }
 
