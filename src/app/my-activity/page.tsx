@@ -77,8 +77,8 @@ export default function MyActivityPage() {
       setAllActivities(activities);
       setSelectedPlan(planDetails);
 
-      const uniqueDepartments = ["All", ...new Set(activities.map((a) => a.department).filter(d => d && d.toLowerCase() !== "all"))];
-      setDepartments(uniqueDepartments);
+      const uniqueDepartments = Array.from(new Set(activities.map((a) => a.department).filter(d => d)));
+      setDepartments(["All", ...uniqueDepartments]);
     }
     loadActivitiesForPlan();
   }, [selectedPlanId]);
@@ -91,7 +91,7 @@ export default function MyActivityPage() {
         setMyActivities(allActivities);
     } else {
         const userActivities = allActivities.filter(
-          (activity) => (activity.responsible as any)?.id === currentUser.id
+          (activity) => (activity.responsible as User)?.id === currentUser.id
         );
         setMyActivities(userActivities);
     }
@@ -210,14 +210,14 @@ export default function MyActivityPage() {
   }
 
   const taskListTitle = useMemo(() => {
-    const titles: Record<FilterType, string> = {
+    const titles: Record<string, string> = {
       Overdue: "Overdue",
       "Not Started": "Pending",
       "On Track": "Active",
       "Completed As Per Target": "Completed",
       "All": "All Activities"
     };
-    return titles[activeFilter];
+    return titles[activeFilter] || "All Activities";
   }, [activeFilter]);
 
   return (
