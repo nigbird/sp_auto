@@ -2,9 +2,9 @@
 "use client"
 
 import * as React from "react"
-import type { Activity, ActivityStatus, ApprovalStatus } from "@/lib/types";
+import type { Activity, ActivityStatus, ApprovalStatus, User } from "@/lib/types";
 import { format, formatDistanceToNow } from "date-fns";
-import { AlertTriangle, ChevronDown, ChevronUp, Hourglass, Clock, CheckCircle, ShieldQuestion, ShieldX, Edit, Check, List } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, Hourglass, Clock, CheckCircle, ShieldQuestion, ShieldX, Edit, Check, List, Save, X } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
 import { Slider } from "../ui/slider";
@@ -17,6 +17,7 @@ import { Label } from "../ui/label";
 import { calculateActivityStatus } from "@/lib/utils";
 import { Progress } from "../ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../ui/alert-dialog";
 
 const ApprovalBadge = ({ status, reason }: { status: ApprovalStatus; reason?: string | null }) => {
     if (status === 'APPROVED') {
@@ -44,15 +45,23 @@ const ApprovalBadge = ({ status, reason }: { status: ApprovalStatus; reason?: st
 
 type TaskCardProps = { 
   activity: Activity;
+  currentUser: User | null;
   onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string) => void;
   onEditDeclined?: (activity: Activity) => void;
+  onApprove: (activityId: string) => void;
+  onDecline: (activityId: string, reason: string) => void;
 };
 
-function TaskCard({ activity, onUpdateActivity, onEditDeclined }: TaskCardProps) {
+function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onApprove, onDecline }: TaskCardProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [progress, setProgress] = React.useState(activity.progress);
   const [status, setStatus] = React.useState(activity.status);
   const [updateComment, setUpdateComment] = React.useState("");
+  const [isDeclineModalOpen, setIsDeclineModalOpen] = React.useState(false);
+  const [declineReason, setDeclineReason] = React.useState("");
+  
+  const isAdmin = currentUser?.role === 'Administrator';
+  const showApprovalControls = isAdmin && activity.approvalStatus === 'PENDING';
 
   React.useEffect(() => {
     const activityWithDateObjects = {
@@ -84,6 +93,20 @@ function TaskCard({ activity, onUpdateActivity, onEditDeclined }: TaskCardProps)
       if (newProgress >= activity.progress) {
           setProgress(newProgress);
       }
+  }
+
+  const handleDeclineClick = () => {
+    setIsDeclineModalOpen(true);
+  }
+
+  const handleConfirmDecline = () => {
+    if(declineReason.trim() === "") {
+      alert("Please provide a reason for declining.");
+      return;
+    }
+    onDecline(activity.id, declineReason);
+    setIsDeclineModalOpen(false);
+    setDeclineReason("");
   }
 
   const deadline = activity.endDate ? (typeof activity.endDate === 'string' ? new Date(activity.endDate) : activity.endDate) : new Date();
@@ -120,7 +143,7 @@ function TaskCard({ activity, onUpdateActivity, onEditDeclined }: TaskCardProps)
             </CardContent>
             <CollapsibleContent>
                 <CardContent className="space-y-6 pt-0">
-                    {isEditable && (
+                    {isEditable && !isAdmin && (
                     <>
                         <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
@@ -164,6 +187,13 @@ function TaskCard({ activity, onUpdateActivity, onEditDeclined }: TaskCardProps)
                     </>
                     )}
 
+                    {showApprovalControls && (
+                        <div className="flex justify-end gap-2 border-t pt-4">
+                            <Button variant="destructive" onClick={handleDeclineClick}>Decline</Button>
+                            <Button onClick={() => onApprove(activity.id)} className="bg-green-600 hover:bg-green-700">Approve</Button>
+                        </div>
+                    )}
+
                     {activity.approvalStatus === 'DECLINED' && onEditDeclined && (
                          <div className="flex justify-end">
                             <Button onClick={() => onEditDeclined(activity)}>
@@ -195,19 +225,40 @@ function TaskCard({ activity, onUpdateActivity, onEditDeclined }: TaskCardProps)
                 </CardContent>
             </CollapsibleContent>
        </Collapsible>
+        <AlertDialog open={isDeclineModalOpen} onOpenChange={setIsDeclineModalOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm Decline</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Please provide a reason for declining this update. This will be visible to the user.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="py-4">
+                    <Textarea 
+                        placeholder="Type your reason here..."
+                        value={declineReason}
+                        onChange={(e) => setDeclineReason(e.target.value)}
+                    />
+                </div>
+                 <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setIsDeclineModalOpen(false)}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleConfirmDecline} className="bg-destructive hover:bg-destructive/90">Confirm Decline</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+      </AlertDialog>
     </Card>
   )
 }
 
 
-export function MyActivityTaskList({ title, count, activities, onUpdateActivity, onEditDeclined }: { title: string, count: number, activities: Activity[], onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string) => void, onEditDeclined?: (activity: Activity) => void }) {
+export function MyActivityTaskList({ title, count, activities, currentUser, onUpdateActivity, onEditDeclined, onApprove, onDecline }: { title: string; count: number; activities: Activity[]; currentUser: User | null; onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string) => void; onEditDeclined?: (activity: Activity) => void; onApprove: (activityId: string) => void; onDecline: (activityId: string, reason: string) => void; }) {
   
   const titleIcon: Record<string, React.ReactNode> = {
     Overdue: <AlertTriangle className="text-destructive" />,
     "Not Started": <Hourglass className="text-muted-foreground" />,
     "On Track": <Clock className="text-muted-foreground" />,
     Completed: <CheckCircle className="text-green-500" />,
-    "All Approved": <List className="text-muted-foreground" />,
+    "All Activities": <List className="text-muted-foreground" />,
   };
 
   if (activities.length === 0) {
@@ -234,9 +285,11 @@ export function MyActivityTaskList({ title, count, activities, onUpdateActivity,
       </h2>
       <div className="space-y-4">
         {activities.map(activity => (
-          <TaskCard key={activity.id} activity={activity} onUpdateActivity={onUpdateActivity} onEditDeclined={onEditDeclined} />
+          <TaskCard key={activity.id} activity={activity} currentUser={currentUser} onUpdateActivity={onUpdateActivity} onEditDeclined={onEditDeclined} onApprove={onApprove} onDecline={onDecline} />
         ))}
       </div>
     </div>
   )
 }
+
+    

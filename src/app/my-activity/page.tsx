@@ -210,6 +210,22 @@ export default function MyActivityPage() {
     setIsCreateFormOpen(true);
   }
 
+  const handleApproveActivity = async (activityId: string) => {
+    await approveActivityUpdate(activityId);
+    // Refetch or update state
+    const activities = await getActivities(selectedPlanId!);
+    setAllActivitiesForPlan(activities);
+    toast({ title: "Activity Approved", description: "The activity is now active." });
+  };
+  
+  const handleDeclineActivity = async (activityId: string, reason: string) => {
+    await declineActivityUpdate(activityId, reason);
+    // Refetch or update state
+    const activities = await getActivities(selectedPlanId!);
+    setAllActivitiesForPlan(activities);
+    toast({ title: "Activity Declined", description: "The activity has been declined.", variant: "destructive" });
+  };
+
   const taskListTitle = useMemo(() => {
     const titles: Record<string, string> = {
       Overdue: "Overdue",
@@ -283,7 +299,12 @@ export default function MyActivityPage() {
           activities={filteredActivities} 
           onUpdateActivity={handleUpdateActivity}
           onEditDeclined={handleEditDeclined}
+          currentUser={currentUser}
+          onApprove={handleApproveActivity}
+          onDecline={handleDeclineActivity}
       />
     </div>
   );
 }
+
+    
