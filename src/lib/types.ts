@@ -1,5 +1,6 @@
 
-import type { StrategicPlan as PrismaStrategicPlan, Pillar as PrismaPillar, Objective as PrismaObjective, Initiative as PrismaInitiative, Activity as PrismaActivity, User as PrismaUser } from '@prisma/client';
+
+import type { StrategicPlan as PrismaStrategicPlan, Pillar as PrismaPillar, Objective as PrismaObjective, Initiative as PrismaInitiative, Activity as PrismaActivity, User as PrismaUser, UpdateHistory as PrismaUpdateHistory } from '@prisma/client';
 
 export type ActivityStatus = "Not Started" | "On Track" | "Completed As Per Target" | "Delayed" | "Overdue" | string;
 export type ApprovalStatus = "PENDING" | "APPROVED" | "DECLINED";
@@ -23,10 +24,13 @@ export type PendingUpdate = {
   progress: number;
 }
 
+export type UpdateHistory = PrismaUpdateHistory;
+
 export type Activity = Omit<PrismaActivity, 'responsibleId'> & {
     responsible: PrismaUser | string;
     kpis: KPI[];
     updates: ActivityUpdate[];
+    updateHistory: UpdateHistory[];
 };
 
 export type User = {

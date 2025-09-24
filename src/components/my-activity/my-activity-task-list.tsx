@@ -2,15 +2,15 @@
 "use client"
 
 import * as React from "react"
-import type { Activity, ActivityStatus, ApprovalStatus, User } from "@/lib/types";
+import type { Activity, ActivityStatus, ApprovalStatus, User, UpdateHistory } from "@/lib/types";
 import { format, formatDistanceToNow } from "date-fns";
-import { AlertTriangle, ChevronDown, ChevronUp, Hourglass, Clock, CheckCircle, ShieldQuestion, ShieldX, Edit, Check, List, Save, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, Hourglass, Clock, CheckCircle, ShieldQuestion, ShieldX, Edit, Check, List, Save, X, ThumbsUp, ThumbsDown, History } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
 import { Slider } from "../ui/slider";
 import { Badge } from "../ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Avatar, AvatarFallback } from "../ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { Label } from "../ui/label";
@@ -18,6 +18,7 @@ import { calculateActivityStatus } from "@/lib/utils";
 import { Progress } from "../ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../ui/alert-dialog";
+import { Separator } from "../ui/separator";
 
 const ApprovalBadge = ({ status, reason }: { status: ApprovalStatus; reason?: string | null }) => {
     if (status === 'APPROVED') {
@@ -43,6 +44,19 @@ const ApprovalBadge = ({ status, reason }: { status: ApprovalStatus; reason?: st
     return null;
 }
 
+const HistoryApprovalBadge = ({ status }: { status: ApprovalStatus }) => {
+    if (status === 'APPROVED') {
+        return <Badge variant="outline" className="border-green-500 text-green-600 bg-green-500/10"><ThumbsUp className="h-3 w-3 mr-1" />Approved</Badge>;
+    }
+    if (status === 'PENDING') {
+        return <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-500/10"><Hourglass className="h-3 w-3 mr-1" />Pending</Badge>;
+    }
+    if (status === 'DECLINED') {
+         return <Badge variant="destructive"><ThumbsDown className="h-3 w-3 mr-1" />Declined</Badge>;
+    }
+    return null;
+}
+
 type TaskCardProps = { 
   activity: Activity;
   currentUser: User | null;
@@ -60,8 +74,13 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
   const [isDeclineModalOpen, setIsDeclineModalOpen] = React.useState(false);
   const [declineReason, setDeclineReason] = React.useState("");
   
-  const isAdmin = currentUser?.role === 'Administrator';
-  const showApprovalControls = isAdmin && activity.approvalStatus === 'PENDING';
+  const isAdmin = currentUser?.role === 'ADMINISTRATOR';
+  // An activity is pending approval if its main status is PENDING.
+  const isActivityPending = activity.approvalStatus === 'PENDING';
+  
+  // An update is pending if the activity status is PENDING and there is at least one history item that is also PENDING.
+  const hasPendingUpdate = isActivityPending && activity.updateHistory?.some(h => h.approvalState === 'PENDING');
+
 
   React.useEffect(() => {
     const activityWithDateObjects = {
@@ -111,7 +130,8 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
 
   const deadline = activity.endDate ? (typeof activity.endDate === 'string' ? new Date(activity.endDate) : activity.endDate) : new Date();
 
-  const isEditable = activity.approvalStatus === 'APPROVED';
+  // User can edit progress if the activity is approved and they are not an admin.
+  const isEditable = activity.approvalStatus === 'APPROVED' && !isAdmin;
 
   return (
     <Card className="bg-card">
@@ -143,7 +163,7 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
             </CardContent>
             <CollapsibleContent>
                 <CardContent className="space-y-6 pt-0">
-                    {isEditable && !isAdmin && (
+                    {isEditable && (
                     <>
                         <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
@@ -187,7 +207,7 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
                     </>
                     )}
 
-                    {showApprovalControls && (
+                    {isAdmin && isActivityPending && (
                         <div className="flex justify-end gap-2 border-t pt-4">
                             <Button variant="destructive" onClick={handleDeclineClick}>Decline</Button>
                             <Button onClick={() => onApprove(activity.id)} className="bg-green-600 hover:bg-green-700">Approve</Button>
@@ -202,26 +222,30 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
                             </Button>
                         </div>
                     )}
-
-                    <div className="space-y-4">
-                        <h4 className="font-medium">Update History</h4>
-                        <div className="space-y-4 max-h-48 overflow-y-auto pr-2">
-                        {[...(activity.updates || [])].reverse().map((update, index) => (
-                            <div key={index} className="flex items-start gap-4">
-                                <Avatar className="h-9 w-9">
-                                    <AvatarFallback>{update.user.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <div className="w-full">
-                                    <div className="flex justify-between items-center">
-                                        <p className="font-semibold">{update.user}</p>
-                                        <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(update.date), { addSuffix: true })}</p>
+                    
+                    {activity.updateHistory && activity.updateHistory.length > 0 && (
+                        <div className="space-y-4 pt-4">
+                            <h4 className="flex items-center gap-2 font-medium"><History className="h-4 w-4" />Update History</h4>
+                            <Separator />
+                            <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
+                            {activity.updateHistory.map((update) => (
+                                <div key={update.id} className="p-3 rounded-md border bg-muted/50">
+                                    <div className="flex justify-between items-start">
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-4">
+                                                <HistoryApprovalBadge status={update.approvalState as ApprovalStatus} />
+                                                <p className="text-sm font-medium">Status: {update.status}</p>
+                                                <p className="text-sm font-medium">Progress: {update.progress}%</p>
+                                            </div>
+                                            <p className="text-sm text-muted-foreground pt-1">{update.comment}</p>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground whitespace-nowrap pl-4">{formatDistanceToNow(new Date(update.date), { addSuffix: true })}</p>
                                     </div>
-                                    <p className="text-sm text-muted-foreground">{update.comment}</p>
                                 </div>
+                            ))}
                             </div>
-                        ))}
                         </div>
-                    </div>
+                    )}
                 </CardContent>
             </CollapsibleContent>
        </Collapsible>
@@ -291,5 +315,3 @@ export function MyActivityTaskList({ title, count, activities, currentUser, onUp
     </div>
   )
 }
-
-    
