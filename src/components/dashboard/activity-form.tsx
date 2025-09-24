@@ -24,7 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import type { Activity, StrategicPlan, Pillar, Objective, Initiative } from "@/lib/types"
+import type { Activity, StrategicPlan, Pillar, Objective, Initiative, User } from "@/lib/types"
 import { ScrollArea } from "../ui/scroll-area"
 
 const activitySchema = z.object({
@@ -34,7 +34,7 @@ const activitySchema = z.object({
   responsible: z.string({ required_error: "Please select a responsible person." }),
   startDate: z.date({ required_error: "A start date is required." }),
   endDate: z.date({ required_error: "An end date is required." }),
-  status: z.string({ required_error: "Please select a status." }),
+  status: z.string().optional(),
   weight: z.coerce.number().min(0).max(100),
   initiativeId: z.string().optional(),
   pillarId: z.string().optional(),
@@ -44,15 +44,14 @@ const activitySchema = z.object({
 type ActivityFormProps = {
   onSubmit: (values: z.infer<typeof activitySchema>) => void;
   activity?: Activity | null;
-  users: string[];
-  departments: string[];
+  users: User[];
   statuses: string[];
   onReset: (activityId: string) => void;
   onCancel: () => void;
   strategicPlan?: StrategicPlan | null;
 }
 
-export function ActivityForm({ onSubmit, activity, users, departments, statuses, onReset, onCancel, strategicPlan }: ActivityFormProps) {
+export function ActivityForm({ onSubmit, activity, users, statuses, onReset, onCancel, strategicPlan }: ActivityFormProps) {
   const form = useForm<z.infer<typeof activitySchema>>({
     resolver: zodResolver(activitySchema),
     defaultValues: {
@@ -102,6 +101,26 @@ export function ActivityForm({ onSubmit, activity, users, departments, statuses,
     }
     return "Submit for Approval";
   }
+
+  // Auto-select department based on responsible user
+  const responsibleId = form.watch("responsible");
+  useEffect(() => {
+    const responsibleUser = users.find(u => u.id === responsibleId);
+    if(responsibleUser) {
+        // This is a placeholder. In a real app, you might look up the user's department.
+        // For now, we'll derive it from their role or use a default.
+        const departments: {[key: string]: string} = {
+            "liam@corp-plan.com": "Sales",
+            "olivia@corp-plan.com": "Marketing",
+            "noah@corp-plan.com": "Engineering",
+            "emma@corp-plan.com": "Human Resources",
+            "oliver@corp-plan.com": "Support",
+            "admin@corp-plan.com": "Executive"
+        }
+        form.setValue("department", departments[responsibleUser.email] || "General");
+    }
+  }, [responsibleId, users, form]);
+
 
   return (
     <Form {...form}>
@@ -198,51 +217,28 @@ export function ActivityForm({ onSubmit, activity, users, departments, statuses,
                 </FormItem>
               )}
             />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              <FormField
+            
+            <FormField
                 control={form.control}
                 name="responsible"
                 render={({ field }) => (
-                  <FormItem>
+                    <FormItem>
                     <FormLabel>Responsible Person</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
+                        <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a user" />
+                            <SelectValue placeholder="Select a user" />
                         </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
+                        </FormControl>
+                        <SelectContent>
                         {users.map((user:any) => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
-                      </SelectContent>
+                        </SelectContent>
                     </Select>
                     <FormMessage />
-                  </FormItem>
+                    </FormItem>
                 )}
-              />
-                 <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Status</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                            {statuses.map(status => (
-                                <SelectItem key={status} value={status}>{status}</SelectItem>
-                            ))}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-            </div>
+                />
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                 control={form.control}

@@ -19,7 +19,7 @@ import { ActivityForm } from "@/components/dashboard/activity-form";
 type FilterType = "Overdue" | "Not Started" | "On Track" | "Completed As Per Target" | "All";
 
 export default function MyActivityPage() {
-  const [allActivities, setAllActivities] = useState<Activity[]>([]);
+  const [allActivitiesForPlan, setAllActivitiesForPlan] = useState<Activity[]>([]);
   const [myActivities, setMyActivities] = useState<Activity[]>([]);
   const [filteredActivities, setFilteredActivities] = useState<Activity[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterType>("All");
@@ -43,9 +43,9 @@ export default function MyActivityPage() {
       ]);
       
       setUsers(userList);
-      const adminUser = userList.find(u => u.email === 'admin@corp-plan.com');
-      // For demo purposes, we'll set the current user to Liam Johnson if admin isn't found.
       // In a real app, you'd get this from an auth context.
+      // For demo, we find the Admin user, or default to another user if not found.
+      const adminUser = userList.find(u => u.role === 'Administrator');
       setCurrentUser(adminUser || userList.find(u => u.name === "Liam Johnson") || null);
 
       setStatuses(rules.map(rule => rule.status));
@@ -64,7 +64,7 @@ export default function MyActivityPage() {
   useEffect(() => {
     async function loadActivitiesForPlan() {
       if (!selectedPlanId) {
-        setAllActivities([]);
+        setAllActivitiesForPlan([]);
         setSelectedPlan(null);
         return;
       };
@@ -74,11 +74,11 @@ export default function MyActivityPage() {
         getStrategicPlanById(selectedPlanId)
       ]);
       
-      setAllActivities(activities);
+      setAllActivitiesForPlan(activities);
       setSelectedPlan(planDetails);
 
       const uniqueDepartments = Array.from(new Set(activities.map((a) => a.department).filter(d => d)));
-      setDepartments(["All", ...uniqueDepartments]);
+      setDepartments(uniqueDepartments);
     }
     loadActivitiesForPlan();
   }, [selectedPlanId]);
@@ -86,22 +86,23 @@ export default function MyActivityPage() {
 
   useEffect(() => {
     if (!currentUser) return;
-
+    
+    // If admin, show all activities for the selected plan. Otherwise, filter for the user.
     if (currentUser.role === 'Administrator') {
-        setMyActivities(allActivities);
+        setMyActivities(allActivitiesForPlan);
     } else {
-        const userActivities = allActivities.filter(
+        const userActivities = allActivitiesForPlan.filter(
           (activity) => (activity.responsible as User)?.id === currentUser.id
         );
         setMyActivities(userActivities);
     }
-  }, [allActivities, currentUser]);
+  }, [allActivitiesForPlan, currentUser]);
   
   const approvedActivities = useMemo(() => myActivities.filter(a => a.approvalStatus === 'APPROVED'), [myActivities]);
   
   const overdueActivities = useMemo(() => approvedActivities.filter(a => new Date(a.endDate) < new Date() && a.status !== 'Completed As Per Target'), [approvedActivities]);
   const pendingActivities = useMemo(() => approvedActivities.filter(a => a.status === 'Not Started' && new Date(a.startDate) <= new Date()), [approvedActivities]);
-  const activeActivities = useMemo(() => approvedActivities.filter(a => a.status === 'On Track'), [approvedActivities]);
+  const activeActivities = useMemo(() => approvedActivities.filter(a => a.status === 'On Track' || a.status === 'Delayed'), [approvedActivities]);
   const completedActivities = useMemo(() => approvedActivities.filter(a => a.status === 'Completed As Per Target'), [approvedActivities]);
   
   useEffect(() => {
@@ -158,8 +159,8 @@ export default function MyActivityPage() {
   };
 
   const handleFormSubmit = async (values: any) => {
-    if (!selectedPlanId) {
-      toast({ title: "Error", description: "A strategic plan must be selected.", variant: "destructive" });
+    if (!selectedPlanId || !currentUser) {
+      toast({ title: "Error", description: "A strategic plan and user must be selected.", variant: "destructive" });
       return;
     }
     const responsibleUser = users.find(u => u.id === values.responsible);
@@ -178,11 +179,11 @@ export default function MyActivityPage() {
           declineReason: null,
       } as Activity;
 
-      setAllActivities(prev => prev.map(act => act.id === editingActivity.id ? updatedActivity : act));
+      setAllActivitiesForPlan(prev => prev.map(act => act.id === editingActivity.id ? updatedActivity : act));
       toast({ title: "Activity Resubmitted", description: "The activity has been resubmitted for approval." });
 
     } else {
-        const newActivityData = { ...values, responsible: responsibleUser.id, strategicPlanId: selectedPlanId, source: 'user' };
+        const newActivityData = { ...values, responsible: responsibleUser.id, strategicPlanId: selectedPlanId, userId: currentUser.id };
         const newActivity = await createActivity(newActivityData);
         const fullNewActivity = { 
             ...newActivity, 
@@ -192,7 +193,7 @@ export default function MyActivityPage() {
             startDate: new Date(newActivity.startDate),
             endDate: new Date(newActivity.endDate),
         };
-        setAllActivities(prev => [fullNewActivity, ...prev]);
+        setAllActivitiesForPlan(prev => [fullNewActivity, ...prev]);
         toast({ title: "Activity Created", description: "The new activity has been successfully created and is pending approval." });
     }
    
@@ -286,5 +287,3 @@ export default function MyActivityPage() {
     </div>
   );
 }
-
-    

@@ -34,13 +34,30 @@ export async function getActivities(strategicPlanId?: string): Promise<Activity[
     }));
 }
 
-export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updates' | 'progress' | 'approvalStatus'> & { initiativeId?: string, strategicPlanId: string, source?: 'plan' | 'user' }) {
+export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updates' | 'progress' | 'approvalStatus' | 'responsible'> & { initiativeId?: string, strategicPlanId: string, responsible: string, userId: string }) {
+    const creator = await prisma.user.findUnique({ where: { id: data.userId }});
+    if (!creator) throw new Error("Creator not found");
+
+    let approvalStatus: ApprovalStatus = 'PENDING';
+
+    // If linked to an initiative, it's from a plan and auto-approved.
+    if (data.initiativeId) {
+        approvalStatus = 'APPROVED';
+    } else {
+        // If created manually, check the role.
+        if (creator.role === 'Administrator') {
+            approvalStatus = 'APPROVED';
+        } else {
+            approvalStatus = 'PENDING';
+        }
+    }
+    
     const newActivity = await prisma.activity.create({
         data: {
             title: data.title,
             description: data.description,
             department: data.department,
-            responsibleId: data.responsible as string, // This needs to be the ID
+            responsibleId: data.responsible, // This is already the ID
             startDate: new Date(data.startDate),
             endDate: new Date(data.endDate),
             weight: data.weight,
@@ -48,7 +65,7 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
             strategicPlanId: data.strategicPlanId,
             progress: 0,
             status: 'Not Started',
-            approvalStatus: data.source === 'plan' ? 'APPROVED' : 'PENDING'
+            approvalStatus: approvalStatus,
         }
     });
     revalidatePath('/activities');
