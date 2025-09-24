@@ -1,4 +1,5 @@
 
+
 'use server'
 
 import { revalidatePath } from 'next/cache'
@@ -167,14 +168,32 @@ export async function approveActivityUpdate(activityId: string) {
 }
 
 export async function declineActivityUpdate(activityId: string, reason: string) {
-    await prisma.activity.update({
-        where: { id: activityId },
-        data: {
-            pendingUpdate: null,
-            approvalStatus: 'DECLINED',
-            declineReason: reason
-        }
-    });
+    const activity = await prisma.activity.findUnique({ where: { id: activityId }});
+    if (!activity) return;
+
+    // If there is a pendingUpdate, it's a progress update being declined.
+    // We clear the pending update and keep the activity approved.
+    if (activity.pendingUpdate) {
+         await prisma.activity.update({
+            where: { id: activityId },
+            data: {
+                pendingUpdate: null,
+                // The activity itself remains approved, only the update is declined.
+                approvalStatus: 'APPROVED',
+                declineReason: reason, 
+            }
+        });
+    } else {
+        // If there's no pending update, it's a new activity creation being declined.
+        await prisma.activity.update({
+            where: { id: activityId },
+            data: {
+                approvalStatus: 'DECLINED',
+                declineReason: reason
+            }
+        });
+    }
+
     revalidatePath('/activities');
     revalidatePath('/my-activity');
 }
