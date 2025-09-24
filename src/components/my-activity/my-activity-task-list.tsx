@@ -1,11 +1,9 @@
-
-
 "use client"
 
 import * as React from "react"
 import type { Activity, ActivityStatus, ApprovalStatus, User } from "@/lib/types";
 import { format, formatDistanceToNow } from "date-fns";
-import { AlertTriangle, ChevronDown, ChevronUp, Hourglass, Clock, CheckCircle, ShieldQuestion, ShieldX, Edit, Check, List, Save, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, Hourglass, Clock, CheckCircle, ShieldQuestion, ShieldX, Edit, Check, List, Save, X, Info } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
 import { Slider } from "../ui/slider";
@@ -22,6 +20,23 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 const ApprovalBadge = ({ status, reason }: { status: ApprovalStatus; reason?: string | null }) => {
     if (status === 'APPROVED') {
+        if (reason) {
+            return (
+                 <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Badge variant="outline" className="border-green-500 text-green-600 bg-green-500/10 cursor-help">
+                                <Info className="h-3 w-3 mr-1" />
+                                Approved
+                            </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p className="text-sm font-normal">An update was declined with reason: <br/><i>"{reason}"</i></p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            );
+        }
         return <Badge variant="outline" className="border-green-500 text-green-600 bg-green-500/10"><Check className="h-3 w-3 mr-1" />Approved</Badge>;
     }
     if (status === 'PENDING') {
@@ -34,9 +49,11 @@ const ApprovalBadge = ({ status, reason }: { status: ApprovalStatus; reason?: st
                     <TooltipTrigger asChild>
                         <Badge variant="destructive" className="cursor-help"><ShieldX className="h-3 w-3 mr-1" />Declined</Badge>
                     </TooltipTrigger>
-                    <TooltipContent>
-                        <p>{reason || 'No reason provided.'}</p>
-                    </TooltipContent>
+                    {reason && (
+                        <TooltipContent>
+                            <p>{reason}</p>
+                        </TooltipContent>
+                    )}
                 </Tooltip>
             </TooltipProvider>
         );

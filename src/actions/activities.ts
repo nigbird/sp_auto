@@ -1,5 +1,3 @@
-
-
 'use server'
 
 import { revalidatePath } from 'next/cache'
@@ -121,7 +119,7 @@ export async function submitActivityUpdate(activityId: string, progress: number,
     };
 
     // If this is the first update, transition the status from "Not Started"
-    if (activity.status === 'Not Started') {
+    if (activity.status === 'Not Started' && progress > 0) {
         const newStatus = calculateActivityStatus({ ...activity, progress });
         if (newStatus !== 'Not Started') {
             updateData.status = newStatus;
