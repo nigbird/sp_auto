@@ -101,7 +101,7 @@ export default function MyActivityPage() {
   const approvedActivities = useMemo(() => myActivities.filter(a => a.approvalStatus === 'APPROVED'), [myActivities]);
   
   const overdueActivities = useMemo(() => approvedActivities.filter(a => new Date(a.endDate) < new Date() && a.status !== 'Completed As Per Target'), [approvedActivities]);
-  const pendingActivities = useMemo(() => approvedActivities.filter(a => a.status === 'Not Started' && new Date(a.startDate) <= new Date()), [approvedActivities]);
+  const pendingActivities = useMemo(() => myActivities.filter(a => a.approvalStatus === 'PENDING'), [myActivities]);
   const activeActivities = useMemo(() => approvedActivities.filter(a => a.status === 'On Track' || a.status === 'Delayed'), [approvedActivities]);
   const completedActivities = useMemo(() => approvedActivities.filter(a => a.status === 'Completed As Per Target'), [approvedActivities]);
   
@@ -111,7 +111,7 @@ export default function MyActivityPage() {
         setFilteredActivities(overdueActivities);
         break;
       case "Not Started":
-        setFilteredActivities(pendingActivities);
+        setFilteredActivities(myActivities.filter(a => a.approvalStatus === 'PENDING' || a.status === 'Not Started'));
         break;
       case "On Track":
         setFilteredActivities(activeActivities);
@@ -237,6 +237,9 @@ export default function MyActivityPage() {
     return titles[activeFilter] || "All Activities";
   }, [activeFilter]);
 
+  const allCount = myActivities.length;
+  const pendingCount = myActivities.filter(a => a.approvalStatus === 'PENDING').length;
+
   return (
     <div className="flex-1 space-y-6">
       <div className="flex items-center justify-between">
@@ -288,10 +291,10 @@ export default function MyActivityPage() {
         activeFilter={activeFilter}
         onFilterChange={setActiveFilter}
         overdueCount={overdueActivities.length}
-        pendingCount={pendingActivities.length}
+        pendingCount={pendingCount}
         activeCount={activeActivities.length}
         completedCount={completedActivities.length}
-        allCount={myActivities.length}
+        allCount={allCount}
       />
       <MyActivityTaskList 
           title={taskListTitle} 
