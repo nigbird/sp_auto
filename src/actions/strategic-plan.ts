@@ -127,69 +127,59 @@ export async function createStrategicPlan(formData: FormData) {
         const userMap = new Map(responsibleUsers.map(u => [u.name, u.id]));
 
 
-        await prisma.strategicPlan.create({
+        const newPlan = await prisma.strategicPlan.create({
             data: {
                 name,
                 startYear,
                 endYear,
                 version,
-                status,
-                pillars: {
-                    create: pillars.map((p: any) => ({
-                        title: p.title,
-                        description: p.description,
-                        objectives: {
-                            create: p.objectives.map((o: any) => ({
-                                statement: o.statement,
-                                initiatives: {
-                                    create: o.initiatives.map((i: any) => ({
-                                        title: i.title,
-                                        description: i.description,
-                                        owner: i.owner,
-                                        collaborators: i.collaborators,
-                                        activities: {
-                                            create: i.activities.map((a: any) => {
-                                                const responsibleId = userMap.get(a.responsible);
-                                                if (!responsibleId) {
-                                                    throw new Error(`User not found in database: '${a.responsible}'. Please ensure the name is correct.`);
-                                                }
-                                                return {
-                                                    title: a.title,
-                                                    description: a.description || '',
-                                                    department: a.department,
-                                                    responsibleId: responsibleId,
-                                                    startDate: new Date(a.startDate),
-                                                    endDate: new Date(a.endDate),
-                                                    status: 'Not Started',
-                                                    weight: Number(a.weight),
-                                                    progress: 0,
-                                                    approvalStatus: 'APPROVED',
-                                                }
-                                            }),
-                                        },
-                                    })),
-                                },
-                            })),
-                        },
-                    })),
-                },
-            },
-            include: {
-                pillars: {
-                    include: {
-                        objectives: {
-                            include: {
-                                initiatives: {
-                                    include: {
-                                        activities: true,
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                status
             }
         });
+
+        for (const p of pillars) {
+            await prisma.pillar.create({
+                data: {
+                    title: p.title,
+                    description: p.description,
+                    strategicPlanId: newPlan.id,
+                    objectives: {
+                        create: p.objectives.map((o: any) => ({
+                            statement: o.statement,
+                            initiatives: {
+                                create: o.initiatives.map((i: any) => ({
+                                    title: i.title,
+                                    description: i.description,
+                                    owner: i.owner,
+                                    collaborators: i.collaborators,
+                                    activities: {
+                                        create: i.activities.map((a: any) => {
+                                            const responsibleId = userMap.get(a.responsible);
+                                            if (!responsibleId) {
+                                                throw new Error(`User not found in database: '${a.responsible}'. Please ensure the name is correct.`);
+                                            }
+                                            return {
+                                                title: a.title,
+                                                description: a.description || '',
+                                                department: a.department,
+                                                responsibleId: responsibleId,
+                                                startDate: new Date(a.startDate),
+                                                endDate: new Date(a.endDate),
+                                                status: 'Not Started',
+                                                weight: Number(a.weight),
+                                                progress: 0,
+                                                approvalStatus: 'APPROVED',
+                                                strategicPlanId: newPlan.id,
+                                            }
+                                        }),
+                                    },
+                                })),
+                            },
+                        })),
+                    },
+                }
+            });
+        }
     } catch (error) {
         console.error("Error during strategic plan creation:", error);
         // Re-throwing the original error is often more informative
@@ -276,6 +266,7 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
                                                     weight: Number(a.weight),
                                                     progress: 0,
                                                     approvalStatus: 'APPROVED',
+                                                    strategicPlanId: id,
                                                 }
                                             }),
                                         },
