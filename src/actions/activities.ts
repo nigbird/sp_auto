@@ -21,16 +21,13 @@ export async function getActivities(strategicPlanId?: string): Promise<Activity[
         }
     });
 
-    // The data is already in a good format, but if it were deeply nested or had circular references,
-    // you might need to serialize and deserialize to ensure a plain object.
-    // For this case, it's safe to return directly after casting.
-    // Using JSON.parse(JSON.stringify(activities)) is a safe way to deep clone and remove non-serializable parts.
     const plainActivities = JSON.parse(JSON.stringify(activities));
     
     return plainActivities.map((a: any) => ({
         ...a,
         kpis: [],
         updates: [],
+        pendingUpdate: a.pendingUpdate ? JSON.parse(a.pendingUpdate) : null,
     }));
 }
 
