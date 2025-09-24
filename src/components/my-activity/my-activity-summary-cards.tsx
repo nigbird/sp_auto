@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, Clock, CheckCircle, Hourglass, List } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type FilterType = "Overdue" | "Not Started" | "On Track" | "Completed As Per Target" | "All Approved";
+type FilterType = "Overdue" | "Not Started" | "On Track" | "Completed As Per Target" | "All";
 
 type MyActivitySummaryCardsProps = {
   activeFilter: FilterType;
@@ -34,11 +34,11 @@ export function MyActivitySummaryCards({
     );
 
   const cards = [
-    { filter: "All Approved", title: "All Approved", count: allCount, icon: <List className="h-4 w-4 text-muted-foreground" />, description: "All approved tasks" },
     { filter: "Overdue", title: "Overdue Tasks", count: overdueCount, icon: <AlertTriangle className="h-4 w-4 text-destructive" />, description: "Tasks past due date" },
     { filter: "Not Started", title: "Pending Tasks", count: pendingCount, icon: <Hourglass className="h-4 w-4 text-muted-foreground" />, description: "Tasks not yet started" },
     { filter: "On Track", title: "Active Tasks", count: activeCount, icon: <Clock className="h-4 w-4 text-muted-foreground" />, description: "Tasks in-progress" },
     { filter: "Completed As Per Target", title: "Completed Tasks", count: completedCount, icon: <CheckCircle className="h-4 w-4 text-green-500" />, description: "Tasks completed" },
+    { filter: "All", title: "All Activities", count: allCount, icon: <List className="h-4 w-4 text-muted-foreground" />, description: "All assigned tasks" },
   ];
 
   return (

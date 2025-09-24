@@ -16,13 +16,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PlusCircle } from "lucide-react";
 import { ActivityForm } from "@/components/dashboard/activity-form";
 
-type FilterType = "Overdue" | "Not Started" | "On Track" | "Completed As Per Target" | "All Approved";
+type FilterType = "Overdue" | "Not Started" | "On Track" | "Completed As Per Target" | "All";
 
 export default function MyActivityPage() {
   const [allActivities, setAllActivities] = useState<Activity[]>([]);
   const [myActivities, setMyActivities] = useState<Activity[]>([]);
   const [filteredActivities, setFilteredActivities] = useState<Activity[]>([]);
-  const [activeFilter, setActiveFilter] = useState<FilterType>("All Approved");
+  const [activeFilter, setActiveFilter] = useState<FilterType>("All");
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -75,7 +75,7 @@ export default function MyActivityPage() {
       setAllActivities(activities);
       setSelectedPlan(planDetails);
 
-      const uniqueDepartments = ["All", ...new Set(activities.map((a) => a.department).filter(d => d && d !== "All"))];
+      const uniqueDepartments = ["All", ...new Set(activities.map((a) => a.department).filter(d => d && d.toLowerCase() !== "all"))];
       setDepartments(uniqueDepartments);
     }
     loadActivitiesForPlan();
@@ -94,7 +94,6 @@ export default function MyActivityPage() {
   }, [allActivities, currentUser]);
   
   const approvedActivities = useMemo(() => myActivities.filter(a => a.approvalStatus === 'APPROVED'), [myActivities]);
-  const nonApprovedActivities = useMemo(() => myActivities.filter(a => a.approvalStatus !== 'APPROVED'), [myActivities]);
   
   const overdueActivities = useMemo(() => approvedActivities.filter(a => new Date(a.endDate) < new Date() && a.status !== 'Completed As Per Target'), [approvedActivities]);
   const pendingActivities = useMemo(() => approvedActivities.filter(a => a.status === 'Not Started' && new Date(a.startDate) <= new Date()), [approvedActivities]);
@@ -115,12 +114,12 @@ export default function MyActivityPage() {
       case "Completed As Per Target":
         setFilteredActivities(completedActivities);
         break;
-      case "All Approved":
+      case "All":
       default:
         // Show all activities including those pending/declined when "All" is selected
-        setFilteredActivities([...nonApprovedActivities, ...approvedActivities]);
+        setFilteredActivities(myActivities);
     }
-  }, [activeFilter, myActivities, approvedActivities, nonApprovedActivities, overdueActivities, pendingActivities, activeActivities, completedActivities]);
+  }, [activeFilter, myActivities, approvedActivities, overdueActivities, pendingActivities, activeActivities, completedActivities]);
 
   const handleUpdateActivity = async (
     activityId: string,
@@ -213,7 +212,7 @@ export default function MyActivityPage() {
       "Not Started": "Pending",
       "On Track": "Active",
       "Completed As Per Target": "Completed",
-      "All Approved": "All Activities"
+      "All": "All Activities"
     };
     return titles[activeFilter];
   }, [activeFilter]);
@@ -272,7 +271,7 @@ export default function MyActivityPage() {
         pendingCount={pendingActivities.length}
         activeCount={activeActivities.length}
         completedCount={completedActivities.length}
-        allCount={approvedActivities.length}
+        allCount={myActivities.length}
       />
       <MyActivityTaskList 
           title={taskListTitle} 
