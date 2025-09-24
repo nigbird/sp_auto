@@ -34,7 +34,7 @@ export async function getActivities(strategicPlanId?: string): Promise<Activity[
     }));
 }
 
-export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updates' | 'progress' | 'approvalStatus'> & { initiativeId?: string, strategicPlanId: string }) {
+export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updates' | 'progress' | 'approvalStatus'> & { initiativeId?: string, strategicPlanId: string, source?: 'plan' | 'user' }) {
     const newActivity = await prisma.activity.create({
         data: {
             title: data.title,
@@ -48,7 +48,7 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
             strategicPlanId: data.strategicPlanId,
             progress: 0,
             status: 'Not Started',
-            approvalStatus: 'PENDING'
+            approvalStatus: data.source === 'plan' ? 'APPROVED' : 'PENDING'
         }
     });
     revalidatePath('/activities');

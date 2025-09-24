@@ -174,6 +174,21 @@ export async function createStrategicPlan(formData: FormData) {
                     })),
                 },
             },
+            include: {
+                pillars: {
+                    include: {
+                        objectives: {
+                            include: {
+                                initiatives: {
+                                    include: {
+                                        activities: true,
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         });
     } catch (error) {
         console.error("Error during strategic plan creation:", error);

@@ -6,7 +6,7 @@ import type { Activity, ActivityStatus, PendingUpdate, Rule, StrategicPlan, Pill
 import { MyActivitySummaryCards } from "@/components/my-activity/my-activity-summary-cards";
 import { MyActivityTaskList } from "@/components/my-activity/my-activity-task-list";
 import { useToast } from "@/hooks/use-toast";
-import { getActivities, createActivity, submitActivityUpdate, updateActivity } from "@/actions/activities";
+import { getActivities, createActivity, submitActivityUpdate, updateActivity, approveActivityUpdate, declineActivityUpdate } from "@/actions/activities";
 import { getRules } from "@/actions/rules";
 import { getUsers } from "@/actions/users";
 import { listStrategicPlans, getStrategicPlanById } from "@/actions/strategic-plan";
@@ -44,6 +44,8 @@ export default function MyActivityPage() {
       
       setUsers(userList);
       const adminUser = userList.find(u => u.email === 'admin@corp-plan.com');
+      // For demo purposes, we'll set the current user to Liam Johnson if admin isn't found.
+      // In a real app, you'd get this from an auth context.
       setCurrentUser(adminUser || userList.find(u => u.name === "Liam Johnson") || null);
 
       setStatuses(rules.map(rule => rule.status));
@@ -83,11 +85,13 @@ export default function MyActivityPage() {
 
 
   useEffect(() => {
-    if (currentUser?.role === 'ADMINISTRATOR') {
+    if (!currentUser) return;
+
+    if (currentUser.role === 'Administrator') {
         setMyActivities(allActivities);
     } else {
         const userActivities = allActivities.filter(
-          (activity) => (activity.responsible as any)?.id === currentUser?.id
+          (activity) => (activity.responsible as any)?.id === currentUser.id
         );
         setMyActivities(userActivities);
     }
@@ -116,7 +120,6 @@ export default function MyActivityPage() {
         break;
       case "All":
       default:
-        // Show all activities including those pending/declined when "All" is selected
         setFilteredActivities(myActivities);
     }
   }, [activeFilter, myActivities, approvedActivities, overdueActivities, pendingActivities, activeActivities, completedActivities]);
