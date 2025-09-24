@@ -1,3 +1,5 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
@@ -8,121 +10,137 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id           String        @id @default(cuid())
-  name         String
-  email        String        @unique
-  avatar       String?
-  role         Role          @default(USER)
-  status       UserStatus    @default(ACTIVE)
-  createdAt    DateTime      @default(now())
-  activities   Activity[]
-  notifications Notification[]
-}
-
-model Notification {
-  id        String   @id @default(cuid())
-  message   String
-  date      DateTime
-  read      Boolean
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
-}
-
-model Rule {
-  id          String  @id @default(cuid())
-  status      String  @unique
-  description String
-  min         Float
-  max         Float
-  isSystem    Boolean @default(false)
-}
-
 model StrategicPlan {
-  id         String     @id @default(cuid())
-  name       String
-  startYear  Int
-  endYear    Int
-  version    String
-  status     PlanStatus @default(DRAFT)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  pillars    Pillar[]
+  id        String    @id @default(cuid())
+  name      String
+  startYear Int
+  endYear   Int
+  version   String
+  status    PlanStatus
+  pillars   Pillar[]
   activities Activity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Pillar {
   id              String         @id @default(cuid())
   title           String
   description     String?
-  strategicPlan   StrategicPlan  @relation(fields: [strategicPlanId], references: [id], onDelete: Cascade)
-  strategicPlanId String
+  strategicPlan   StrategicPlan? @relation(fields: [strategicPlanId], references: [id], onDelete: Cascade)
+  strategicPlanId String?
   objectives      Objective[]
-  createdAt       DateTime       @default(now())
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Objective {
-  id          String      @id @default(cuid())
-  statement   String
-  pillar      Pillar      @relation(fields: [pillarId], references: [id], onDelete: Cascade)
-  pillarId    String
+  id        String      @id @default(cuid())
+  statement String
+  pillar    Pillar?     @relation(fields: [pillarId], references: [id], onDelete: Cascade)
+  pillarId  String?
   initiatives Initiative[]
-  createdAt   DateTime    @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Initiative {
-  id            String     @id @default(cuid())
+  id            String      @id @default(cuid())
   title         String
   description   String?
   owner         String
   collaborators String[]
-  objective     Objective  @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
-  objectiveId   String
+  objective     Objective?  @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  objectiveId   String?
   activities    Activity[]
-  createdAt     DateTime   @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Activity {
-  id              String          @id @default(cuid())
+  id              String      @id @default(cuid())
   title           String
   description     String?
   department      String
-  responsible     User            @relation(fields: [responsibleId], references: [id])
+  responsible     User        @relation(fields: [responsibleId], references: [id])
   responsibleId   String
   startDate       DateTime
   endDate         DateTime
   status          String
   weight          Float
   progress        Float
-  approvalStatus  ApprovalStatus  @default(PENDING)
-  declineReason   String?
-  initiative      Initiative?     @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  initiative      Initiative? @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
   initiativeId    String?
-  strategicPlan   StrategicPlan?  @relation(fields: [strategicPlanId], references: [id], onDelete: Cascade)
+  strategicPlan   StrategicPlan? @relation(fields: [strategicPlanId], references: [id])
   strategicPlanId String?
-  pendingUpdate   Json?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  approvalStatus  ApprovalStatus
+  declineReason   String?
   updateHistory   UpdateHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model UpdateHistory {
-  id            String         @id @default(cuid())
-  activity      Activity       @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  id            String    @id @default(cuid())
+  activity      Activity  @relation(fields: [activityId], references: [id], onDelete: Cascade)
   activityId    String
-  status        String
-  progress      Float
-  comment       String
-  date          DateTime       @default(now())
-  approvalState ApprovalStatus @default(PENDING)
+  user          User      @relation(fields: [userId], references: [id])
   userId        String
+  date          DateTime  @default(now())
+  progress      Float
+  status        String
+  comment       String
+  approvalState ApprovalStatus
 }
 
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  avatar        String?
+  role          Role      
+  status        UserStatus
+  activities    Activity[]
+  notifications Notification[]
+  updateHistory UpdateHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id      String  @id @default(cuid())
+  message String
+  date    DateTime
+  read    Boolean
+  user    User    @relation(fields: [userId], references: [id])
+  userId  String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Rule {
+  id          String   @id @default(cuid())
+  status      String   @unique
+  description String
+  min         Float
+  max         Float
+  isSystem    Boolean
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 
 enum Role {
-  ADMINISTRATOR
-  MANAGER
   USER
+  MANAGER
+  ADMINISTRATOR
 }
 
 enum UserStatus {
