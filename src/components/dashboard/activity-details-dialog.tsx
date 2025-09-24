@@ -57,6 +57,18 @@ export function ActivityDetailsDialog({
 
   const showApprovalButtons = activity.approvalStatus === 'PENDING';
 
+  const timeAgo = (date: any) => {
+    try {
+        const d = new Date(date);
+        if (isNaN(d.getTime())) {
+            return "a while ago";
+        }
+        return formatDistanceToNow(d, { addSuffix: true });
+    } catch (e) {
+        return "a while ago";
+    }
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl grid-rows-[auto_1fr_auto]">
@@ -124,7 +136,7 @@ export function ActivityDetailsDialog({
                             <div className="space-y-1">
                                 <h3 className="text-lg font-semibold">Progress Update for Review</h3>
                                 <p className="text-sm text-muted-foreground">
-                                    {pendingUpdate.user} submitted an update {formatDistanceToNow(new Date(pendingUpdate.date), { addSuffix: true })}.
+                                    {pendingUpdate.user} submitted an update {timeAgo(pendingUpdate.date)}.
                                 </p>
                             </div>
 
