@@ -2,10 +2,10 @@
 "use client"
 
 import * as React from "react"
-import type { Activity, ActivityStatus } from "@/lib/types";
+import type { Activity, ActivityStatus, ApprovalStatus } from "@/lib/types";
 import { format, formatDistanceToNow } from "date-fns";
-import { AlertTriangle, ChevronDown, ChevronUp, Hourglass, Clock, CheckCircle, ShieldQuestion, ShieldX, Edit } from "lucide-react";
-import { Card, CardContent, CardHeader, CardFooter } from "../ui/card";
+import { AlertTriangle, ChevronDown, ChevronUp, Hourglass, Clock, CheckCircle, ShieldQuestion, ShieldX, Edit, Check } from "lucide-react";
+import { Card, CardContent, CardHeader } from "../ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
 import { Slider } from "../ui/slider";
 import { Badge } from "../ui/badge";
@@ -16,7 +16,31 @@ import { Textarea } from "../ui/textarea";
 import { Label } from "../ui/label";
 import { calculateActivityStatus } from "@/lib/utils";
 import { Progress } from "../ui/progress";
-import { StatusBadge } from "../status-badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+
+const ApprovalBadge = ({ status, reason }: { status: ApprovalStatus; reason?: string | null }) => {
+    if (status === 'APPROVED') {
+        return <Badge variant="outline" className="border-green-500 text-green-600 bg-green-500/10"><Check className="h-3 w-3 mr-1" />Approved</Badge>;
+    }
+    if (status === 'PENDING') {
+        return <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-500/10"><ShieldQuestion className="h-3 w-3 mr-1" />Pending Approval</Badge>;
+    }
+    if (status === 'DECLINED') {
+        return (
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Badge variant="destructive" className="cursor-help"><ShieldX className="h-3 w-3 mr-1" />Declined</Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>{reason || 'No reason provided.'}</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+        );
+    }
+    return null;
+}
 
 type TaskCardProps = { 
   activity: Activity;
@@ -64,14 +88,13 @@ function TaskCard({ activity, onUpdateActivity, onEditDeclined }: TaskCardProps)
 
   const deadline = activity.endDate ? (typeof activity.endDate === 'string' ? new Date(activity.endDate) : activity.endDate) : new Date();
 
-  const isPendingApproval = activity.approvalStatus === 'PENDING';
-  const isDeclined = activity.approvalStatus === 'DECLINED';
+  const isEditable = activity.approvalStatus === 'APPROVED';
 
   return (
     <Card className="bg-card">
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
             <CardHeader className="flex flex-row items-start justify-between">
-                <div>
+                <div className="space-y-1.5">
                     <h3 className="font-semibold">{activity.title}</h3>
                     <p className="text-sm text-muted-foreground">{activity.description}</p>
                 </div>
@@ -89,20 +112,15 @@ function TaskCard({ activity, onUpdateActivity, onEditDeclined }: TaskCardProps)
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="flex items-center gap-4">
+                    <ApprovalBadge status={activity.approvalStatus} reason={activity.declineReason} />
                     <Badge variant="outline">Due: {format(deadline, "PP")}</Badge>
                     <Badge variant="outline">Weight: {activity.weight}%</Badge>
                     <Progress value={activity.progress} className="h-2 flex-1" />
                 </div>
-                {isDeclined && activity.declineReason && (
-                    <div className="p-3 rounded-md border bg-destructive/10 text-destructive text-sm">
-                        <p className="font-semibold mb-1">Reason for Decline:</p>
-                        <p>{activity.declineReason}</p>
-                    </div>
-                )}
             </CardContent>
             <CollapsibleContent>
-                <CardContent className="space-y-6 pt-6">
-                    {!isPendingApproval && !isDeclined && (
+                <CardContent className="space-y-6 pt-0">
+                    {isEditable && (
                     <>
                         <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
@@ -141,20 +159,12 @@ function TaskCard({ activity, onUpdateActivity, onEditDeclined }: TaskCardProps)
                             />
                          </div>
                          <div className="flex justify-end">
-                            <Button onClick={handleSubmit}>Submit Update</Button>
+                            <Button onClick={handleSubmit}>Submit Update for Review</Button>
                         </div>
                     </>
                     )}
 
-                    {isPendingApproval && (
-                        <div className="flex flex-col items-center justify-center text-center p-4 border rounded-md bg-muted/50">
-                            <ShieldQuestion className="h-10 w-10 text-blue-500 mb-2" />
-                            <p className="font-semibold">This activity is pending approval.</p>
-                            <p className="text-sm text-muted-foreground">It will become editable once approved.</p>
-                             {activity.pendingUpdate && <p className="text-sm text-muted-foreground mt-2">A progress update is also awaiting review.</p>}
-                        </div>
-                    )}
-                    {isDeclined && onEditDeclined && (
+                    {activity.approvalStatus === 'DECLINED' && onEditDeclined && (
                          <div className="flex justify-end">
                             <Button onClick={() => onEditDeclined(activity)}>
                                 <Edit className="mr-2 h-4 w-4" />
@@ -194,18 +204,17 @@ export function MyActivityTaskList({ title, count, activities, onUpdateActivity,
   
   const titleIcon: Record<string, React.ReactNode> = {
     Overdue: <AlertTriangle className="text-destructive" />,
-    Pending: <Hourglass className="text-muted-foreground" />,
+    "Pending Tasks": <Hourglass className="text-muted-foreground" />,
     Active: <Clock className="text-muted-foreground" />,
     Completed: <CheckCircle className="text-green-500" />,
-    "Pending Approval": <ShieldQuestion className="text-blue-500" />,
-    Declined: <ShieldX className="text-destructive" />,
+    "All Activities": <List className="text-muted-foreground" />,
   };
 
   if (activities.length === 0) {
     return (
         <div className="space-y-4">
             <h2 className="flex items-center gap-2 text-xl font-bold">
-                {titleIcon[title] || <AlertTriangle className="text-destructive" />}
+                {titleIcon[title] || <List className="text-muted-foreground" />}
                 {title} (0)
             </h2>
             <Card>
@@ -220,7 +229,7 @@ export function MyActivityTaskList({ title, count, activities, onUpdateActivity,
   return (
     <div className="space-y-4">
       <h2 className="flex items-center gap-2 text-xl font-bold">
-        {titleIcon[title] || <AlertTriangle className="text-destructive" />}
+        {titleIcon[title] || <List className="text-muted-foreground" />}
         {title} ({count})
       </h2>
       <div className="space-y-4">

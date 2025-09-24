@@ -5,7 +5,6 @@ import { useEffect, useState, useMemo } from "react";
 import type { Activity, ActivityStatus, PendingUpdate, Rule, StrategicPlan, Pillar, Objective, Initiative, User } from "@/lib/types";
 import { MyActivitySummaryCards } from "@/components/my-activity/my-activity-summary-cards";
 import { MyActivityTaskList } from "@/components/my-activity/my-activity-task-list";
-import { AllActivityTaskList } from "@/components/my-activity/all-activity-task-list";
 import { useToast } from "@/hooks/use-toast";
 import { getActivities, createActivity, submitActivityUpdate, updateActivity } from "@/actions/activities";
 import { getRules } from "@/actions/rules";
@@ -17,13 +16,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PlusCircle } from "lucide-react";
 import { ActivityForm } from "@/components/dashboard/activity-form";
 
-type FilterType = "Overdue" | "Not Started" | "On Track" | "Completed As Per Target" | "All" | "Pending Approval" | "Declined";
+type FilterType = "Overdue" | "Not Started" | "On Track" | "Completed As Per Target" | "All Approved";
 
 export default function MyActivityPage() {
   const [allActivities, setAllActivities] = useState<Activity[]>([]);
   const [myActivities, setMyActivities] = useState<Activity[]>([]);
   const [filteredActivities, setFilteredActivities] = useState<Activity[]>([]);
-  const [activeFilter, setActiveFilter] = useState<FilterType>("All");
+  const [activeFilter, setActiveFilter] = useState<FilterType>("All Approved");
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -88,22 +87,20 @@ export default function MyActivityPage() {
         setMyActivities(allActivities);
     } else {
         const userActivities = allActivities.filter(
-          (activity) => (activity.responsible as any)?.name === "Liam Johnson"
+          (activity) => (activity.responsible as any)?.id === currentUser?.id
         );
         setMyActivities(userActivities);
     }
   }, [allActivities, currentUser]);
   
   const approvedActivities = useMemo(() => myActivities.filter(a => a.approvalStatus === 'APPROVED'), [myActivities]);
+  const nonApprovedActivities = useMemo(() => myActivities.filter(a => a.approvalStatus !== 'APPROVED'), [myActivities]);
   
   const overdueActivities = useMemo(() => approvedActivities.filter(a => new Date(a.endDate) < new Date() && a.status !== 'Completed As Per Target'), [approvedActivities]);
   const pendingActivities = useMemo(() => approvedActivities.filter(a => a.status === 'Not Started' && new Date(a.startDate) <= new Date()), [approvedActivities]);
   const activeActivities = useMemo(() => approvedActivities.filter(a => a.status === 'On Track'), [approvedActivities]);
   const completedActivities = useMemo(() => approvedActivities.filter(a => a.status === 'Completed As Per Target'), [approvedActivities]);
-  const pendingApprovalActivities = useMemo(() => myActivities.filter(a => a.approvalStatus === 'PENDING'), [myActivities]);
-  const declinedActivities = useMemo(() => myActivities.filter(a => a.approvalStatus === 'DECLINED'), [myActivities]);
-
-
+  
   useEffect(() => {
     switch (activeFilter) {
       case "Overdue":
@@ -118,17 +115,12 @@ export default function MyActivityPage() {
       case "Completed As Per Target":
         setFilteredActivities(completedActivities);
         break;
-      case "Pending Approval":
-        setFilteredActivities(pendingApprovalActivities);
-        break;
-      case "Declined":
-        setFilteredActivities(declinedActivities);
-        break;
-      case "All":
+      case "All Approved":
       default:
-        setFilteredActivities(approvedActivities);
+        // Show all activities including those pending/declined when "All" is selected
+        setFilteredActivities([...nonApprovedActivities, ...approvedActivities]);
     }
-  }, [activeFilter, approvedActivities, overdueActivities, pendingActivities, activeActivities, completedActivities, pendingApprovalActivities, declinedActivities]);
+  }, [activeFilter, myActivities, approvedActivities, nonApprovedActivities, overdueActivities, pendingActivities, activeActivities, completedActivities]);
 
   const handleUpdateActivity = async (
     activityId: string,
@@ -188,7 +180,7 @@ export default function MyActivityPage() {
       toast({ title: "Activity Resubmitted", description: "The activity has been resubmitted for approval." });
 
     } else {
-        const newActivityData = { ...values, responsible: responsibleUser.id, strategicPlanId: selectedPlanId };
+        const newActivityData = { ...values, responsible: responsibleUser.id, strategicPlanId: selectedPlanId, source: 'user' };
         const newActivity = await createActivity(newActivityData);
         const fullNewActivity = { 
             ...newActivity, 
@@ -221,9 +213,7 @@ export default function MyActivityPage() {
       "Not Started": "Pending",
       "On Track": "Active",
       "Completed As Per Target": "Completed",
-      "Pending Approval": "Pending Approval",
-      Declined: "Declined",
-      All: "All Activities"
+      "All Approved": "All Activities"
     };
     return titles[activeFilter];
   }, [activeFilter]);
@@ -283,24 +273,14 @@ export default function MyActivityPage() {
         activeCount={activeActivities.length}
         completedCount={completedActivities.length}
         allCount={approvedActivities.length}
-        pendingApprovalCount={pendingApprovalActivities.length}
-        declinedCount={declinedActivities.length}
       />
-      {activeFilter === 'All' ? (
-        <AllActivityTaskList 
-            title={taskListTitle} 
-            count={filteredActivities.length} 
-            activities={filteredActivities}
-        />
-      ) : (
-        <MyActivityTaskList 
-            title={taskListTitle} 
-            count={filteredActivities.length} 
-            activities={filteredActivities} 
-            onUpdateActivity={handleUpdateActivity}
-            onEditDeclined={handleEditDeclined}
-        />
-      )}
+      <MyActivityTaskList 
+          title={taskListTitle} 
+          count={filteredActivities.length} 
+          activities={filteredActivities} 
+          onUpdateActivity={handleUpdateActivity}
+          onEditDeclined={handleEditDeclined}
+      />
     </div>
   );
 }
