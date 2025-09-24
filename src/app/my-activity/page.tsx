@@ -45,7 +45,7 @@ export default function MyActivityPage() {
       setUsers(userList);
       // In a real app, you'd get this from an auth context.
       // For demo, we find the Admin user, or default to another user if not found.
-      const adminUser = userList.find(u => u.role === 'Administrator');
+      const adminUser = userList.find(u => u.role === 'ADMINISTRATOR');
       setCurrentUser(adminUser || userList.find(u => u.name === "Liam Johnson") || null);
 
       setStatuses(rules.map(rule => rule.status));
@@ -88,7 +88,7 @@ export default function MyActivityPage() {
     if (!currentUser) return;
     
     // If admin, show all activities for the selected plan. Otherwise, filter for the user.
-    if (currentUser.role === 'Administrator') {
+    if (currentUser.role === 'ADMINISTRATOR') {
         setMyActivities(allActivitiesForPlan);
     } else {
         const userActivities = allActivitiesForPlan.filter(
