@@ -24,13 +24,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import type { Activity, StrategicPlan, Pillar, Objective, Initiative, User } from "@/lib/types"
+import type { Activity, StrategicPlan, Pillar, Objective, Initiative } from "@/lib/types"
 import { ScrollArea } from "../ui/scroll-area"
 
 const activitySchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters." }),
   description: z.string().optional(),
-  department: z.string({ required_error: "Please select a department." }),
+  department: z.string({ required_error: "Please select a department." }).optional(),
   responsible: z.string({ required_error: "Please select a responsible person." }),
   startDate: z.date({ required_error: "A start date is required." }),
   endDate: z.date({ required_error: "An end date is required." }),
@@ -44,14 +44,12 @@ const activitySchema = z.object({
 type ActivityFormProps = {
   onSubmit: (values: z.infer<typeof activitySchema>) => void;
   activity?: Activity | null;
-  users: User[];
-  statuses: string[];
-  onReset: (activityId: string) => void;
+  users: {id: string, name: string}[];
   onCancel: () => void;
   strategicPlan?: StrategicPlan | null;
 }
 
-export function ActivityForm({ onSubmit, activity, users, statuses, onReset, onCancel, strategicPlan }: ActivityFormProps) {
+export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPlan }: ActivityFormProps) {
   const form = useForm<z.infer<typeof activitySchema>>({
     resolver: zodResolver(activitySchema),
     defaultValues: {
@@ -94,33 +92,10 @@ export function ActivityForm({ onSubmit, activity, users, statuses, onReset, onC
 
   const getSubmitButtonText = () => {
     if (activity) {
-      if (activity.approvalStatus === 'DECLINED') {
-        return "Resubmit for Approval";
-      }
       return "Save Changes";
     }
     return "Submit for Approval";
   }
-
-  // Auto-select department based on responsible user
-  const responsibleId = form.watch("responsible");
-  useEffect(() => {
-    const responsibleUser = users.find(u => u.id === responsibleId);
-    if(responsibleUser) {
-        // This is a placeholder. In a real app, you might look up the user's department.
-        // For now, we'll derive it from their role or use a default.
-        const departments: {[key: string]: string} = {
-            "liam@corp-plan.com": "Sales",
-            "olivia@corp-plan.com": "Marketing",
-            "noah@corp-plan.com": "Engineering",
-            "emma@corp-plan.com": "Human Resources",
-            "oliver@corp-plan.com": "Support",
-            "admin@corp-plan.com": "Executive"
-        }
-        form.setValue("department", departments[responsibleUser.email] || "General");
-    }
-  }, [responsibleId, users, form]);
-
 
   return (
     <Form {...form}>
@@ -231,7 +206,7 @@ export function ActivityForm({ onSubmit, activity, users, statuses, onReset, onC
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                        {users.map((user:any) => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
+                        {users.map((user) => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
                     <FormMessage />
@@ -335,18 +310,13 @@ export function ActivityForm({ onSubmit, activity, users, statuses, onReset, onC
             </div>
           </div>
         </ScrollArea>
-        <div className="flex justify-between items-center pt-4">
-            <div>
-              {activity && activity.approvalStatus === 'DECLINED' && (
-                <p className="text-sm text-destructive">This activity was declined. Please edit and resubmit.</p>
-              )}
-            </div>
-            <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={onCancel}>Close</Button>
-                <Button type="submit" className="bg-primary hover:bg-primary/90">{getSubmitButtonText()}</Button>
-            </div>
+        <div className="flex justify-end items-center pt-4 gap-2">
+            <Button type="button" variant="outline" onClick={onCancel}>Close</Button>
+            <Button type="submit" className="bg-primary hover:bg-primary/90">{getSubmitButtonText()}</Button>
         </div>
       </form>
     </Form>
   )
 }
+
+    

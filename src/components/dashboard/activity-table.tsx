@@ -50,7 +50,7 @@ import {
 } from "@/components/ui/table";
 import type { Activity, User } from "@/lib/types";
 import { StatusBadge } from "../status-badge";
-import { approveActivityUpdate, declineActivityUpdate } from "@/actions/activities";
+import { approveActivityUpdate, declineActivityUpdate, updateActivity, createActivity } from "@/actions/activities";
 import { getActivities } from "@/actions/activities";
 import { Progress } from "../ui/progress";
 import { ActivityForm } from "./activity-form";
@@ -72,8 +72,8 @@ const ApprovalStatusBadge = ({ status }: { status: Activity['approvalStatus'] })
   return <Badge variant={variant} className={className}>{status}</Badge>
 }
 
-export function ActivityTable({ activities, users, departments, statuses }: { activities: Activity[], users: string[], departments: string[], statuses: string[] }) {
-  const [data, setData] = useState(activities);
+export function ActivityTable({ activities: initialActivities, users, departments, statuses }: { activities: Activity[], users: string[], departments: string[], statuses: string[] }) {
+  const [data, setData] = useState(initialActivities);
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -88,28 +88,22 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const { toast } = useToast();
 
-  const handleFormSubmit = (values: any) => {
+  const handleFormSubmit = async (values: any) => {
     if(editingActivity) {
-      // Update logic
-      const updatedActivity = {
-        ...editingActivity, 
-        ...values, 
-        updatedAt: new Date()
-      };
-      setData(data.map(act => act.id === editingActivity.id ? updatedActivity : act));
+      await updateActivity(editingActivity.id, values);
+      const updatedData = await getActivities();
+      setData(updatedData);
       toast({ title: "Activity Updated", description: "The activity details have been updated." });
     } else {
-      // Create logic
-      const newActivity: Activity = {
-        id: `ACT-${Math.floor(Math.random() * 1000)}`,
-        ...values,
-        kpis: [],
-        updatedAt: new Date(),
-        updates: [],
-        progress: 0,
-        approvalStatus: 'PENDING',
-      };
-      setData([newActivity, ...data]);
+      // The user ID needs to be passed for creation approval logic
+      // In a real app, you'd get this from the current session.
+      // For now, let's find the admin user to pass.
+      const admin = await (await getUsers()).find(u => u.role === 'ADMINISTRATOR');
+      const userId = admin ? admin.id : 'default-user-id';
+      
+      await createActivity({ ...values, userId });
+      const updatedData = await getActivities();
+      setData(updatedData);
       toast({ title: "Activity Created", description: "The new activity has been submitted for approval." });
     }
     setIsCreateFormOpen(false);
@@ -187,7 +181,7 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
           approvalStatus: 'PENDING' as const,
           declineReason: undefined,
         };
-  setEditingActivity(updatedActivity);
+        setEditingActivity(updatedActivity);
         setIsCreateFormOpen(true);
         return updatedActivity;
       }
@@ -206,7 +200,7 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
       header: "Title",
       cell: ({ row }) => {
         const activity = row.original;
-  const needsAttention = activity.approvalStatus === 'PENDING';
+        const needsAttention = activity.approvalStatus === 'PENDING';
         return (
           <div className="flex items-center gap-2">
             {needsAttention && <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" title="Needs review"></span>}
@@ -274,9 +268,9 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
       cell: ({ row }) => {
         const activity = row.original;
         let detailsText = 'View Details';
-    if (activity.approvalStatus === 'PENDING') {
-      detailsText = activity.pendingUpdate ? 'Review Progress Update' : 'Review New Activity';
-    }
+        if (activity.approvalStatus === 'PENDING') {
+          detailsText = activity.pendingUpdate ? 'Review Progress Update' : 'Review New Activity';
+        }
         
         return (
           <DropdownMenu>
@@ -321,9 +315,9 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
 
   const isFiltered = table.getState().columnFilters.length > 0
   const approvalStatusOptions = [
-  { label: 'Pending', value: 'PENDING' },
-  { label: 'Approved', value: 'APPROVED' },
-  { label: 'Declined', value: 'DECLINED' },
+    { label: 'Pending', value: 'PENDING' },
+    { label: 'Approved', value: 'APPROVED' },
+    { label: 'Declined', value: 'DECLINED' },
   ];
 
   return (
@@ -380,7 +374,7 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
                     </Button>
                 )}
             </div>
-             <Dialog open={isCreateFormOpen} onOpenChange={setIsCreateFormOpen}>
+             <Dialog open={isCreateFormOpen} onOpenChange={(isOpen) => { if (!isOpen) setEditingActivity(null); setIsCreateFormOpen(isOpen); }}>
                 <DialogTrigger asChild>
                     <Button onClick={handleCreateNew}>
                         <PlusCircle className="mr-2 h-4 w-4" />
@@ -394,10 +388,7 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
                     <ActivityForm 
                         onSubmit={handleFormSubmit}
                         activity={editingActivity}
-                        users={users}
-                        departments={departments}
-                        statuses={statuses}
-                        onReset={handleResetForApproval}
+                        users={users.map(u => ({ id: u.id, name: u.name }))}
                         onCancel={() => { setIsCreateFormOpen(false); setEditingActivity(null); }}
                     />
                 </DialogContent>
@@ -518,3 +509,5 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
     </div>
   );
 }
+
+    
