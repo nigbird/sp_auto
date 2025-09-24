@@ -49,9 +49,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Activity, User } from "@/lib/types";
-import type { ApprovalStatus } from "@prisma/client";
 import { StatusBadge } from "../status-badge";
-import { updateActivity } from "@/actions/activities";
 import { Progress } from "../ui/progress";
 import { ActivityForm } from "./activity-form";
 import { ActivityDetailsDialog } from "./activity-details-dialog";
@@ -72,7 +70,7 @@ const ApprovalStatusBadge = ({ status }: { status: Activity['approvalStatus'] })
   return <Badge variant={variant} className={className}>{status}</Badge>
 }
 
-export function ActivityTable({ activities, users, departments, statuses }: { activities: Activity[], users: User[], departments: string[], statuses: string[] }) {
+export function ActivityTable({ activities, users, departments, statuses }: { activities: Activity[], users: string[], departments: string[], statuses: string[] }) {
   const [data, setData] = useState(activities);
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -80,7 +78,6 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
   const [isDeclineModalOpen, setIsDeclineModalOpen] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
 
-  // Accept users as User[] instead of string[]
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [viewingActivity, setViewingActivity] = useState<Activity | null>(null);
   const [deletingActivity, setDeletingActivity] = useState<Activity | null>(null);
@@ -145,45 +142,43 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
     setDeletingActivity(null);
   }
   
-  const handleApprove = async (activityId: string) => {
-    // Call backend to update approvalStatus
-    await updateActivity(activityId, { approvalStatus: 'APPROVED' });
+  const handleApprove = (activityId: string) => {
     setData(currentData => currentData.map(act => {
       if (act.id === activityId) {
         const isNewActivity = !act.pendingUpdate;
         let updatedActivity;
-        if (isNewActivity) {
+
+        if (isNewActivity) { // Approving a new activity
            toast({
               title: "Activity Approved",
-              description: `The activity \"${act.title}\" has been approved.`,
+              description: `The activity "${act.title}" has been approved.`,
             });
-           updatedActivity = { ...act, approvalStatus: 'APPROVED' as ApprovalStatus };
-        } else if (typeof act.pendingUpdate === 'object' && act.pendingUpdate !== null) {
-            const { progress, comment, user, date } = act.pendingUpdate as any;
+           updatedActivity = { ...act, approvalStatus: 'APPROVED' as const };
+        } else { // Approving a progress update
+            const { progress, comment, user, date } = act.pendingUpdate!;
             const newStatus = calculateActivityStatus({ ...act, progress });
             toast({
               title: "Update Approved",
-              description: `Progress for \"${act.title}\" has been updated to ${progress}%.`,
+              description: `Progress for "${act.title}" has been updated to ${progress}%.`,
             });
             updatedActivity = {
               ...act,
               progress: progress,
               status: newStatus,
-              updatedAt: date,
+        updatedAt: date,
               updates: [...act.updates, { user, date, comment }],
-              pendingUpdate: null,
-              approvalStatus: 'APPROVED' as ApprovalStatus,
-              declineReason: null,
+              pendingUpdate: undefined,
+              approvalStatus: 'APPROVED' as const,
+              declineReason: undefined,
             };
-        } else {
-           updatedActivity = { ...act, approvalStatus: 'APPROVED' as ApprovalStatus };
         }
-        setViewingActivity(updatedActivity);
+        
+        setViewingActivity(updatedActivity); // Update details view if open
         return updatedActivity;
       }
       return act;
     }));
-    setIsDetailsOpen(false);
+    setIsDetailsOpen(false); // Close dialog on action
   };
 
   const handleDeclineClick = (activityId: string) => {
@@ -193,50 +188,49 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
     setIsDeclineModalOpen(true);
   }
 
-  const confirmDecline = async () => {
+  const confirmDecline = () => {
     if (!viewingActivity || declineReason.trim() === "") {
         toast({ title: "Reason Required", description: "Please provide a reason for declining.", variant: "destructive" });
         return;
     }
     const activityId = viewingActivity.id;
 
-    // Call backend to update approvalStatus
-    await updateActivity(activityId, { approvalStatus: 'DECLINED', declineReason });
-    setData(currentData => currentData.map(act => {
+     setData(currentData => currentData.map(act => {
       if (act.id === activityId) {
         const isNewActivity = !act.pendingUpdate;
         let updatedActivity;
-        if (isNewActivity) {
+        
+        if (isNewActivity) { // Declining a new activity
             toast({
               title: "Activity Declined",
-              description: `The activity \"${act.title}\" has been declined.`,
+              description: `The activity "${act.title}" has been declined.`,
               variant: "destructive"
             });
       updatedActivity = { 
         ...act, 
-        approvalStatus: 'DECLINED' as ApprovalStatus,
+        approvalStatus: 'DECLINED' as const,
         declineReason: declineReason,
       };
-        } else if (typeof act.pendingUpdate === 'object' && act.pendingUpdate !== null) {
+        } else { // Declining a progress update
             toast({
               title: "Update Declined",
-              description: `The pending update for \"${act.title}\" has been declined.`,
+              description: `The pending update for "${act.title}" has been declined.`,
               variant: "destructive"
             });
       updatedActivity = { 
         ...act, 
-        pendingUpdate: null, 
-        approvalStatus: 'DECLINED' as ApprovalStatus,
+        pendingUpdate: undefined, 
+        approvalStatus: 'DECLINED' as const,
         declineReason: declineReason,
       };
-        } else {
-           updatedActivity = { ...act, approvalStatus: 'DECLINED' as ApprovalStatus, declineReason: declineReason };
         }
-        setViewingActivity(updatedActivity);
+
+        setViewingActivity(updatedActivity); // Update details view if open
         return updatedActivity;
       }
       return act;
     }));
+    
     setIsDeclineModalOpen(false);
     setDeclineReason("");
   }
@@ -250,8 +244,8 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
         });
         const updatedActivity = { 
           ...act, 
-          approvalStatus: 'PENDING' as ApprovalStatus,
-          declineReason: null,
+          approvalStatus: 'PENDING' as const,
+          declineReason: undefined,
         };
   setEditingActivity(updatedActivity);
         setIsCreateFormOpen(true);
