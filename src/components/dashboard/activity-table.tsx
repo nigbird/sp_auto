@@ -92,12 +92,10 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
       const updatedActivity = {
         ...editingActivity, 
         ...values, 
-        updatedAt: new Date(),
-        approvalStatus: 'PENDING' as const, // Reset on edit
-        declineReason: undefined
+        updatedAt: new Date()
       };
       setData(data.map(act => act.id === editingActivity.id ? updatedActivity : act));
-      toast({ title: "Activity Updated", description: "The activity has been resubmitted for approval." });
+      toast({ title: "Activity Updated", description: "The activity details have been updated." });
     } else {
       // Create logic
       const newActivity: Activity = {
