@@ -50,6 +50,8 @@ import {
 } from "@/components/ui/table";
 import type { Activity, User } from "@/lib/types";
 import { StatusBadge } from "../status-badge";
+import { approveActivityUpdate, declineActivityUpdate } from "@/actions/activities";
+import { getActivities } from "@/actions/activities";
 import { Progress } from "../ui/progress";
 import { ActivityForm } from "./activity-form";
 import { ActivityDetailsDialog } from "./activity-details-dialog";
@@ -143,42 +145,12 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
   }
   
   const handleApprove = (activityId: string) => {
-    setData(currentData => currentData.map(act => {
-      if (act.id === activityId) {
-        const isNewActivity = !act.pendingUpdate;
-        let updatedActivity;
-
-        if (isNewActivity) { // Approving a new activity
-           toast({
-              title: "Activity Approved",
-              description: `The activity "${act.title}" has been approved.`,
-            });
-           updatedActivity = { ...act, approvalStatus: 'APPROVED' as const };
-        } else { // Approving a progress update
-            const { progress, comment, user, date } = act.pendingUpdate!;
-            const newStatus = calculateActivityStatus({ ...act, progress });
-            toast({
-              title: "Update Approved",
-              description: `Progress for "${act.title}" has been updated to ${progress}%.`,
-            });
-            updatedActivity = {
-              ...act,
-              progress: progress,
-              status: newStatus,
-        updatedAt: date,
-              updates: [...act.updates, { user, date, comment }],
-              pendingUpdate: undefined,
-              approvalStatus: 'APPROVED' as const,
-              declineReason: undefined,
-            };
-        }
-        
-        setViewingActivity(updatedActivity); // Update details view if open
-        return updatedActivity;
-      }
-      return act;
-    }));
-    setIsDetailsOpen(false); // Close dialog on action
+    approveActivityUpdate(activityId).then(async () => {
+      const updatedActivities = await getActivities();
+      setData(updatedActivities);
+      toast({ title: "Activity Approved", description: "The activity has been approved." });
+      setIsDetailsOpen(false);
+    });
   };
 
   const handleDeclineClick = (activityId: string) => {
@@ -194,45 +166,13 @@ export function ActivityTable({ activities, users, departments, statuses }: { ac
         return;
     }
     const activityId = viewingActivity.id;
-
-     setData(currentData => currentData.map(act => {
-      if (act.id === activityId) {
-        const isNewActivity = !act.pendingUpdate;
-        let updatedActivity;
-        
-        if (isNewActivity) { // Declining a new activity
-            toast({
-              title: "Activity Declined",
-              description: `The activity "${act.title}" has been declined.`,
-              variant: "destructive"
-            });
-      updatedActivity = { 
-        ...act, 
-        approvalStatus: 'DECLINED' as const,
-        declineReason: declineReason,
-      };
-        } else { // Declining a progress update
-            toast({
-              title: "Update Declined",
-              description: `The pending update for "${act.title}" has been declined.`,
-              variant: "destructive"
-            });
-      updatedActivity = { 
-        ...act, 
-        pendingUpdate: undefined, 
-        approvalStatus: 'DECLINED' as const,
-        declineReason: declineReason,
-      };
-        }
-
-        setViewingActivity(updatedActivity); // Update details view if open
-        return updatedActivity;
-      }
-      return act;
-    }));
-    
-    setIsDeclineModalOpen(false);
-    setDeclineReason("");
+    declineActivityUpdate(activityId, declineReason).then(async () => {
+      const updatedActivities = await getActivities();
+      setData(updatedActivities);
+      toast({ title: "Activity Declined", description: "The activity has been declined.", variant: "destructive" });
+      setIsDeclineModalOpen(false);
+      setDeclineReason("");
+    });
   }
   
   const handleResetForApproval = (activityId: string) => {
