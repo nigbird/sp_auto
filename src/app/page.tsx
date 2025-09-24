@@ -9,7 +9,7 @@ import { DirectorsPerformance } from "@/components/dashboard/directors-performan
 export default async function DashboardPage() {
   const reportData = await getReportData();
   const activities = await getActivities();
-  const departments = ["All", ...new Set(activities.map((a) => a.department))];
+  const departments = ["All", ...new Set(activities.map((a) => a.department).filter(d => d && d.toLowerCase() !== "all"))];
   const summary = generateReportSummary(reportData);
 
   return (
