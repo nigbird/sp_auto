@@ -173,14 +173,13 @@ export async function declineActivityUpdate(activityId: string, reason: string) 
     if (!activity) return;
 
     // If there is a pendingUpdate, it's a progress update being declined.
-    // We clear the pending update and keep the activity approved.
+    // We clear the pending update and set approvalStatus to 'DECLINED'.
     if (activity.pendingUpdate) {
          await prisma.activity.update({
             where: { id: activityId },
             data: {
                 pendingUpdate: null,
-                // The activity itself remains approved, only the update is declined.
-                approvalStatus: 'APPROVED',
+                approvalStatus: 'DECLINED',
                 declineReason: reason, 
             }
         });

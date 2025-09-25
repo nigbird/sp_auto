@@ -71,14 +71,23 @@ type TaskCardProps = {
 };
 
 function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onApprove, onDecline }: TaskCardProps) {
-  const [isOpen, setIsOpen] = React.useState(false);
-  const [progress, setProgress] = React.useState(activity.progress);
-  const [status, setStatus] = React.useState(activity.status);
-  const [updateComment, setUpdateComment] = React.useState("");
+    const [isOpen, setIsOpen] = React.useState(false);
+    const [progress, setProgress] = React.useState(activity.progress);
+    const [status, setStatus] = React.useState(activity.status);
+    const [updateComment, setUpdateComment] = React.useState("");
+    // Track last submitted progress/comment for persistence
+    const [lastSubmitted, setLastSubmitted] = React.useState<{progress: number, comment: string}>({progress: activity.progress, comment: ""});
   const [isDeclineModalOpen, setIsDeclineModalOpen] = React.useState(false);
   const [declineReason, setDeclineReason] = React.useState("");
-  
-  const isAdmin = currentUser?.role === 'ADMINISTRATOR';
+
+  // Fix: define openProgressUpdateForm to reset and open the progress update form
+  const openProgressUpdateForm = () => {
+    setProgress(lastSubmitted.progress);
+    setUpdateComment(lastSubmitted.comment);
+    setIsOpen(true);
+  }
+
+    const isAdmin = currentUser?.role === 'Administrator';
   const showApprovalControls = isAdmin && activity.approvalStatus === 'PENDING';
 
   React.useEffect(() => {
@@ -92,18 +101,19 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
   }, [progress, activity]);
 
   const handleSubmit = () => {
-    if (updateComment.trim() === "") {
-        alert("Please provide an update comment.");
-        return;
-    }
-    const activityWithDateObjects = {
-      ...activity,
-      startDate: typeof activity.startDate === 'string' ? new Date(activity.startDate) : activity.startDate,
-      endDate: typeof activity.endDate === 'string' ? new Date(activity.endDate) : activity.endDate,
-    }
-    const newStatus = calculateActivityStatus({ ...activityWithDateObjects, progress });
-    onUpdateActivity(activity.id, progress, newStatus, updateComment);
-    setUpdateComment("");
+        if (updateComment.trim() === "") {
+                alert("Please provide an update comment.");
+                return;
+        }
+        const activityWithDateObjects = {
+            ...activity,
+            startDate: typeof activity.startDate === 'string' ? new Date(activity.startDate) : activity.startDate,
+            endDate: typeof activity.endDate === 'string' ? new Date(activity.endDate) : activity.endDate,
+        }
+        const newStatus = calculateActivityStatus({ ...activityWithDateObjects, progress });
+        onUpdateActivity(activity.id, progress, newStatus, updateComment);
+        setLastSubmitted({progress, comment: updateComment});
+        setIsOpen(false);
   };
   
   const handleProgressChange = (value: number[]) => {
@@ -162,7 +172,7 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
             </CardContent>
             <CollapsibleContent>
                 <CardContent className="space-y-6 pt-0">
-                    {isEditableForUser && !isAdmin && (
+                        {isOpen && (
                     <>
                         <div className="grid grid-cols-2 gap-6">
                             <div className="space-y-2">
@@ -201,25 +211,21 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
                             />
                          </div>
                          <div className="flex justify-end">
-                            <Button onClick={handleSubmit}>Submit Update for Review</Button>
+                            <Button onClick={handleSubmit}>Resubmit Update for Review</Button>
                         </div>
                     </>
                     )}
 
                     {showApprovalControls && (
-                        <div className="flex justify-end gap-2 border-t pt-4">
-                            <Button variant="destructive" onClick={handleDeclineClick}>Decline</Button>
-                            <Button onClick={() => onApprove(activity.id)} className="bg-green-600 hover:bg-green-700">Approve</Button>
-                        </div>
+                        <></>
                     )}
 
                     {activity.approvalStatus === 'DECLINED' && (
-                         <div className="flex justify-end">
-                            <Button onClick={() => onEditDeclined(activity)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit & Resubmit
-                            </Button>
-                        </div>
+                        <>
+                        {activity.declineReason && (
+                            <div className="mb-2 text-sm text-destructive font-medium">Decline Reason: {activity.declineReason}</div>
+                        )}
+                        </>
                     )}
 
                     <div className="space-y-4">
