@@ -11,16 +11,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
   
   return (
     <SidebarProvider>
-      <div className="flex">
+      <div className="flex h-screen overflow-hidden">
         <AppSidebar />
-        <SidebarInset>
+        <div className="flex flex-1 flex-col overflow-hidden">
           <Header />
           <main className={cn(
             "flex-1 overflow-y-auto bg-background p-4 sm:p-6 lg:p-8"
           )}>
             {children}
           </main>
-        </SidebarInset>
+        </div>
       </div>
     </SidebarProvider>
   );
