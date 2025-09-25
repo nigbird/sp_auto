@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useForm, useFieldArray } from "react-hook-form";
@@ -100,11 +101,6 @@ export default function CreateStrategicPlanPage() {
     const [currentTab, setCurrentTab] = useState(TABS[0].value);
     const [highestCompletedStep, setHighestCompletedStep] = useState(0);
 
-    // Debug: log currentTab whenever it changes
-    React.useEffect(() => {
-        console.log('Current Tab:', currentTab);
-    }, [currentTab]);
-
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
@@ -204,7 +200,7 @@ export default function CreateStrategicPlanPage() {
                                 });
                             });
                         });
-                        result = await form.trigger(fieldsToValidate);
+                        result = await form.trigger(fieldsToValidate as any);
                 }
         
         if (result && currentTabIndex < TABS.length - 1) {
@@ -216,30 +212,34 @@ export default function CreateStrategicPlanPage() {
             if (currentTabInfo.value === 'activities') {
                 const errors = form.formState.errors;
                 // Traverse errors to find the first activity error
-                const pillars = errors.pillars;
-                if (Array.isArray(pillars)) {
-                    for (const p of pillars) {
-                        if (p && p.objectives && Array.isArray(p.objectives)) {
+                if (errors.pillars) {
+                    for (const p of errors.pillars) {
+                        if (p && p.objectives) {
                             for (const o of p.objectives) {
-                                if (o && o.initiatives && Array.isArray(o.initiatives)) {
+                                if (o && o.initiatives) {
                                     for (const i of o.initiatives) {
-                                        if (i && i.activities && Array.isArray(i.activities)) {
+                                        if (i && i.activities) {
                                             for (const a of i.activities) {
                                                 if (a) {
                                                     // Find the first field error in this activity
                                                     for (const key in a) {
-                                                        if (a[key]?.message) {
-                                                            errorMsg = a[key].message;
+                                                        const fieldError = (a as any)[key];
+                                                        if (fieldError && fieldError.message) {
+                                                            errorMsg = fieldError.message;
                                                             break;
                                                         }
                                                     }
                                                 }
+                                                if (errorMsg !== "Please fill out all required fields before proceeding.") break;
                                             }
                                         }
+                                        if (errorMsg !== "Please fill out all required fields before proceeding.") break;
                                     }
                                 }
+                                if (errorMsg !== "Please fill out all required fields before proceeding.") break;
                             }
                         }
+                        if (errorMsg !== "Please fill out all required fields before proceeding.") break;
                     }
                 }
             }
@@ -263,8 +263,6 @@ export default function CreateStrategicPlanPage() {
 
     return (
         <Form {...form}>
-            {/* Debug: Show currentTab value visibly */}
-            <div style={{position: 'fixed', top: 0, right: 0, background: '#fffbe6', color: '#333', zIndex: 9999, padding: 4, fontSize: 12, border: '1px solid #f5c518'}}>Current Tab: {currentTab}</div>
             <form onSubmit={e => e.preventDefault()} className="flex-1 space-y-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -399,7 +397,7 @@ export default function CreateStrategicPlanPage() {
                                                 </CardContent>
                                             </Card>
                                         ))}
-                                        <Button type="button" variant="outline" onClick={() => appendPillar({ id: generateId('P'), title: `Pillar ${pillarFields.length + 1}`, description: "", objectives: [{ id: generateId('O'), statement: "New Objective", initiatives: [{ id: generateId('I'), title: "New Initiative", owner: 'Liam Johnson', collaborators: [], activities: [{ id: generateId('A'), title: "New Activity", weight: 100, startDate: getToday(), endDate: getOneMonthFromToday(), department: 'Sales', responsible: 'Liam Johnson' }] }] }] })}>
+                                        <Button type="button" variant="outline" onClick={() => appendPillar({ id: generateId('P'), title: `Pillar ${pillarFields.length + 1}`, description: "", objectives: [{ id: generateId('O'), statement: "New Objective", initiatives: [{ id: generateId('I'), title: "New Initiative", owner: "Liam Johnson", collaborators: [], activities: [{ id: generateId('A'), title: "New Activity", weight: 100, startDate: getToday(), endDate: getOneMonthFromToday(), department: 'Sales', responsible: 'Liam Johnson' }] }] }] })}>
                                             <PlusCircle className="mr-2 h-4 w-4" /> Add Pillar
                                         </Button>
                                     </div>
@@ -502,7 +500,7 @@ function PillarObjectiveAccordion({ pIndex, form }: { pIndex: number; form: any 
                         </CardContent>
                     </Card>
                  ))}
-                 <Button type="button" variant="outline" size="sm" onClick={() => appendObjective({ id: generateId('O'), statement: `Objective ${pIndex + 1}.${objectiveFields.length + 1}`, initiatives: [{ id: generateId('I'), title: "New Initiative", owner: 'Liam Johnson', collaborators: [], activities: [{ id: generateId('A'), title: "New Activity", weight: 100, startDate: getToday(), endDate: getOneMonthFromToday(), department: 'Sales', responsible: 'Liam Johnson' }] }] })}>
+                 <Button type="button" variant="outline" size="sm" onClick={() => appendObjective({ id: generateId('O'), statement: `Objective ${pIndex + 1}.${objectiveFields.length + 1}`, initiatives: [{ id: generateId('I'), title: "New Initiative", owner: "Liam Johnson", collaborators: [], activities: [{ id: generateId('A'), title: "New Activity", weight: 100, startDate: getToday(), endDate: getOneMonthFromToday(), department: 'Sales', responsible: 'Liam Johnson' }] }] })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Objective
                 </Button>
             </AccordionContent>
