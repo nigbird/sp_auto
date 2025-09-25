@@ -10,13 +10,13 @@ export default async function DashboardPage() {
   const reportData = await getReportData();
   const activities = await getActivities();
   const departments = ["All", ...new Set(activities.map((a) => a.department).filter(d => d && d.toLowerCase() !== "all"))];
-  const summary = generateReportSummary(reportData);
+  const summary = generateReportSummary(reportData.pillars);
 
   return (
     <div className="flex-1 space-y-6">
       <ReportSummaryCards summary={summary} />
       <DashboardClientLayout 
-        initialReportData={reportData}
+        initialReportData={reportData.pillars}
         allActivities={activities}
         departments={departments}
       />
