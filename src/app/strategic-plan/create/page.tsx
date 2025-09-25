@@ -18,7 +18,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Stepper } from "@/components/ui/stepper";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { createStrategicPlan } from "@/actions/strategic-plan";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { format } from "date-fns";
@@ -100,6 +100,11 @@ export default function CreateStrategicPlanPage() {
     const [currentTab, setCurrentTab] = useState(TABS[0].value);
     const [highestCompletedStep, setHighestCompletedStep] = useState(0);
 
+    // Debug: log currentTab whenever it changes
+    React.useEffect(() => {
+        console.log('Current Tab:', currentTab);
+    }, [currentTab]);
+
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
@@ -165,44 +170,82 @@ export default function CreateStrategicPlanPage() {
         const currentTabInfo = TABS[currentTabIndex];
 
         let result = true;
-        if(currentTabInfo.value === 'plan-info') {
-            result = await form.trigger(['name', 'startYear', 'endYear', 'version']);
-        } else if (currentTabInfo.value === 'pillars') {
-            const fieldsToValidate = form.getValues().pillars.map((_, index) => `pillars.${index}.title` as const);
-            result = await form.trigger(fieldsToValidate);
-        } else if (currentTabInfo.value === 'objectives') {
-            const fieldsToValidate = form.getValues().pillars.flatMap((_, pIndex) => 
-                form.getValues().pillars[pIndex].objectives.map((_, oIndex) => `pillars.${pIndex}.objectives.${oIndex}.statement` as const)
-            );
-            result = await form.trigger(fieldsToValidate);
-        } else if (currentTabInfo.value === 'initiatives') {
-            const fieldsToValidate = form.getValues().pillars.flatMap((_, pIndex) =>
-                form.getValues().pillars[pIndex].objectives.flatMap((_, oIndex) =>
-                    form.getValues().pillars[pIndex].objectives[oIndex].initiatives.map((_, iIndex) => `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.title` as const)
-                )
-            );
-            result = await form.trigger(fieldsToValidate);
-        } else if (currentTabInfo.value === 'activities') {
-            const fieldsToValidate: `pillars.${number}.objectives.${number}.initiatives.${number}.activities.${number}`[] = [];
-            form.getValues().pillars.forEach((pillar, pIndex) => {
-              pillar.objectives.forEach((objective, oIndex) => {
-                objective.initiatives.forEach((initiative, iIndex) => {
-                  initiative.activities.forEach((activity, aIndex) => {
-                    fieldsToValidate.push(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}`);
-                  });
-                });
-              });
-            });
-            result = await form.trigger(fieldsToValidate);
-        }
+                if(currentTabInfo.value === 'plan-info') {
+                        result = await form.trigger(['name', 'startYear', 'endYear', 'version']);
+                } else if (currentTabInfo.value === 'pillars') {
+                        const fieldsToValidate = form.getValues().pillars.map((_, index) => `pillars.${index}.title` as const);
+                        result = await form.trigger(fieldsToValidate as any);
+                } else if (currentTabInfo.value === 'objectives') {
+                        const fieldsToValidate = form.getValues().pillars.flatMap((_, pIndex) => 
+                                form.getValues().pillars[pIndex].objectives.map((_, oIndex) => `pillars.${pIndex}.objectives.${oIndex}.statement` as const)
+                        );
+                        result = await form.trigger(fieldsToValidate);
+                } else if (currentTabInfo.value === 'initiatives') {
+                        const fieldsToValidate = form.getValues().pillars.flatMap((_, pIndex) =>
+                                form.getValues().pillars[pIndex].objectives.flatMap((_, oIndex) =>
+                                        form.getValues().pillars[pIndex].objectives[oIndex].initiatives.map((_, iIndex) => `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.title` as const)
+                                )
+                        );
+                        result = await form.trigger(fieldsToValidate);
+                } else if (currentTabInfo.value === 'activities') {
+                        // Validate all fields of all activities
+                        const fieldsToValidate: string[] = [];
+                        form.getValues().pillars.forEach((pillar, pIndex) => {
+                            pillar.objectives.forEach((objective, oIndex) => {
+                                objective.initiatives.forEach((initiative, iIndex) => {
+                                    initiative.activities.forEach((activity, aIndex) => {
+                                        fieldsToValidate.push(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.title`);
+                                        fieldsToValidate.push(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.weight`);
+                                        fieldsToValidate.push(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.startDate`);
+                                        fieldsToValidate.push(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.endDate`);
+                                        fieldsToValidate.push(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.department`);
+                                        fieldsToValidate.push(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.responsible`);
+                                    });
+                                });
+                            });
+                        });
+                        result = await form.trigger(fieldsToValidate);
+                }
         
         if (result && currentTabIndex < TABS.length - 1) {
             setHighestCompletedStep(Math.max(highestCompletedStep, currentTabIndex + 1));
             setCurrentTab(TABS[currentTabIndex + 1].value);
         } else if (!result) {
-             toast({
+            // Try to extract the first error message for activities
+            let errorMsg = "Please fill out all required fields before proceeding.";
+            if (currentTabInfo.value === 'activities') {
+                const errors = form.formState.errors;
+                // Traverse errors to find the first activity error
+                const pillars = errors.pillars;
+                if (Array.isArray(pillars)) {
+                    for (const p of pillars) {
+                        if (p && p.objectives && Array.isArray(p.objectives)) {
+                            for (const o of p.objectives) {
+                                if (o && o.initiatives && Array.isArray(o.initiatives)) {
+                                    for (const i of o.initiatives) {
+                                        if (i && i.activities && Array.isArray(i.activities)) {
+                                            for (const a of i.activities) {
+                                                if (a) {
+                                                    // Find the first field error in this activity
+                                                    for (const key in a) {
+                                                        if (a[key]?.message) {
+                                                            errorMsg = a[key].message;
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            toast({
                 title: "Validation Error",
-                description: "Please fill out all required fields before proceeding.",
+                description: errorMsg,
                 variant: "destructive",
             });
             console.log("Validation failed", form.formState.errors);
@@ -220,6 +263,8 @@ export default function CreateStrategicPlanPage() {
 
     return (
         <Form {...form}>
+            {/* Debug: Show currentTab value visibly */}
+            <div style={{position: 'fixed', top: 0, right: 0, background: '#fffbe6', color: '#333', zIndex: 9999, padding: 4, fontSize: 12, border: '1px solid #f5c518'}}>Current Tab: {currentTab}</div>
             <form onSubmit={e => e.preventDefault()} className="flex-1 space-y-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -630,13 +675,14 @@ function InitiativeActivityAccordion({ pIndex, oIndex, iIndex, form }: { pIndex:
         <AccordionItem value={initiative.id} key={initiative.id}>
             <AccordionTrigger className="font-medium text-base">{initiative.title}</AccordionTrigger>
             <AccordionContent className="pl-4 border-l ml-4 space-y-4">
-                 <Table>
+                <Table>
                     <TableHeader>
                         <TableRow>
                             <TableHead>Title</TableHead>
                             <TableHead>Weight</TableHead>
                             <TableHead>Start Date</TableHead>
                             <TableHead>End Date</TableHead>
+                            <TableHead>Department</TableHead>
                             <TableHead>Responsible</TableHead>
                             <TableHead>Action</TableHead>
                         </TableRow>
@@ -644,21 +690,62 @@ function InitiativeActivityAccordion({ pIndex, oIndex, iIndex, form }: { pIndex:
                     <TableBody>
                         {activityFields.map((activity, aIndex) => (
                             <TableRow key={activity.id}>
-                                <TableCell>
-                                     <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.title`} render={({ field }) => <Input {...field} />} />
+                                <TableCell className="min-w-[180px]">
+                                    <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.title`} render={({ field, fieldState }) => (
+                                        <FormItem>
+                                            <Input {...field} placeholder="Activity Title" />
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
                                 </TableCell>
-                                <TableCell>
-                                     <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.weight`} render={({ field }) => <Input type="number" {...field} />} />
+                                <TableCell className="min-w-[100px]">
+                                    <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.weight`} render={({ field, fieldState }) => (
+                                        <FormItem>
+                                            <Input type="number" {...field} placeholder="Weight" />
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
                                 </TableCell>
-                                <TableCell>
-                                     <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.startDate`} render={({ field }) => <Input type="date" {...field} />} />
+                                <TableCell className="min-w-[140px]">
+                                    <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.startDate`} render={({ field, fieldState }) => (
+                                        <FormItem>
+                                            <Input type="date" {...field} />
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
                                 </TableCell>
-                                <TableCell>
-                                     <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.endDate`} render={({ field }) => <Input type="date" {...field} />} />
+                                <TableCell className="min-w-[140px]">
+                                    <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.endDate`} render={({ field, fieldState }) => (
+                                        <FormItem>
+                                            <Input type="date" {...field} />
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
                                 </TableCell>
-                                <TableCell>
-                                    <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.responsible`} render={({ field }) => (
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{users.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select>
+                                <TableCell className="min-w-[140px]">
+                                    <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.department`} render={({ field, fieldState }) => (
+                                        <FormItem>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>{departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                </TableCell>
+                                <TableCell className="min-w-[160px]">
+                                    <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.responsible`} render={({ field, fieldState }) => (
+                                        <FormItem>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>{users.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
                                     )} />
                                 </TableCell>
                                 <TableCell>
