@@ -2,29 +2,39 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { Activity, Pillar } from "@/lib/types";
+import type { Activity, Pillar, User } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusDonutChart } from "./status-donut-chart";
 import { calculateWeightedProgress } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { Separator } from "../ui/separator";
 
 type DepartmentalDashboardProps = {
     activities: Activity[];
     departments: string[];
+    users: User[];
     pillars: Pillar[];
-    selectedDepartment: string;
-    onDepartmentChange: (department: string) => void;
+    selectedUnit: string;
+    onUnitChange: (unit: string, type: 'department' | 'user') => void;
 }
 
-export function DepartmentalDashboard({ activities, departments, pillars, selectedDepartment, onDepartmentChange }: DepartmentalDashboardProps) {
+export function DepartmentalDashboard({ activities, departments, users, selectedUnit, onUnitChange }: DepartmentalDashboardProps) {
 
     const filteredActivities = useMemo(() => {
-        if (selectedDepartment === "All") {
+        if (selectedUnit === "All") {
             return activities;
         }
-        return activities.filter(a => a.department === selectedDepartment);
-    }, [activities, selectedDepartment]);
+        // This logic needs to know if the selected unit is a department or a user.
+        // The parent component now handles the filtering, so we can simplify here.
+        const isDepartment = departments.includes(selectedUnit);
+        if (isDepartment) {
+            return activities.filter(a => a.department === selectedUnit);
+        } else {
+            return activities.filter(a => (a.responsible as User)?.name === selectedUnit);
+        }
+
+    }, [activities, selectedUnit, departments]);
 
     const overallWeightedProgress = useMemo(() => {
         return calculateWeightedProgress(filteredActivities);
@@ -50,25 +60,51 @@ export function DepartmentalDashboard({ activities, departments, pillars, select
 
     const totalFilteredActivities = filteredActivities.length;
 
+    const departmentButtons = departments.map(dept => (
+        <Button 
+            key={dept}
+            variant={selectedUnit === dept ? "default" : "outline"}
+            onClick={() => onUnitChange(dept, 'department')}
+            className={cn(
+                "w-full justify-start text-left truncate",
+                selectedUnit === dept && "bg-primary text-primary-foreground"
+            )}
+        >
+            {dept}
+        </Button>
+    ));
+
+    const userButtons = users.map(user => (
+         <Button 
+            key={user.id}
+            variant={selectedUnit === user.name ? "default" : "outline"}
+            onClick={() => onUnitChange(user.name, 'user')}
+            className={cn(
+                "w-full justify-start text-left truncate",
+                selectedUnit === user.name && "bg-primary text-primary-foreground"
+            )}
+        >
+            {user.name}
+        </Button>
+    ));
+
     return (
         <div className="space-y-6">
             <Card>
-                <CardContent className="p-4">
+                <CardContent className="p-4 space-y-4">
                     <h2 className="text-lg font-semibold mb-3">Responsible Units</h2>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-                        {departments.map(dept => (
-                            <Button 
-                                key={dept}
-                                variant={selectedDepartment === dept ? "default" : "outline"}
-                                onClick={() => onDepartmentChange(dept)}
-                                className={cn(
-                                    "w-full justify-start text-left truncate",
-                                    selectedDepartment === dept && "bg-primary text-primary-foreground"
-                                )}
-                            >
-                                {dept}
-                            </Button>
-                        ))}
+                    <div>
+                        <h3 className="text-sm font-medium text-muted-foreground mb-2">Departments</h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+                           {departmentButtons}
+                        </div>
+                    </div>
+                    <Separator />
+                    <div>
+                        <h3 className="text-sm font-medium text-muted-foreground mb-2">Individuals</h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+                           {userButtons}
+                        </div>
                     </div>
                 </CardContent>
             </Card>
