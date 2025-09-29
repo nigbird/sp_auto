@@ -1,14 +1,19 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
-import type { Pillar, Activity, User } from "@/lib/types";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import type { Pillar, Activity, User, StrategicPlan } from "@/lib/types";
 import { PillarTable } from "@/components/dashboard/pillar-table";
 import { DepartmentalDashboard } from "./departmental-dashboard";
+import { getActivities } from "@/actions/activities";
+import { getStrategicPlanById } from "@/actions/strategic-plan";
+import { Loader2 } from "lucide-react";
 
 type DashboardClientLayoutProps = {
-    initialReportData: Pillar[];
-    allActivities: Activity[];
+    initialPillars: Pillar[];
+    initialActivities: Activity[];
+    allPlans: StrategicPlan[];
+    initialPlanId?: string;
     departments: string[];
     users: User[];
 }
@@ -35,9 +40,39 @@ function filterPillarsByResponsibleUnit(pillars: Pillar[], unit: string | null, 
 }
 
 
-export function DashboardClientLayout({ initialReportData, allActivities, departments, users }: DashboardClientLayoutProps) {
+export function DashboardClientLayout({ initialPillars, initialActivities, allPlans, initialPlanId, departments, users }: DashboardClientLayoutProps) {
+    const [selectedPlanId, setSelectedPlanId] = useState<string | undefined>(initialPlanId);
+    const [currentPillars, setCurrentPillars] = useState<Pillar[]>(initialPillars);
+    const [currentActivities, setCurrentActivities] = useState<Activity[]>(initialActivities);
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    
     const [selectedUnit, setSelectedUnit] = useState<string>("All");
     const [unitType, setUnitType] = useState<'department' | 'user' | 'all'>('all');
+
+    const handlePlanChange = useCallback(async (planId: string) => {
+        setIsLoading(true);
+        setSelectedPlanId(planId);
+        setSelectedUnit("All");
+        setUnitType("all");
+
+        const [planDetails, activities] = await Promise.all([
+             getStrategicPlanById(planId),
+             getActivities(planId)
+        ]);
+
+        if (planDetails) {
+            setCurrentPillars(planDetails.pillars);
+        }
+        setCurrentActivities(activities);
+        setIsLoading(false);
+    }, []);
+    
+    useEffect(() => {
+        if(initialPlanId) {
+            handlePlanChange(initialPlanId);
+        }
+    }, [initialPlanId, handlePlanChange]);
+
 
     const handleUnitChange = (unit: string, type: 'department' | 'user') => {
         if (unit === "All") {
@@ -50,20 +85,32 @@ export function DashboardClientLayout({ initialReportData, allActivities, depart
     };
     
     const filteredReportData = useMemo(() => {
-        return filterPillarsByResponsibleUnit(initialReportData, selectedUnit === "All" ? null : selectedUnit, unitType as 'department' | 'user');
-    }, [initialReportData, selectedUnit, unitType]);
+        if (!selectedPlanId) return [];
+        const pillarsForPlan = currentPillars;
+        return filterPillarsByResponsibleUnit(pillarsForPlan, selectedUnit === "All" ? null : selectedUnit, unitType as 'department' | 'user');
+    }, [currentPillars, selectedPlanId, selectedUnit, unitType]);
 
     return (
         <div className="space-y-6">
             <DepartmentalDashboard 
-                activities={allActivities}
+                activities={currentActivities}
                 departments={departments}
                 users={users}
-                pillars={initialReportData}
+                pillars={currentPillars}
                 selectedUnit={selectedUnit}
                 onUnitChange={handleUnitChange}
+                plans={allPlans}
+                selectedPlanId={selectedPlanId}
+                onPlanChange={handlePlanChange}
+                isLoading={isLoading}
             />
-            <PillarTable pillars={filteredReportData} />
+            {isLoading ? (
+                <div className="flex justify-center items-center h-64">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+            ) : (
+                <PillarTable pillars={filteredReportData} />
+            )}
         </div>
     )
 }

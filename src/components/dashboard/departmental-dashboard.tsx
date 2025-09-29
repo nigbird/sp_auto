@@ -2,13 +2,15 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { Activity, Pillar, User } from "@/lib/types";
+import type { Activity, Pillar, User, StrategicPlan } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusDonutChart } from "./status-donut-chart";
 import { calculateWeightedProgress } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { Separator } from "../ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "../ui/tooltip";
 
 type DepartmentalDashboardProps = {
     activities: Activity[];
@@ -17,16 +19,28 @@ type DepartmentalDashboardProps = {
     pillars: Pillar[];
     selectedUnit: string;
     onUnitChange: (unit: string, type: 'department' | 'user') => void;
+    plans: StrategicPlan[];
+    selectedPlanId?: string;
+    onPlanChange: (planId: string) => void;
+    isLoading?: boolean;
 }
 
-export function DepartmentalDashboard({ activities, departments, users, selectedUnit, onUnitChange }: DepartmentalDashboardProps) {
+export function DepartmentalDashboard({ 
+    activities, 
+    departments, 
+    users, 
+    selectedUnit, 
+    onUnitChange,
+    plans,
+    selectedPlanId,
+    onPlanChange,
+    isLoading
+}: DepartmentalDashboardProps) {
 
     const filteredActivities = useMemo(() => {
         if (selectedUnit === "All") {
             return activities;
         }
-        // This logic needs to know if the selected unit is a department or a user.
-        // The parent component now handles the filtering, so we can simplify here.
         const isDepartment = departments.includes(selectedUnit);
         if (isDepartment) {
             return activities.filter(a => a.department === selectedUnit);
@@ -61,35 +75,63 @@ export function DepartmentalDashboard({ activities, departments, users, selected
     const totalFilteredActivities = filteredActivities.length;
 
     const departmentButtons = departments.map(dept => (
-        <Button 
-            key={dept}
-            variant={selectedUnit === dept ? "default" : "outline"}
-            onClick={() => onUnitChange(dept, 'department')}
-            className={cn(
-                "w-full justify-start text-left truncate",
-                selectedUnit === dept && "bg-primary text-primary-foreground"
-            )}
-        >
-            {dept}
-        </Button>
+        <TooltipProvider key={dept}>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                     <Button 
+                        variant={selectedUnit === dept ? "default" : "outline"}
+                        onClick={() => onUnitChange(dept, 'department')}
+                        className={cn(
+                            "w-full justify-start text-left truncate",
+                            selectedUnit === dept && "bg-primary text-primary-foreground"
+                        )}
+                    >
+                        {dept}
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>{dept}</p>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
     ));
 
     const userButtons = users.map(user => (
-         <Button 
-            key={user.id}
-            variant={selectedUnit === user.name ? "default" : "outline"}
-            onClick={() => onUnitChange(user.name, 'user')}
-            className={cn(
-                "w-full justify-start text-left truncate",
-                selectedUnit === user.name && "bg-primary text-primary-foreground"
-            )}
-        >
-            {user.name}
-        </Button>
+         <TooltipProvider key={user.id}>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                     <Button 
+                        variant={selectedUnit === user.name ? "default" : "outline"}
+                        onClick={() => onUnitChange(user.name, 'user')}
+                        className={cn(
+                            "w-full justify-start text-left truncate",
+                            selectedUnit === user.name && "bg-primary text-primary-foreground"
+                        )}
+                    >
+                        {user.name}
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>{user.name}</p>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
     ));
 
     return (
         <div className="space-y-6">
+            <div className="flex justify-end">
+                <Select value={selectedPlanId} onValueChange={onPlanChange} disabled={isLoading}>
+                    <SelectTrigger className="w-[300px]">
+                        <SelectValue placeholder="Select a Strategic Plan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {plans.map(plan => (
+                            <SelectItem key={plan.id} value={plan.id}>{plan.name} (v{plan.version})</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
             <Card>
                 <CardContent className="p-4 space-y-4">
                     <h2 className="text-lg font-semibold mb-3">Responsible Units</h2>
@@ -101,7 +143,7 @@ export function DepartmentalDashboard({ activities, departments, users, selected
                     </div>
                     <Separator />
                     <div>
-                        <h3 className="text-sm font-medium text-muted-foreground mb-2">Individuals</h3>
+                        <h3 className="text-sm font-medium text-muted-foreground mb-2">Lead/Owner</h3>
                         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
                            {userButtons}
                         </div>
