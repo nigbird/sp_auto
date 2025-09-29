@@ -117,16 +117,6 @@ export async function createStrategicPlan(formData: FormData) {
     const { name, startYear, endYear, version } = validatedFields.data;
 
     try {
-        const responsibleUsers = await prisma.user.findMany({
-            where: {
-                name: {
-                    in: pillars.flatMap((p: any) => p.objectives.flatMap((o: any) => o.initiatives.flatMap((i: any) => i.activities.map((a: any) => a.responsible))))
-                }
-            }
-        });
-        const userMap = new Map(responsibleUsers.map(u => [u.name, u.id]));
-
-
         const newPlan = await prisma.strategicPlan.create({
             data: {
                 name,
@@ -154,15 +144,14 @@ export async function createStrategicPlan(formData: FormData) {
                                     collaborators: i.collaborators,
                                     activities: {
                                         create: i.activities.map((a: any) => {
-                                            const responsibleId = userMap.get(a.responsible);
-                                            if (!responsibleId) {
-                                                throw new Error(`User not found in database: '${a.responsible}'. Please ensure the name is correct.`);
+                                            if (!a.responsible) {
+                                                throw new Error(`Responsible user ID is missing for activity: '${a.title}'.`);
                                             }
                                             return {
                                                 title: a.title,
                                                 description: a.description || '',
                                                 department: a.department,
-                                                responsibleId: responsibleId,
+                                                responsibleId: a.responsible,
                                                 startDate: new Date(a.startDate),
                                                 endDate: new Date(a.endDate),
                                                 status: 'Not Started',
@@ -253,6 +242,22 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
                                             create: i.activities.map((a: any) => {
                                                  const responsibleId = userMap.get(a.responsible);
                                                 if (!responsibleId) {
+                                                    // Check if it's already an ID
+                                                    if (users.find(u => u.id === a.responsible)) {
+                                                        return {
+                                                            title: a.title,
+                                                            description: a.description || '',
+                                                            department: a.department,
+                                                            responsibleId: a.responsible,
+                                                            startDate: new Date(a.startDate),
+                                                            endDate: new Date(a.endDate),
+                                                            status: 'Not Started',
+                                                            weight: Number(a.weight),
+                                                            progress: 0,
+                                                            approvalStatus: 'APPROVED',
+                                                            strategicPlanId: id,
+                                                        }
+                                                    }
                                                     throw new Error(`User not found in database: '${a.responsible}'. Please ensure the name is correct.`);
                                                 }
                                                 return {

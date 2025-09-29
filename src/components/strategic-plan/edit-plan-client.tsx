@@ -106,14 +106,17 @@ export function EditPlanClient({ users, departments, plan }: EditPlanClientProps
         if (plan) {
             const planData = JSON.parse(JSON.stringify(plan));
             planData.pillars.forEach((p:any) => {
+                p.description = p.description ?? '';
                 p.objectives.forEach((o:any) => {
                     o.initiatives.forEach((i:any) => {
+                        i.description = i.description ?? '';
                         i.owner = i.owner || "";
                         i.collaborators = i.collaborators || [];
                         i.activities.forEach((a:any) => {
                             if (a.startDate) a.startDate = a.startDate.split('T')[0];
                             if (a.endDate) a.endDate = a.endDate.split('T')[0];
-                            a.responsible = a.responsible.id;
+                            a.responsible = a.responsible.name;
+                            a.description = a.description ?? '';
                         })
                     })
                 })
@@ -372,7 +375,7 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users,
                         ))}
                         </TableBody>
                     </Table>
-                     <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: generateId('A'), title: ``, weight: 0, startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] || '', responsible: users[0]?.id || '' })}>
+                     <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: generateId('A'), title: ``, weight: 0, startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] || '', responsible: users[0]?.name || '' })}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
                     </Button>
                 </div>
