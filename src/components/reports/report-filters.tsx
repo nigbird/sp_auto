@@ -6,8 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileDown, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import { format } from 'date-fns';
 
 type ReportFiltersProps = {
@@ -53,7 +51,10 @@ export function ReportFilters({ plans, users, filters, onFiltersChange, filtered
     XLSX.writeFile(workbook, "strategic_report.xlsx");
   }
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+
     const doc = new jsPDF();
     const selectedPlan = plans.find(p => p.id === filters.planId);
     
@@ -70,7 +71,7 @@ export function ReportFilters({ plans, users, filters, onFiltersChange, filtered
         `${a.progress}%`
     ]);
 
-    (doc as any).autoTable({
+    autoTable(doc, {
         startY: 45,
         head: [['Activity', 'Responsible', 'End Date', 'Status', 'Progress']],
         body: tableData,
