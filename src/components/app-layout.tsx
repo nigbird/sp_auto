@@ -1,6 +1,6 @@
 
 import type { ReactNode } from "react";
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./app-sidebar";
 import { Header } from "./header";
 import { usePathname } from "next/navigation";
@@ -11,9 +11,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   
   return (
     <SidebarProvider>
-      <div className="flex h-screen overflow-hidden">
+      <div className="flex h-full">
         <AppSidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex flex-1 flex-col">
           <Header />
           <main className={cn(
             "flex-1 overflow-y-auto bg-background p-4 sm:p-6 lg:p-8"

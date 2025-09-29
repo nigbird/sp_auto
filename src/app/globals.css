@@ -6,6 +6,18 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+html,
+body,
+body > div:first-child,
+div#__next,
+div#__next > div {
+  height: 100%;
+}
+
+html {
+  overflow: hidden;
+}
+
 @layer base {
   :root {
     --background: 25 20% 96%;

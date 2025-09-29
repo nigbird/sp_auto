@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { RootLayoutClient } from "@/components/root-layout-client";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Corp-Plan Dashboard",
@@ -22,7 +23,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="font-body antialiased">
+      <body className={cn("h-full font-body antialiased")}>
         <RootLayoutClient>{children}</RootLayoutClient>
       </body>
     </html>
