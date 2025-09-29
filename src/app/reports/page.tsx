@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import type { ReportData, Activity, Pillar } from '@/lib/types';
+import type { ReportData, Activity, Pillar, User } from '@/lib/types';
 import { ReportFilters } from '@/components/reports/report-filters';
 import { ReportKpiCards } from '@/components/reports/report-kpi-cards';
 import { ReportCharts } from '@/components/reports/report-charts';
@@ -50,7 +50,7 @@ export default function ReportsPage() {
         activities = activities.filter(a => a.strategicPlanId === filters.planId);
     }
     if (filters.ownerId) {
-        activities = activities.filter(a => (a.responsible as any)?.id === filters.ownerId);
+        activities = activities.filter(a => (a.responsible as User)?.id === filters.ownerId);
     }
     if (filters.status) {
         activities = activities.filter(a => a.approvalStatus === filters.status);
@@ -109,6 +109,8 @@ export default function ReportsPage() {
         users={data.users} 
         filters={filters}
         onFiltersChange={setFilters}
+        filteredPillars={filteredPillars}
+        filteredActivities={filteredActivities}
       />
       
       <ReportKpiCards activities={filteredActivities} />
