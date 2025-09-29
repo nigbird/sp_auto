@@ -191,6 +191,11 @@ export function ActivityTable({ activities: initialActivities, users, statuses }
   };
 
   const statusOptions = statuses.map(s => ({ label: s, value: s }));
+  const approvalStatusOptions = [
+    { label: 'Pending', value: 'PENDING' },
+    { label: 'Approved', value: 'APPROVED' },
+    { label: 'Declined', value: 'DECLINED' },
+  ];
 
   const columns: ColumnDef<Activity>[] = [
     {
@@ -304,12 +309,7 @@ export function ActivityTable({ activities: initialActivities, users, statuses }
     },
   });
 
-  const isFiltered = table.getState().columnFilters.length > 0
-  const approvalStatusOptions = [
-    { label: 'Pending', value: 'PENDING' },
-    { label: 'Approved', value: 'APPROVED' },
-    { label: 'Declined', value: 'DECLINED' },
-  ];
+  const isFiltered = table.getState().columnFilters.length > 0;
 
   return (
     <div>
