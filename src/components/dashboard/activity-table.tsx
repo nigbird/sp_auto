@@ -72,7 +72,7 @@ const ApprovalStatusBadge = ({ status }: { status: Activity['approvalStatus'] })
   return <Badge variant={variant} className={className}>{status}</Badge>
 }
 
-export function ActivityTable({ activities: initialActivities, users, departments, statuses }: { activities: Activity[], users: string[], departments: string[], statuses: string[] }) {
+export function ActivityTable({ activities: initialActivities, users, statuses }: { activities: Activity[], users: any[], statuses: string[] }) {
   const [data, setData] = useState(initialActivities);
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -190,8 +190,6 @@ export function ActivityTable({ activities: initialActivities, users, department
     // We don't close the form here, we open it for editing
   };
 
-
-  const departmentOptions = departments.map(d => ({ label: d, value: d }));
   const statusOptions = statuses.map(s => ({ label: s, value: s }));
 
   const columns: ColumnDef<Activity>[] = [
@@ -216,13 +214,6 @@ export function ActivityTable({ activities: initialActivities, users, department
         filterFn: (row, id, value) => {
             return value.includes(row.getValue(id));
         }
-    },
-    {
-      accessorKey: "department",
-      header: "Department",
-      filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id));
-      },
     },
     {
       accessorKey: "responsible",
@@ -333,13 +324,6 @@ export function ActivityTable({ activities: initialActivities, users, department
                     }
                     className="max-w-sm"
                 />
-                {table.getColumn("department") && (
-                    <DataTableFacetedFilter
-                        column={table.getColumn("department")}
-                        title="Department"
-                        options={departmentOptions}
-                    />
-                )}
                  {table.getColumn("status") && (
                     <DataTableFacetedFilter
                         column={table.getColumn("status")}
@@ -375,12 +359,6 @@ export function ActivityTable({ activities: initialActivities, users, department
                 )}
             </div>
              <Dialog open={isCreateFormOpen} onOpenChange={(isOpen) => { if (!isOpen) setEditingActivity(null); setIsCreateFormOpen(isOpen); }}>
-                <DialogTrigger asChild>
-                    <Button onClick={handleCreateNew}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Create Activity
-                    </Button>
-                </DialogTrigger>
                 <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
                     <DialogTitle>{editingActivity ? 'Edit Activity' : 'Create New Activity'}</DialogTitle>
@@ -388,7 +366,7 @@ export function ActivityTable({ activities: initialActivities, users, department
                     <ActivityForm 
                         onSubmit={handleFormSubmit}
                         activity={editingActivity}
-                        users={users.map(u => ({ id: u.id, name: u.name }))}
+                        users={users}
                         onCancel={() => { setIsCreateFormOpen(false); setEditingActivity(null); }}
                     />
                 </DialogContent>
@@ -509,5 +487,3 @@ export function ActivityTable({ activities: initialActivities, users, department
     </div>
   );
 }
-
-    

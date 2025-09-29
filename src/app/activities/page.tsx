@@ -9,7 +9,6 @@ export default async function ActivitiesPage() {
   const activities = await getActivities();
   const userList = await getUsers();
   const users = userList.map(u => ({ id: u.id, name: u.name }));
-  const departments = ["Marketing", "Sales", "Engineering", "Human Resources", "Support", "Finance"];
   const rules: Rule[] = await getRules();
   const statuses = rules.map(rule => rule.status);
 
@@ -18,7 +17,7 @@ export default async function ActivitiesPage() {
       <div className="flex items-center justify-between space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Activities</h1>
       </div>
-      <ActivityTable activities={activities} users={users} departments={departments} statuses={statuses} />
+      <ActivityTable activities={activities} users={users} statuses={statuses} />
     </div>
   );
 }
