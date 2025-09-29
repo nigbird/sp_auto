@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import type { ReportData, Activity } from '@/lib/types';
+import type { ReportData, Activity, Pillar } from '@/lib/types';
 import { ReportFilters } from '@/components/reports/report-filters';
 import { ReportKpiCards } from '@/components/reports/report-kpi-cards';
 import { ReportCharts } from '@/components/reports/report-charts';
@@ -31,7 +31,10 @@ export default function ReportsPage() {
   useEffect(() => {
     getReportData().then((d) => {
       setData(d as any);
-      if (d.plans.length > 0) {
+       const publishedPlan = d.plans.find(p => p.status === 'PUBLISHED');
+      if (publishedPlan) {
+        setFilters(f => ({ ...f, planId: publishedPlan.id }));
+      } else if (d.plans.length > 0) {
         setFilters(f => ({ ...f, planId: d.plans[0].id }));
       }
       setIsLoading(false);
@@ -63,11 +66,12 @@ export default function ReportsPage() {
   }, [data, filters]);
 
   const filteredPillars = useMemo(() => {
-    if (!data) return [];
+    if (!data || !filters.planId) return [];
     
     const activityIds = new Set(filteredActivities.map(a => a.id));
     
     return data.pillars
+      .filter(p => p.strategicPlanId === filters.planId)
       .map(pillar => ({
         ...pillar,
         objectives: pillar.objectives
@@ -84,7 +88,7 @@ export default function ReportsPage() {
       }))
       .filter(pillar => pillar.objectives.length > 0);
 
-  }, [data, filteredActivities]);
+  }, [data, filteredActivities, filters.planId]);
 
   if (isLoading || !data) {
     return (
@@ -109,11 +113,9 @@ export default function ReportsPage() {
       
       <ReportKpiCards activities={filteredActivities} />
       
-      <ReportCharts activities={filteredActivities} pillars={data.pillars} />
+      <ReportCharts activities={filteredActivities} pillars={filteredPillars} />
       
       <ReportDataTable data={filteredPillars} />
     </div>
   );
 }
-
-    
