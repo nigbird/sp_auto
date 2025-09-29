@@ -8,6 +8,8 @@ import { DepartmentalDashboard } from "./departmental-dashboard";
 import { getActivities } from "@/actions/activities";
 import { getStrategicPlanById } from "@/actions/strategic-plan";
 import { Loader2 } from "lucide-react";
+import { ReportSummaryCards } from "../reports/summary-cards";
+import { generateReportSummary } from "@/lib/utils";
 
 type DashboardClientLayoutProps = {
     initialPillars: Pillar[];
@@ -90,8 +92,13 @@ export function DashboardClientLayout({ initialPillars, initialActivities, allPl
         return filterPillarsByResponsibleUnit(pillarsForPlan, selectedUnit === "All" ? null : selectedUnit, unitType as 'department' | 'user');
     }, [currentPillars, selectedPlanId, selectedUnit, unitType]);
 
+    const summary = useMemo(() => {
+        return generateReportSummary(currentPillars);
+    }, [currentPillars]);
+
     return (
         <div className="space-y-6">
+            <ReportSummaryCards summary={summary} />
             <DepartmentalDashboard 
                 activities={currentActivities}
                 departments={departments}

@@ -3,7 +3,6 @@ import { getReportData } from "@/actions/reports";
 import { getActivities } from "@/actions/activities";
 import { getUsers } from "@/actions/users";
 import { DashboardClientLayout } from "@/components/dashboard/dashboard-client-layout";
-import { ReportSummaryCards } from "@/components/reports/summary-cards";
 import { generateReportSummary } from "@/lib/utils";
 import { DirectorsPerformance } from "@/components/dashboard/directors-performance";
 import type { User, StrategicPlan, Activity } from "@/lib/types";
@@ -29,11 +28,8 @@ export default async function DashboardPage() {
     return acc;
   }, []);
 
-  const summary = generateReportSummary(reportData.pillars);
-
   return (
     <div className="flex-1 space-y-6">
-      <ReportSummaryCards summary={summary} />
       <DashboardClientLayout 
         initialPillars={reportData.pillars}
         initialActivities={activities}
