@@ -5,7 +5,7 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
-import { ArrowLeft, Trash2, PlusCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Trash2, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { useState, useEffect, useMemo } from "react";
 import { updateStrategicPlan } from "@/actions/strategic-plan";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
-import type { StrategicPlan } from "@/lib/types";
+import type { StrategicPlan, User as AppUser } from "@/lib/types";
 import { useParams } from "next/navigation";
 import { format } from "date-fns";
 
@@ -115,7 +115,7 @@ export function EditPlanClient({ users, departments, plan }: EditPlanClientProps
                         i.activities.forEach((a:any) => {
                             if (a.startDate) a.startDate = a.startDate.split('T')[0];
                             if (a.endDate) a.endDate = a.endDate.split('T')[0];
-                            a.responsible = a.responsible.name;
+                            a.responsible = (a.responsible as AppUser)?.id || a.responsible;
                             a.description = a.description ?? '';
                         })
                     })
@@ -260,7 +260,7 @@ export function EditPlanClient({ users, departments, plan }: EditPlanClientProps
 
 
 function PillarAccordion({ pIndex, form, removePillar, users, departments, peopleOptions, userOptions }: { pIndex: number; form: any; removePillar: () => void; users: any[], departments: any[], peopleOptions: any[], userOptions: any[] }) {
-    const { control, watch, trigger } = form;
+    const { control, watch } = form;
     const { fields: objectiveFields, append: appendObjective, remove: removeObjective } = useFieldArray({ control, name: `pillars.${pIndex}.objectives` });
     const pillarTitle = watch(`pillars.${pIndex}.title`);
 
@@ -351,7 +351,7 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users,
                         {activityFields.map((activity, aIndex) => (
                             <TableRow key={activity.id}>
                                 <TableCell><FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.title`} render={({ field }) => <Input {...field} />} /></TableCell>
-                                <TableCell><FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.weight`} render={({ field }) => <Input type="number" {...field} />} /></TableCell>
+                                <TableCell><FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.weight`} render={({ field }) => <Input type="number" step="0.01" {...field} />} /></TableCell>
                                 <TableCell><FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.startDate`} render={({ field }) => <Input type="date" {...field} />} /></TableCell>
                                 <TableCell><FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.endDate`} render={({ field }) => <Input type="date" {...field} />} /></TableCell>
                                 <TableCell>
@@ -375,7 +375,7 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users,
                         ))}
                         </TableBody>
                     </Table>
-                     <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: generateId('A'), title: ``, weight: 0, startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] || '', responsible: users[0]?.name || '' })}>
+                     <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: generateId('A'), title: ``, weight: 0, startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] || '', responsible: users[0]?.id || '' })}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
                     </Button>
                 </div>
