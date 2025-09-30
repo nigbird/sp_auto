@@ -383,3 +383,5 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users,
         </Card>
     );
 }
+
+    
