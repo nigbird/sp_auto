@@ -96,34 +96,41 @@ export function EditPlanClient({ users, departments, plan }: EditPlanClientProps
         [...userOptions, ...departments.map(d => ({ value: d, label: d }))]
     , [userOptions, departments]);
 
-    const form = useForm<FormValues>({
-        resolver: zodResolver(formSchema),
-        defaultValues: {},
-        mode: "onChange"
-    });
-
-    useEffect(() => {
-        if (plan) {
-            const planData = JSON.parse(JSON.stringify(plan));
-            planData.pillars.forEach((p:any) => {
-                p.description = p.description ?? '';
-                p.objectives.forEach((o:any) => {
-                    o.initiatives.forEach((i:any) => {
-                        i.description = i.description ?? '';
-                        i.owner = i.owner || "";
-                        i.collaborators = i.collaborators || [];
-                        i.activities.forEach((a:any) => {
-                            if (a.startDate) a.startDate = a.startDate.split('T')[0];
-                            if (a.endDate) a.endDate = a.endDate.split('T')[0];
-                            a.responsible = (a.responsible as AppUser)?.id || a.responsible;
-                            a.description = a.description ?? '';
-                        })
+    // Prepare initial default values from plan
+    const initialDefaultValues = useMemo(() => {
+        if (!plan) return {};
+        const planData = JSON.parse(JSON.stringify(plan));
+        planData.pillars.forEach((p:any) => {
+            p.description = p.description ?? '';
+            p.objectives.forEach((o:any) => {
+                o.initiatives.forEach((i:any) => {
+                    i.description = i.description ?? '';
+                    i.owner = i.owner || "";
+                    i.collaborators = i.collaborators || [];
+                    i.activities.forEach((a:any) => {
+                        if (a.startDate) a.startDate = a.startDate.split('T')[0];
+                        if (a.endDate) a.endDate = a.endDate.split('T')[0];
+                        a.responsible = (a.responsible as AppUser)?.id || a.responsible;
+                        a.description = a.description ?? '';
                     })
                 })
             })
-            form.reset(planData);
+        })
+        return planData;
+    }, [plan]);
+
+    const form = useForm<FormValues>({
+        resolver: zodResolver(formSchema),
+        defaultValues: initialDefaultValues,
+        mode: "onChange"
+    });
+
+    // Only reset if planId changes and plan is loaded (to support navigation)
+    useEffect(() => {
+        if (planId && plan) {
+            form.reset(initialDefaultValues);
         }
-    }, [planId, form, toast, plan]);
+    }, [planId, initialDefaultValues, form]);
 
     const { fields: pillarFields, append: appendPillar, remove: removePillar } = useFieldArray({
         control: form.control,
