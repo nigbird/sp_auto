@@ -26,7 +26,7 @@ import { format } from "date-fns";
 const activitySchema = z.object({
   id: z.string().optional(),
   title: z.string().min(1, "Title is required"),
-  weight: z.coerce.number().min(1, "Weight must be greater than 0"),
+  weight: z.coerce.number().positive("Weight must be greater than 0"),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
   department: z.string().min(1, "Department is required"),
@@ -666,7 +666,7 @@ function InitiativeActivityAccordion({ pIndex, oIndex, iIndex, form, users, depa
                                 <TableCell className="min-w-[100px]">
                                     <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.weight`} render={({ field, fieldState }) => (
                                         <FormItem>
-                                            <Input type="number" {...field} placeholder="Weight" />
+                                            <Input type="number" step="0.01" {...field} placeholder="Weight" />
                                             <FormMessage />
                                         </FormItem>
                                     )} />
@@ -774,3 +774,5 @@ function ReviewSection({ form }: { form: any }) {
         </div>
     )
 }
+
+    
