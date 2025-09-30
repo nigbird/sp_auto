@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma';
 import type { StrategicPlan as StrategicPlanType } from '@/lib/types';
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
+import { getUsers } from './users';
 
 const activitySchema = z.object({
   id: z.string().optional(),
@@ -204,15 +205,8 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
     const { name, startYear, endYear, version } = validatedFields.data;
 
     try {
-        const responsibleUsers = await prisma.user.findMany({
-            where: {
-                name: {
-                    in: pillars.flatMap((p: any) => p.objectives.flatMap((o: any) => o.initiatives.flatMap((i: any) => i.activities.map((a: any) => a.responsible))))
-                }
-            }
-        });
-        const userMap = new Map(responsibleUsers.map(u => [u.name, u.id]));
-
+        const users = await getUsers();
+        
         // In a real scenario, you'd do a deep comparison and update/create/delete
         // nested entities. For simplicity, we'll delete and re-create pillars.
         await prisma.pillar.deleteMany({ where: { strategicPlanId: id }});
@@ -240,26 +234,15 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
                                         collaborators: i.collaborators,
                                         activities: {
                                             create: i.activities.map((a: any) => {
-                                                 const responsibleId = userMap.get(a.responsible);
-                                                if (!responsibleId) {
-                                                    // Check if it's already an ID
-                                                    if (users.find(u => u.id === a.responsible)) {
-                                                        return {
-                                                            title: a.title,
-                                                            description: a.description || '',
-                                                            department: a.department,
-                                                            responsibleId: a.responsible,
-                                                            startDate: new Date(a.startDate),
-                                                            endDate: new Date(a.endDate),
-                                                            status: 'Not Started',
-                                                            weight: Number(a.weight),
-                                                            progress: 0,
-                                                            approvalStatus: 'APPROVED',
-                                                            strategicPlanId: id,
-                                                        }
-                                                    }
-                                                    throw new Error(`User not found in database: '${a.responsible}'. Please ensure the name is correct.`);
+                                                const responsibleUser = users.find(u => u.name === a.responsible);
+                                                let responsibleId = a.responsible;
+                                                
+                                                if (responsibleUser) {
+                                                    responsibleId = responsibleUser.id;
+                                                } else if (!users.find(u => u.id === a.responsible)) {
+                                                     throw new Error(`User not found in database: '${a.responsible}'. Please ensure the name is correct.`);
                                                 }
+
                                                 return {
                                                     title: a.title,
                                                     description: a.description || '',
@@ -267,10 +250,10 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
                                                     responsibleId: responsibleId,
                                                     startDate: new Date(a.startDate),
                                                     endDate: new Date(a.endDate),
-                                                    status: 'Not Started',
+                                                    status: a.status || 'Not Started',
                                                     weight: Number(a.weight),
-                                                    progress: 0,
-                                                    approvalStatus: 'APPROVED',
+                                                    progress: Number(a.progress) || 0,
+                                                    approvalStatus: a.approvalStatus || 'APPROVED',
                                                     strategicPlanId: id,
                                                 }
                                             }),
@@ -294,7 +277,7 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
     
     revalidatePath('/strategic-plan');
     revalidatePath(`/strategic-plan/${id}`);
-    redirect('/strategic-plan');
+    redirect(`/strategic-plan/${id}`);
 }
 
 
