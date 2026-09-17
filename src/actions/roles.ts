@@ -3,52 +3,78 @@
 
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma';
-import { Role } from '@prisma/client';
 import { requireUser } from '@/lib/auth/session';
 import { requirePermission } from '@/lib/auth/permissions-server';
-
-const ROLE_DESCRIPTIONS: Record<Role, string> = {
-    ADMINISTRATOR: "Has all permissions.",
-    MANAGER: "Can view reports and manage activities.",
-    USER: "Can only view and update their own activities.",
-};
-
-const FIXED_ROLES: Role[] = [Role.ADMINISTRATOR, Role.MANAGER, Role.USER];
 
 export async function getRoles() {
     await requireUser();
 
-    const rows = await prisma.rolePermission.findMany();
-    const byRole = new Map<Role, string[]>();
-    for (const row of rows) {
-        byRole.set(row.role, [...(byRole.get(row.role) ?? []), row.permission]);
-    }
+    const roles = await prisma.role.findMany({
+        include: { permissions: { select: { permission: true } } },
+        orderBy: { createdAt: 'asc' },
+    });
 
-    return FIXED_ROLES.map((role) => ({
-        role,
-        name: role.charAt(0) + role.slice(1).toLowerCase(),
-        description: ROLE_DESCRIPTIONS[role],
-        permissions: byRole.get(role) ?? [],
+    return roles.map((role) => ({
+        id: role.id,
+        name: role.name,
+        isSystem: role.isSystem,
+        permissions: role.permissions.map((p) => p.permission),
     }));
 }
 
-/**
- * Fully dynamic custom roles (the "Create New Role" page's apparent intent —
- * a free-text role name, not one of the 3 fixed enum values) are out of scope
- * here: Role is a Prisma enum baked into the JWT claim type, Prisma queries,
- * and UI conditionals throughout. This updates permissions for one of the 3
- * existing fixed roles instead.
- */
-export async function updateRolePermissions(role: Role, permissions: string[]) {
+export async function createRole(name: string, permissions: string[]) {
+    await requirePermission('settings:roles:manage');
+
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+        throw new Error('Role name is required.');
+    }
+
+    const existing = await prisma.role.findUnique({ where: { name: trimmedName } });
+    if (existing) {
+        throw new Error(`A role named "${trimmedName}" already exists.`);
+    }
+
+    const role = await prisma.role.create({
+        data: {
+            name: trimmedName,
+            isSystem: false,
+            permissions: { create: permissions.map((permission) => ({ permission })) },
+        },
+    });
+
+    revalidatePath('/settings/role-management');
+    return role;
+}
+
+export async function updateRolePermissions(roleId: string, permissions: string[]) {
     await requirePermission('settings:roles:manage');
 
     await prisma.$transaction([
-        prisma.rolePermission.deleteMany({ where: { role } }),
+        prisma.rolePermission.deleteMany({ where: { roleId } }),
         prisma.rolePermission.createMany({
-            data: permissions.map((permission) => ({ role, permission })),
+            data: permissions.map((permission) => ({ roleId, permission })),
         }),
     ]);
 
     revalidatePath('/settings/role-management');
-    revalidatePath(`/settings/role-management/${role}`);
+    revalidatePath(`/settings/role-management/${roleId}`);
+}
+
+export async function deleteRole(roleId: string) {
+    await requirePermission('settings:roles:manage');
+
+    const role = await prisma.role.findUnique({ where: { id: roleId } });
+    if (!role) return;
+    if (role.isSystem) {
+        throw new Error('Built-in roles cannot be deleted.');
+    }
+
+    const usersWithRole = await prisma.user.count({ where: { roleId } });
+    if (usersWithRole > 0) {
+        throw new Error(`Cannot delete "${role.name}" — it is still assigned to ${usersWithRole} user(s).`);
+    }
+
+    await prisma.role.delete({ where: { id: roleId } });
+    revalidatePath('/settings/role-management');
 }

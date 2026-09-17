@@ -5,6 +5,7 @@ export interface AccessTokenClaims extends JWTPayload {
   sub: string; // user id
   sid: string; // session id
   role: string;
+  roleId: string;
   permissions: string[];
   sessionVersion: number;
 }
@@ -22,12 +23,14 @@ export async function signAccessToken(params: {
   userId: string;
   sessionId: string;
   role: string;
+  roleId: string;
   permissions: string[];
   sessionVersion: number;
 }): Promise<string> {
   return new SignJWT({
     sid: params.sessionId,
     role: params.role,
+    roleId: params.roleId,
     permissions: params.permissions,
     sessionVersion: params.sessionVersion,
   })

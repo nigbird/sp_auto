@@ -41,6 +41,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
 import { getUsers, updateUser, deleteUser } from "@/actions/users";
+import { getRoles } from "@/actions/roles";
 import type { User } from "@/lib/types";
 import { format } from "date-fns";
 import { UserForm, UserFormValues } from "@/components/settings/user-form";
@@ -85,9 +86,11 @@ export default function UserManagementPage() {
 
   const handleUpdateUser = async (values: UserFormValues) => {
     if (!selectedUser) return;
-    await updateUser(selectedUser.email, { name: values.name, role: values.role });
-    setUsers(users.map(user => 
-        user.email === selectedUser.email ? { ...user, name: values.name, role: values.role } : user
+    const roles = await getRoles();
+    const roleName = roles.find((r) => r.id === values.roleId)?.name ?? selectedUser.role;
+    await updateUser(selectedUser.email, { name: values.name, roleId: values.roleId });
+    setUsers(users.map(user =>
+        user.email === selectedUser.email ? { ...user, name: values.name, role: roleName, roleId: values.roleId } : user
     ));
     setIsEditDialogOpen(false);
     setSelectedUser(null);

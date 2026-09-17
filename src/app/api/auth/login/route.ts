@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Too many attempts. Try again later.', code: 'LOCKED' }, { status: 429 });
   }
 
-  const user = await prisma.user.findUnique({ where: { email: identifier } });
+  const user = await prisma.user.findUnique({ where: { email: identifier }, include: { role: true } });
   const passwordMatches = await bcrypt.compare(password, user?.passwordHash || DUMMY_HASH);
   const isValid = !!user && user.status === 'ACTIVE' && passwordMatches;
 
@@ -60,7 +60,8 @@ export async function POST(request: NextRequest) {
 
   const { accessJwt, refreshOpaqueToken } = await createSessionWithTokens({
     userId: user.id,
-    role: user.role,
+    role: user.role.name,
+    roleId: user.roleId,
     sessionVersion: user.sessionVersion,
     ip,
     userAgent: userAgent ?? '',
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
 
   const response = NextResponse.json({
     expiresIn: ACCESS_TOKEN_TTL_SECONDS,
-    user: { id: user.id, name: user.name, email: user.email, avatar: user.avatar, role: user.role },
+    user: { id: user.id, name: user.name, email: user.email, avatar: user.avatar, role: user.role.name },
   });
   await setAuthCookies(response, { accessJwt, refreshOpaqueToken });
   return response;

@@ -68,23 +68,20 @@ export async function getActivities(strategicPlanId?: string, approvedOnly?: boo
     }));
 }
 
-export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updates' | 'progress' | 'approvalStatus' | 'responsible' | 'deliverables'> & { initiativeId?: string, strategicPlanId: string, responsible: string, userId?: string, reportingPeriodId?: string, kpi?: KpiInput, deliverables?: string[] }) {
+export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updates' | 'progress' | 'approvalStatus' | 'responsible' | 'deliverables'> & { initiativeId: string, strategicPlanId: string, responsible: string, userId?: string, reportingPeriodId?: string, kpi?: KpiInput, deliverables?: string[] }) {
     // The creator is always the authenticated caller — a client-supplied userId
     // is never trusted for the auto-approval decision below.
     const creator = await requirePermission('activities:create');
 
+    if (!data.initiativeId) {
+        throw new Error('An activity must be linked to an initiative.');
+    }
+
     await assertValidDepartment(data.department);
 
-    let approvalStatus: ApprovalStatus = 'PENDING';
-
-    // If linked to an initiative, it's from a plan and auto-approved.
-    if (data.initiativeId) {
-        approvalStatus = 'APPROVED';
-    } else {
-        // If created manually: auto-approve when the creator can also approve
-        // activities (the same authority, applied to their own submission).
-        approvalStatus = (await hasPermission(creator.role, 'activities:edit')) ? 'APPROVED' : 'PENDING';
-    }
+    // Auto-approve when the creator can also approve activities (the same
+    // authority, applied to their own submission); otherwise it's pending review.
+    const approvalStatus: ApprovalStatus = (await hasPermission(creator.roleId, 'activities:edit')) ? 'APPROVED' : 'PENDING';
 
     const newActivity = await prisma.activity.create({
         data: {
@@ -137,7 +134,7 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
     // fixing and resubmitting their own declined activity, which is normal
     // self-service and shouldn't require an elevated permission.
     const isOwnerResubmittingDeclined = currentActivity.responsibleId === user.id && currentActivity.approvalStatus === 'DECLINED';
-    if (!isOwnerResubmittingDeclined && !(await hasPermission(user.role, 'activities:edit'))) {
+    if (!isOwnerResubmittingDeclined && !(await hasPermission(user.roleId, 'activities:edit'))) {
         throw new Error("You don't have permission to edit this activity.");
     }
 

@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { format } from "date-fns"
 import { CalendarIcon, RefreshCcw } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -46,12 +46,15 @@ const activitySchema = z.object({
   endDate: z.date({ required_error: "An end date is required." }),
   status: z.string().optional(),
   weight: z.coerce.number().min(0).max(100),
-  initiativeId: z.string().optional(),
-  pillarId: z.string().optional(),
-  objectiveId: z.string().optional(),
+  initiativeId: z.string({ required_error: "Please select an initiative." }).min(1, "Please select an initiative."),
+  pillarId: z.string({ required_error: "Please select a pillar." }).min(1, "Please select a pillar."),
+  objectiveId: z.string({ required_error: "Please select an objective." }).min(1, "Please select an objective."),
   reportingPeriodId: z.string().optional(),
   kpi: kpiSchema.optional(),
   deliverablesText: z.string().optional(),
+}).refine((data) => data.endDate > data.startDate, {
+  message: "End date must be after start date",
+  path: ["endDate"],
 })
 
 type ActivityFormValues = Omit<z.infer<typeof activitySchema>, 'deliverablesText'> & { deliverables: string[] };
@@ -65,8 +68,21 @@ type ActivityFormProps = {
   periods?: ReportingPeriod[];
 }
 
+function findHierarchyForInitiative(strategicPlan: StrategicPlan | null | undefined, initiativeId: string | null | undefined) {
+  if (!strategicPlan || !initiativeId) return { pillarId: undefined, objectiveId: undefined };
+  for (const pillar of strategicPlan.pillars) {
+    for (const objective of pillar.objectives) {
+      if (objective.initiatives.some((i) => i.id === initiativeId)) {
+        return { pillarId: pillar.id, objectiveId: objective.id };
+      }
+    }
+  }
+  return { pillarId: undefined, objectiveId: undefined };
+}
+
 export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPlan, periods }: ActivityFormProps) {
   const existingKpi = activity?.kpis?.[0];
+  const { pillarId: initialPillarId, objectiveId: initialObjectiveId } = findHierarchyForInitiative(strategicPlan, activity?.initiativeId);
   const form = useForm<z.infer<typeof activitySchema>>({
     resolver: zodResolver(activitySchema),
     defaultValues: {
@@ -79,6 +95,8 @@ export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPla
       status: activity?.status ?? "Not Started",
       weight: activity?.weight ?? 50,
       initiativeId: activity?.initiativeId ?? undefined,
+      pillarId: initialPillarId,
+      objectiveId: initialObjectiveId,
       reportingPeriodId: activity?.reportingPeriodId ?? undefined,
       deliverablesText: activity?.deliverables?.map(d => d.title).join('\n') ?? "",
       kpi: {
@@ -93,30 +111,47 @@ export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPla
   })
 
   const kpiHasTarget = form.watch("kpi.hasTarget");
-  
-  const [selectedPillar, setSelectedPillar] = useState<Pillar | null>(null);
-  const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
+
+  const [selectedPillar, setSelectedPillar] = useState<Pillar | null>(
+    () => strategicPlan?.pillars.find(p => p.id === initialPillarId) ?? null
+  );
+  const [selectedObjective, setSelectedObjective] = useState<Objective | null>(
+    () => strategicPlan?.pillars.find(p => p.id === initialPillarId)?.objectives.find(o => o.id === initialObjectiveId) ?? null
+  );
 
   const pillarId = form.watch("pillarId");
   const objectiveId = form.watch("objectiveId");
 
+  // Skip the very first run so preselecting pillar/objective/initiative for an
+  // existing activity (via defaultValues above) doesn't immediately get wiped
+  // out by the "pillar changed, so clear its children" reset below.
+  const isFirstPillarEffect = useRef(true);
   useEffect(() => {
+    if (isFirstPillarEffect.current) {
+      isFirstPillarEffect.current = false;
+      return;
+    }
     if (pillarId) {
       setSelectedPillar(strategicPlan?.pillars.find(p => p.id === pillarId) ?? null);
     } else {
       setSelectedPillar(null);
     }
-    form.setValue("objectiveId", undefined);
-    form.setValue("initiativeId", undefined);
+    form.setValue("objectiveId", "");
+    form.setValue("initiativeId", "");
   }, [pillarId, strategicPlan, form]);
 
+  const isFirstObjectiveEffect = useRef(true);
   useEffect(() => {
+    if (isFirstObjectiveEffect.current) {
+      isFirstObjectiveEffect.current = false;
+      return;
+    }
     if (objectiveId) {
       setSelectedObjective(selectedPillar?.objectives.find(o => o.id === objectiveId) ?? null);
     } else {
       setSelectedObjective(null);
     }
-    form.setValue("initiativeId", undefined);
+    form.setValue("initiativeId", "");
   }, [objectiveId, selectedPillar, form]);
 
   const getSubmitButtonText = () => {

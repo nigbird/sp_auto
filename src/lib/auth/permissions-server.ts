@@ -1,15 +1,14 @@
 import { prisma } from '@/lib/prisma';
-import type { Role } from '@prisma/client';
 import { requireUser } from './session';
 
-export async function getPermissionsForRole(role: Role): Promise<string[]> {
-  const rows = await prisma.rolePermission.findMany({ where: { role }, select: { permission: true } });
+export async function getPermissionsForRole(roleId: string): Promise<string[]> {
+  const rows = await prisma.rolePermission.findMany({ where: { roleId }, select: { permission: true } });
   return rows.map((r) => r.permission);
 }
 
-export async function hasPermission(role: Role, permission: string): Promise<boolean> {
+export async function hasPermission(roleId: string, permission: string): Promise<boolean> {
   const match = await prisma.rolePermission.findUnique({
-    where: { role_permission: { role, permission } },
+    where: { roleId_permission: { roleId, permission } },
   });
   return !!match;
 }
@@ -24,7 +23,7 @@ export async function hasPermission(role: Role, permission: string): Promise<boo
  */
 export async function requirePermission(permission: string) {
   const user = await requireUser();
-  const allowed = await hasPermission(user.role, permission);
+  const allowed = await hasPermission(user.roleId, permission);
   if (!allowed) {
     throw new Error(`You don't have permission to do this ("${permission}" required).`);
   }

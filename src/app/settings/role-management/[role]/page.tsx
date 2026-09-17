@@ -16,17 +16,17 @@ import { PERMISSION_GROUPS } from "@/lib/auth/permissions";
 export default function EditRolePermissionsPage() {
   const params = useParams();
   const router = useRouter();
-  const role = params.role as string;
+  const roleId = params.role as string;
   const { toast } = useToast();
 
-  const [roleName, setRoleName] = useState(role);
+  const [roleName, setRoleName] = useState(roleId);
   const [selectedPermissions, setSelectedPermissions] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     getRoles().then((roles) => {
-      const current = roles.find((r) => r.role === role);
+      const current = roles.find((r) => r.id === roleId);
       if (current) {
         setRoleName(current.name);
         const map: Record<string, boolean> = {};
@@ -35,7 +35,7 @@ export default function EditRolePermissionsPage() {
       }
       setIsLoading(false);
     });
-  }, [role]);
+  }, [roleId]);
 
   const handlePermissionChange = (id: string) => {
     setSelectedPermissions((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -56,7 +56,7 @@ export default function EditRolePermissionsPage() {
       const permissions = Object.entries(selectedPermissions)
         .filter(([, checked]) => checked)
         .map(([id]) => id);
-      await updateRolePermissions(role as any, permissions);
+      await updateRolePermissions(roleId, permissions);
       toast({ title: "Permissions Updated", description: `${roleName}'s permissions have been saved.` });
       router.push("/settings/role-management");
     } catch (error) {

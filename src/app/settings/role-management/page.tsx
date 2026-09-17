@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Edit } from "lucide-react";
+import { ArrowLeft, Edit, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -18,9 +18,9 @@ import { getRoles } from "@/actions/roles";
 import { useEffect, useState } from "react";
 
 type RoleRow = {
-    role: string;
+    id: string;
     name: string;
-    description: string;
+    isSystem: boolean;
     permissions: string[];
 };
 
@@ -42,9 +42,15 @@ export default function RoleManagementPage() {
             </Button>
             <div>
             <h1 className="text-3xl font-bold tracking-tight">Role Management</h1>
-            <p className="text-muted-foreground">The 3 built-in roles and the permissions each one grants.</p>
+            <p className="text-muted-foreground">The roles available in the system and the permissions each one grants.</p>
             </div>
         </div>
+        <Button asChild>
+          <Link href="/settings/role-management/create">
+            <Plus className="mr-2 h-4 w-4" />
+            Create Role
+          </Link>
+        </Button>
       </div>
       <Card>
         <CardHeader>
@@ -58,22 +64,26 @@ export default function RoleManagementPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Role Name</TableHead>
-                <TableHead>Description</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>Permissions</TableHead>
                 <TableHead><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {roles.map((role) => (
-                <TableRow key={role.role}>
+                <TableRow key={role.id}>
                   <TableCell className="font-medium">{role.name}</TableCell>
-                  <TableCell>{role.description}</TableCell>
+                  <TableCell>
+                    <Badge variant={role.isSystem ? "outline" : "secondary"}>
+                      {role.isSystem ? "Built-in" : "Custom"}
+                    </Badge>
+                  </TableCell>
                   <TableCell>
                     <Badge variant="secondary">{role.permissions.length} permissions</Badge>
                   </TableCell>
                   <TableCell>
                     <Button asChild size="icon" variant="ghost">
-                      <Link href={`/settings/role-management/${role.role}`}>
+                      <Link href={`/settings/role-management/${role.id}`}>
                         <Edit className="h-4 w-4" />
                         <span className="sr-only">Edit</span>
                       </Link>

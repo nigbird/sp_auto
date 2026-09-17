@@ -35,9 +35,14 @@ export async function createReportingPeriod(strategicPlanId: string, data: Repor
   });
 
   // No activities can be tied to a brand-new period yet, so there's no other
-  // natural audience — notify the people who manage periods/plans.
+  // natural audience — notify whoever holds a role with settings access
+  // (i.e. the people who manage periods/plans).
+  const roleIdsWithSettingsAccess = await prisma.rolePermission.findMany({
+    where: { permission: 'settings:view' },
+    select: { roleId: true },
+  });
   const managers = await prisma.user.findMany({
-    where: { status: 'ACTIVE', role: { in: ['ADMINISTRATOR', 'MANAGER'] } },
+    where: { status: 'ACTIVE', roleId: { in: roleIdsWithSettingsAccess.map((r) => r.roleId) } },
     select: { id: true },
   });
   await prisma.notification.createMany({

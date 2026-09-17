@@ -95,10 +95,6 @@ function Notifications() {
   );
 }
 
-function roleLabel(role: SessionUser['role']): string {
-  return role.charAt(0) + role.slice(1).toLowerCase();
-}
-
 export function Header({ pageTitle, headerActions }: { pageTitle: ReactNode, headerActions?: ReactNode }) {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
@@ -150,7 +146,7 @@ export function Header({ pageTitle, headerActions }: { pageTitle: ReactNode, hea
                  <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">{currentUser?.name ?? "..."}</p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {currentUser ? roleLabel(currentUser.role) : ""}
+                      {currentUser?.role ?? ""}
                     </p>
                   </div>
               </DropdownMenuLabel>

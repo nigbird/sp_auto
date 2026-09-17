@@ -48,7 +48,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Activity, User } from "@/lib/types";
+import type { Activity, User, StrategicPlan } from "@/lib/types";
 import { StatusBadge } from "../status-badge";
 import { approveActivityUpdate, declineActivityUpdate, updateActivity, createActivity } from "@/actions/activities";
 import { getActivities } from "@/actions/activities";
@@ -73,7 +73,7 @@ const ApprovalStatusBadge = ({ status }: { status: Activity['approvalStatus'] })
   return <Badge variant={variant} className={className}>{status}</Badge>
 }
 
-export function ActivityTable({ activities: initialActivities, users, statuses }: { activities: Activity[], users: any[], statuses: string[] }) {
+export function ActivityTable({ activities: initialActivities, users, statuses, strategicPlan }: { activities: Activity[], users: any[], statuses: string[], strategicPlan?: StrategicPlan | null }) {
   const [data, setData] = useState(initialActivities);
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -364,11 +364,12 @@ export function ActivityTable({ activities: initialActivities, users, statuses }
                     <DialogHeader>
                     <DialogTitle>{editingActivity ? 'Edit Activity' : 'Create New Activity'}</DialogTitle>
                     </DialogHeader>
-                    <ActivityForm 
+                    <ActivityForm
                         onSubmit={handleFormSubmit}
                         activity={editingActivity}
                         users={users}
                         onCancel={() => { setIsCreateFormOpen(false); setEditingActivity(null); }}
+                        strategicPlan={strategicPlan}
                     />
                 </DialogContent>
             </Dialog>

@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/prisma';
-import type { Role } from '@prisma/client';
 import { CONCURRENT_SESSION_LIMIT, REFRESH_TOKEN_TTL_SECONDS } from './config';
 import { generateOpaqueToken, sha256Hex, generateId } from './crypto';
 import { signAccessToken } from './jwt';
@@ -18,7 +17,8 @@ export interface IssuedTokens {
  */
 export async function createSessionWithTokens(params: {
   userId: string;
-  role: Role;
+  role: string;
+  roleId: string;
   sessionVersion: number;
   ip: string;
   userAgent: string;
@@ -59,11 +59,12 @@ export async function createSessionWithTokens(params: {
     return session.id;
   });
 
-  const permissions = await getPermissionsForRole(params.role);
+  const permissions = await getPermissionsForRole(params.roleId);
   const accessJwt = await signAccessToken({
     userId: params.userId,
     sessionId,
     role: params.role,
+    roleId: params.roleId,
     permissions,
     sessionVersion: params.sessionVersion,
   });
@@ -83,7 +84,7 @@ export async function rotateRefreshToken(rawRefreshToken: string): Promise<Rotat
   const tokenHash = await sha256Hex(rawRefreshToken);
   const existing = await prisma.refreshToken.findUnique({
     where: { tokenHash },
-    include: { session: { include: { user: true } } },
+    include: { session: { include: { user: { include: { role: true } } } } },
   });
 
   if (!existing) return { ok: false, reason: 'invalid' };
@@ -123,11 +124,12 @@ export async function rotateRefreshToken(rawRefreshToken: string): Promise<Rotat
     await tx.activeSession.update({ where: { id: session.id }, data: { lastSeenAt: new Date() } });
   });
 
-  const permissions = await getPermissionsForRole(session.user.role);
+  const permissions = await getPermissionsForRole(session.user.roleId);
   const accessJwt = await signAccessToken({
     userId: session.userId,
     sessionId: session.id,
-    role: session.user.role,
+    role: session.user.role.name,
+    roleId: session.user.roleId,
     permissions,
     sessionVersion: session.user.sessionVersion,
   });

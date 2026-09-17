@@ -22,14 +22,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { getRoles } from "@/actions/roles";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
   email: z.string().email(),
-  role: z.enum(["Administrator", "Manager", "User"], {
-    required_error: "You need to select a role.",
-  }),
+  roleId: z.string({ required_error: "You need to select a role." }).min(1, "You need to select a role."),
 });
 
 export type UserFormValues = z.infer<typeof formSchema>;
@@ -41,12 +40,18 @@ interface UserFormProps {
 }
 
 export function UserForm({ user, onSubmit, onCancel }: UserFormProps) {
+  const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    getRoles().then(setRoles);
+  }, []);
+
   const form = useForm<UserFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       email: "",
-      role: "User",
+      roleId: "",
     },
   });
 
@@ -55,7 +60,7 @@ export function UserForm({ user, onSubmit, onCancel }: UserFormProps) {
       form.reset({
         name: user.name,
         email: user.email,
-        role: user.role,
+        roleId: user.roleId,
       });
     }
   }, [user, form]);
@@ -91,20 +96,20 @@ export function UserForm({ user, onSubmit, onCancel }: UserFormProps) {
         />
         <FormField
           control={form.control}
-          name="role"
+          name="roleId"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Role</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a role" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="Administrator">Administrator</SelectItem>
-                  <SelectItem value="Manager">Manager</SelectItem>
-                  <SelectItem value="User">User</SelectItem>
+                  {roles.map((role) => (
+                    <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <FormMessage />

@@ -23,12 +23,25 @@ model AppConfig {
 
 model RolePermission {
   id         String @id @default(cuid())
-  role       Role
+  role       Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId     String
   permission String
 
   createdAt DateTime @default(now())
 
-  @@unique([role, permission])
+  @@unique([roleId, permission])
+}
+
+model Role {
+  id       String @id @default(cuid())
+  name     String @unique
+  isSystem Boolean @default(false)
+
+  users       User[]
+  permissions RolePermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model StrategicPlan {
@@ -79,8 +92,8 @@ model Pillar {
 model Objective {
   id          String      @id @default(cuid())
   statement   String
-  pillar      Pillar?     @relation(fields: [pillarId], references: [id], onDelete: Cascade)
-  pillarId    String?
+  pillar      Pillar      @relation(fields: [pillarId], references: [id], onDelete: Cascade)
+  pillarId    String
   initiatives Initiative[]
 
   createdAt DateTime @default(now())
@@ -94,12 +107,29 @@ model Initiative {
   owner         User       @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   ownerId       String
   collaborators String[]
-  objective     Objective? @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
-  objectiveId   String?
+  objective     Objective  @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  objectiveId   String
+  isContinuous  Boolean    @default(false)
   activities    Activity[]
+  milestones    Milestone[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Milestone {
+  id           String     @id @default(cuid())
+  initiative   Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  initiativeId String
+  title        String
+  targetDate   DateTime
+  isAchieved   Boolean    @default(false)
+  achievedDate DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([initiativeId])
 }
 
 model Department {
@@ -126,8 +156,8 @@ model Activity {
   pendingUpdate   Json?
   approvalStatus  ApprovalStatus @default(PENDING)
   declineReason   String?
-  initiative      Initiative?    @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
-  initiativeId    String?
+  initiative      Initiative     @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  initiativeId    String
   strategicPlan   StrategicPlan? @relation(fields: [strategicPlanId], references: [id])
   strategicPlanId String?
   reportingPeriod   ReportingPeriod? @relation(fields: [reportingPeriodId], references: [id], onDelete: SetNull)
@@ -197,7 +227,8 @@ model User {
   name           String
   email          String       @unique
   avatar         String
-  role           Role
+  role           Role         @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  roleId         String
   status         UserStatus
   passwordHash   String       @default("")
   sessionVersion Int          @default(0)
@@ -282,12 +313,6 @@ model Rule {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-}
-
-enum Role {
-  ADMINISTRATOR
-  MANAGER
-  USER
 }
 
 enum UserStatus {

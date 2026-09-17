@@ -20,6 +20,16 @@ const activitySchema = z.object({
   department: z.string().min(1, "Department is required"),
   responsible: z.string().min(1, "Responsible person is required"),
   description: z.string().optional(),
+}).refine((data) => new Date(data.endDate) > new Date(data.startDate), {
+  message: "End date must be after start date",
+  path: ["endDate"],
+});
+
+const milestoneSchema = z.object({
+  id: z.string().optional(),
+  title: z.string().min(1, "Title is required"),
+  targetDate: z.string().min(1, "Target date is required"),
+  isAchieved: z.boolean().optional(),
 });
 
 const initiativeSchema = z.object({
@@ -28,6 +38,8 @@ const initiativeSchema = z.object({
   description: z.string().optional(),
   owner: z.string().min(1, "Owner is required"),
   collaborators: z.array(z.string()).optional(),
+  isContinuous: z.boolean().optional(),
+  milestones: z.array(milestoneSchema).optional(),
   activities: z.array(activitySchema).min(1, "At least one activity is required."),
 });
 
@@ -102,6 +114,9 @@ export async function getStrategicPlanById(id: string) {
                                         include: {
                                             responsible: true,
                                         }
+                                    },
+                                    milestones: {
+                                        orderBy: { targetDate: 'asc' },
                                     },
                                 },
                             },
@@ -183,6 +198,7 @@ export async function createStrategicPlan(formData: FormData) {
                                     description: i.description,
                                     ownerId: i.owner,
                                     collaborators: i.collaborators,
+                                    isContinuous: !!i.isContinuous,
                                     activities: {
                                         create: i.activities.map((a: any) => {
                                             if (!a.responsible) {
@@ -203,6 +219,13 @@ export async function createStrategicPlan(formData: FormData) {
                                             }
                                         }),
                                     },
+                                    milestones: i.isContinuous && i.milestones?.length ? {
+                                        create: i.milestones.map((m: any) => ({
+                                            title: m.title,
+                                            targetDate: new Date(m.targetDate),
+                                            isAchieved: !!m.isAchieved,
+                                        })),
+                                    } : undefined,
                                 })),
                             },
                         })),
@@ -292,6 +315,7 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
                                         description: i.description,
                                         ownerId: i.owner,
                                         collaborators: i.collaborators,
+                                        isContinuous: !!i.isContinuous,
                                         activities: {
                                             create: i.activities.map((a: any) => {
                                                 const responsibleUser = users.find(u => u.name === a.responsible);
@@ -318,6 +342,13 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
                                                 }
                                             }),
                                         },
+                                        milestones: i.isContinuous && i.milestones?.length ? {
+                                            create: i.milestones.map((m: any) => ({
+                                                title: m.title,
+                                                targetDate: new Date(m.targetDate),
+                                                isAchieved: !!m.isAchieved,
+                                            })),
+                                        } : undefined,
                                     })),
                                 },
                             })),

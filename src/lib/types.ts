@@ -50,7 +50,8 @@ export type User = {
   name: string;
   email: string;
   avatar: string;
-  role: "Administrator" | "Manager" | "User";
+  role: string;
+  roleId: string;
   status: "Active" | "Inactive";
   createdAt: Date;
 };
@@ -65,9 +66,18 @@ export type Notification = {
   reportingPeriodId?: string | null;
 };
 
+export type Milestone = {
+  id: string;
+  title: string;
+  targetDate: string | Date;
+  isAchieved: boolean;
+  achievedDate?: string | Date | null;
+};
+
 export type Initiative = Omit<PrismaInitiative, 'objectiveId' | 'ownerId'> & {
     owner: PrismaUser;
     activities: Activity[];
+    milestones: Milestone[];
     weight?: number;
 }
 

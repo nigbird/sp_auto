@@ -10,7 +10,8 @@ export interface SessionUser {
   name: string;
   email: string;
   avatar: string;
-  role: 'ADMINISTRATOR' | 'MANAGER' | 'USER';
+  role: string;
+  roleId: string;
   status: 'ACTIVE' | 'INACTIVE';
   /**
    * UI-level hint only, sourced from the access token's embedded snapshot
@@ -42,7 +43,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
 
   const session = await prisma.activeSession.findUnique({
     where: { id: claims.sid },
-    include: { user: true },
+    include: { user: { include: { role: true } } },
   });
 
   if (!session || session.revokedAt || session.userId !== claims.sub) return null;
@@ -59,7 +60,8 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     name: session.user.name,
     email: session.user.email,
     avatar: session.user.avatar,
-    role: session.user.role,
+    role: session.user.role.name,
+    roleId: session.user.roleId,
     status: session.user.status,
     permissions: claims.permissions ?? [],
   };

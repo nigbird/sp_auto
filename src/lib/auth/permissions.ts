@@ -56,11 +56,11 @@ export const PERMISSION_GROUPS = [
 
 export const ALL_PERMISSIONS = PERMISSION_GROUPS.flatMap((g) => g.permissions.map((p) => p.id));
 
-/** Default split used to seed RolePermission for the 3 fixed roles. */
-export const DEFAULT_ROLE_PERMISSIONS: Record<'ADMINISTRATOR' | 'MANAGER' | 'USER', string[]> = {
-  ADMINISTRATOR: [...ALL_PERMISSIONS],
-  MANAGER: ALL_PERMISSIONS.filter(
+/** Default split used to seed RolePermission for the 3 built-in roles (by display name). */
+export const DEFAULT_ROLE_PERMISSIONS: Record<'Administrator' | 'Manager' | 'User', string[]> = {
+  Administrator: [...ALL_PERMISSIONS],
+  Manager: ALL_PERMISSIONS.filter(
     (p) => !['settings:users:manage', 'settings:roles:manage', 'activities:delete'].includes(p)
   ),
-  USER: ['dashboard:view', 'my-activity:view', 'my-activity:update', 'reports:view', 'strategic-plan:view'],
+  User: ['dashboard:view', 'my-activity:view', 'my-activity:update', 'reports:view', 'strategic-plan:view'],
 };

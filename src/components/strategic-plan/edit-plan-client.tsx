@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect, type MultiSelectOption } from "@/components/ui/multi-select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useState, useEffect, useMemo } from "react";
 import { updateStrategicPlan } from "@/actions/strategic-plan";
@@ -33,6 +34,16 @@ const activitySchema = z.object({
   department: z.string().min(1, "Department is required"),
   responsible: z.string().min(1, "Responsible person is required"),
   description: z.string().optional(),
+}).refine((data) => new Date(data.endDate) > new Date(data.startDate), {
+  message: "End date must be after start date",
+  path: ["endDate"],
+});
+
+const milestoneSchema = z.object({
+  id: z.string().optional(),
+  title: z.string().min(1, "Title is required"),
+  targetDate: z.string().min(1, "Target date is required"),
+  isAchieved: z.boolean().optional(),
 });
 
 const initiativeSchema = z.object({
@@ -41,6 +52,8 @@ const initiativeSchema = z.object({
   description: z.string().optional(),
   owner: z.string().min(1, "Owner is required"),
   collaborators: z.array(z.string()).optional(),
+  isContinuous: z.boolean().optional(),
+  milestones: z.array(milestoneSchema).optional(),
   activities: z.array(activitySchema).min(1, "At least one activity is required."),
 });
 
@@ -106,6 +119,11 @@ export function EditPlanClient({ users, departments, plan }: EditPlanClientProps
                     i.description = i.description ?? '';
                     i.owner = (i.owner as AppUser)?.id || i.owner || "";
                     i.collaborators = i.collaborators || [];
+                    i.isContinuous = i.isContinuous ?? false;
+                    i.milestones = (i.milestones || []).map((m: any) => ({
+                        ...m,
+                        targetDate: m.targetDate ? m.targetDate.split('T')[0] : m.targetDate,
+                    }));
                     i.activities.forEach((a:any) => {
                         if (a.startDate) a.startDate = a.startDate.split('T')[0];
                         if (a.endDate) a.endDate = a.endDate.split('T')[0];
@@ -326,7 +344,7 @@ function ObjectiveAccordion({ pIndex, oIndex, form, removeObjective, users, depa
                         <InitiativeCard key={initiative.id} pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} form={form} removeInitiative={() => removeInitiative(iIndex)} users={users} departments={departments} peopleOptions={peopleOptions} userOptions={userOptions} />
                     ))}
                  </div>
-                <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ id: generateId('I'), title: ``, description: "", owner: users[0]?.id || "", collaborators: [], activities: [] })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ id: generateId('I'), title: ``, description: "", owner: users[0]?.id || "", collaborators: [], isContinuous: false, milestones: [], activities: [] })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Initiative
                 </Button>
             </AccordionContent>
@@ -354,6 +372,7 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users,
                     <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.owner`} render={({ field }) => <FormItem><Label>Owner</Label><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select..."/></SelectTrigger></FormControl><SelectContent>{userOptions.map(o=><SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>} />
                     <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.collaborators`} render={({ field }) => <FormItem><Label>Collaborators</Label><FormControl><MultiSelect options={peopleOptions} selected={field.value ?? []} onChange={field.onChange}/></FormControl><FormMessage /></FormItem>} />
                 </div>
+                <MilestonesEditor pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} control={control} watch={watch} />
                 <div className="space-y-2 pt-4">
                     <Label>Activities</Label>
                     <Table>
@@ -397,5 +416,55 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users,
                 </div>
             </CardContent>
         </Card>
+    );
+}
+
+function MilestonesEditor({ pIndex, oIndex, iIndex, control, watch }: { pIndex: number; oIndex: number; iIndex: number; control: any; watch: any }) {
+    const basePath = `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}`;
+    const { fields: milestoneFields, append: appendMilestone, remove: removeMilestone } = useFieldArray({ control, name: `${basePath}.milestones` });
+    const isContinuous = watch(`${basePath}.isContinuous`);
+
+    return (
+        <div className="space-y-3 rounded-lg border p-4">
+            <FormField
+                control={control}
+                name={`${basePath}.isContinuous`}
+                render={({ field }) => (
+                    <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                        <FormControl>
+                            <Checkbox checked={field.value ?? false} onCheckedChange={field.onChange} />
+                        </FormControl>
+                        <Label className="!mt-0">Continuous Initiative (ongoing, tracked with milestones instead of an end date)</Label>
+                    </FormItem>
+                )}
+            />
+            {isContinuous && (
+                <div className="space-y-2">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Milestone Title</TableHead>
+                                <TableHead>Target Date</TableHead>
+                                <TableHead>Achieved</TableHead>
+                                <TableHead>Action</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {milestoneFields.map((milestone, mIndex) => (
+                                <TableRow key={milestone.id}>
+                                    <TableCell><FormField control={control} name={`${basePath}.milestones.${mIndex}.title`} render={({ field }) => <Input {...field} placeholder="Milestone Title" />} /></TableCell>
+                                    <TableCell><FormField control={control} name={`${basePath}.milestones.${mIndex}.targetDate`} render={({ field }) => <Input type="date" {...field} />} /></TableCell>
+                                    <TableCell><FormField control={control} name={`${basePath}.milestones.${mIndex}.isAchieved`} render={({ field }) => <Checkbox checked={field.value ?? false} onCheckedChange={field.onChange} />} /></TableCell>
+                                    <TableCell><Button type="button" variant="ghost" size="icon" onClick={() => removeMilestone(mIndex)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                    <Button type="button" variant="outline" size="sm" onClick={() => appendMilestone({ id: generateId('M'), title: "", targetDate: getToday(), isAchieved: false })}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Milestone
+                    </Button>
+                </div>
+            )}
+        </div>
     );
 }

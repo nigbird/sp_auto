@@ -93,8 +93,8 @@ export default function MyActivityPage() {
   useEffect(() => {
     if (!currentUser) return;
     
-    // If admin, show all activities for the selected plan. Otherwise, filter for the user.
-    if (currentUser.role === 'ADMINISTRATOR') {
+    // If the user can view all activities, show all for the selected plan. Otherwise, filter for the user.
+    if (currentUser.permissions.includes('activities:view')) {
         setMyActivities(allActivitiesForPlan);
     } else {
         const userActivities = allActivitiesForPlan.filter(

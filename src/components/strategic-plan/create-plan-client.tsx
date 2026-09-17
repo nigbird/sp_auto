@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect, type MultiSelectOption } from "@/components/ui/multi-select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Stepper } from "@/components/ui/stepper";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
@@ -33,6 +34,16 @@ const activitySchema = z.object({
   department: z.string().min(1, "Department is required"),
   responsible: z.string().min(1, "Responsible person is required"),
   description: z.string().optional(),
+}).refine((data) => new Date(data.endDate) > new Date(data.startDate), {
+  message: "End date must be after start date",
+  path: ["endDate"],
+});
+
+const milestoneSchema = z.object({
+  id: z.string().optional(),
+  title: z.string().min(1, "Title is required"),
+  targetDate: z.string().min(1, "Target date is required"),
+  isAchieved: z.boolean().optional(),
 });
 
 const initiativeSchema = z.object({
@@ -41,6 +52,8 @@ const initiativeSchema = z.object({
   description: z.string().optional(),
   owner: z.string().min(1, "Owner is required"),
   collaborators: z.array(z.string()).optional(),
+  isContinuous: z.boolean().optional(),
+  milestones: z.array(milestoneSchema).optional(),
   activities: z.array(activitySchema).min(1, "At least one activity is required."),
 });
 
@@ -586,15 +599,90 @@ function ObjectiveInitiativeAccordion({ pIndex, oIndex, form, peopleOptions, use
                                         )}
                                     />
                                 </div>
+                                <MilestonesEditor pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} control={control} watch={form.watch} />
                             </CardContent>
                         </Card>
                      )
                 })}
-                <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ id: generateId('I'), title: `Initiative ${pIndex+1}.${oIndex+1}.${initiativeFields.length+1}`, description: "", owner: users[0]?.id || "", collaborators: [], activities: [{ id: generateId('A'), title: "New Activity", weight: 100, startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] || 'Sales', responsible: users[0]?.id || "" }] })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ id: generateId('I'), title: `Initiative ${pIndex+1}.${oIndex+1}.${initiativeFields.length+1}`, description: "", owner: users[0]?.id || "", collaborators: [], isContinuous: false, milestones: [], activities: [{ id: generateId('A'), title: "New Activity", weight: 100, startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] || 'Sales', responsible: users[0]?.id || "" }] })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Initiative
                 </Button>
             </AccordionContent>
         </AccordionItem>
+    );
+}
+
+function MilestonesEditor({ pIndex, oIndex, iIndex, control, watch }: { pIndex: number; oIndex: number; iIndex: number; control: any; watch: any }) {
+    const basePath = `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}`;
+    const { fields: milestoneFields, append: appendMilestone, remove: removeMilestone } = useFieldArray({ control, name: `${basePath}.milestones` });
+    const isContinuous = watch(`${basePath}.isContinuous`);
+
+    return (
+        <div className="space-y-3 rounded-lg border p-4">
+            <FormField
+                control={control}
+                name={`${basePath}.isContinuous`}
+                render={({ field }) => (
+                    <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                        <FormControl>
+                            <Checkbox checked={field.value ?? false} onCheckedChange={field.onChange} />
+                        </FormControl>
+                        <Label className="!mt-0">Continuous Initiative (ongoing, tracked with milestones instead of an end date)</Label>
+                    </FormItem>
+                )}
+            />
+            {isContinuous && (
+                <div className="space-y-2">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Milestone Title</TableHead>
+                                <TableHead>Target Date</TableHead>
+                                <TableHead>Achieved</TableHead>
+                                <TableHead>Action</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {milestoneFields.map((milestone, mIndex) => (
+                                <TableRow key={milestone.id}>
+                                    <TableCell className="min-w-[180px]">
+                                        <FormField control={control} name={`${basePath}.milestones.${mIndex}.title`} render={({ field }) => (
+                                            <FormItem>
+                                                <Input {...field} placeholder="Milestone Title" />
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                    </TableCell>
+                                    <TableCell className="min-w-[140px]">
+                                        <FormField control={control} name={`${basePath}.milestones.${mIndex}.targetDate`} render={({ field }) => (
+                                            <FormItem>
+                                                <Input type="date" {...field} />
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                    </TableCell>
+                                    <TableCell>
+                                        <FormField control={control} name={`${basePath}.milestones.${mIndex}.isAchieved`} render={({ field }) => (
+                                            <FormItem>
+                                                <Checkbox checked={field.value ?? false} onCheckedChange={field.onChange} />
+                                            </FormItem>
+                                        )} />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => removeMilestone(mIndex)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                    <Button type="button" variant="outline" size="sm" onClick={() => appendMilestone({ id: generateId('M'), title: "", targetDate: getToday(), isAchieved: false })}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Milestone
+                    </Button>
+                </div>
+            )}
+        </div>
     );
 }
 

@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { DEFAULT_ROLE_PERMISSIONS } from '../src/lib/auth/permissions';
 
 
-import { Role, UserStatus, PlanStatus, ApprovalStatus } from "@prisma/client";
+import { UserStatus, PlanStatus, ApprovalStatus } from "@prisma/client";
 const prisma = new PrismaClient();
 
 // Dev-only default password for every seeded user. Change on first login in any
@@ -14,12 +14,12 @@ const devPasswordHash = bcrypt.hashSync(DEV_DEFAULT_PASSWORD, 10);
 
 // Data from src/lib/data.ts (adapted for seeding)
 const users = [
-    { name: "Abebe Kebede", email: "liam@corp-plan.com", avatar: "https://picsum.photos/id/1005/100", role: Role.MANAGER, status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
-    { name: "Almaz Tesfaye", email: "olivia@corp-plan.com", avatar: "https://picsum.photos/id/1011/100", role: Role.USER, status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
-    { name: "Dawit Bekele", email: "noah@corp-plan.com", avatar: "https://picsum.photos/id/1012/100", role: Role.USER, status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
-    { name: "Hana Girma", email: "emma@corp-plan.com", avatar: "https://picsum.photos/id/1013/100", role: Role.USER, status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
-    { name: "Yonas Alemu", email: "oliver@corp-plan.com", avatar: "https://picsum.photos/id/1014/100", role: Role.USER, status: UserStatus.INACTIVE, passwordHash: devPasswordHash },
-    { name: "Selamawit Assefa", email: "admin@corp-plan.com", avatar: "https://picsum.photos/id/1/100", role: Role.ADMINISTRATOR, status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
+    { name: "Abebe Kebede", email: "liam@corp-plan.com", avatar: "https://picsum.photos/id/1005/100", roleName: "Manager", status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
+    { name: "Almaz Tesfaye", email: "olivia@corp-plan.com", avatar: "https://picsum.photos/id/1011/100", roleName: "User", status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
+    { name: "Dawit Bekele", email: "noah@corp-plan.com", avatar: "https://picsum.photos/id/1012/100", roleName: "User", status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
+    { name: "Hana Girma", email: "emma@corp-plan.com", avatar: "https://picsum.photos/id/1013/100", roleName: "User", status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
+    { name: "Yonas Alemu", email: "oliver@corp-plan.com", avatar: "https://picsum.photos/id/1014/100", roleName: "User", status: UserStatus.INACTIVE, passwordHash: devPasswordHash },
+    { name: "Selamawit Assefa", email: "admin@corp-plan.com", avatar: "https://picsum.photos/id/1/100", roleName: "Administrator", status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
 ];
 
 const rules = [
@@ -40,15 +40,32 @@ const notifications = [
 async function main() {
     console.log(`Start seeding ...`);
 
+    const builtInRoles = [
+        { name: "Administrator", isSystem: true },
+        { name: "Manager", isSystem: true },
+        { name: "User", isSystem: true },
+    ];
+    const roleByName = new Map<string, string>();
+    for (const r of builtInRoles) {
+        const role = await prisma.role.upsert({
+            where: { name: r.name },
+            update: {},
+            create: r,
+        });
+        roleByName.set(r.name, role.id);
+    }
+    console.log(`Seeded ${builtInRoles.length} built-in roles.`);
+
     for (const u of users) {
+        const { roleName, ...rest } = u;
         const user = await prisma.user.upsert({
             where: { email: u.email },
             update: { passwordHash: u.passwordHash },
-            create: u,
+            create: { ...rest, roleId: roleByName.get(roleName)! },
         });
         console.log(`Created user with id: ${user.id}`);
     }
-    
+
     // Use a transaction to ensure all rules are created or none are.
     await prisma.$transaction(
       rules.map((r) =>
@@ -78,12 +95,13 @@ async function main() {
     }
     console.log(`Seeded ${baseDepartments.length} departments.`);
 
-    for (const [role, permissions] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
+    for (const [roleName, permissions] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
+        const roleId = roleByName.get(roleName)!;
         for (const permission of permissions) {
             await prisma.rolePermission.upsert({
-                where: { role_permission: { role: role as Role, permission } },
+                where: { roleId_permission: { roleId, permission } },
                 update: {},
-                create: { role: role as Role, permission },
+                create: { roleId, permission },
             });
         }
     }

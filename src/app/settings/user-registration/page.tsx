@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { createUser } from "@/actions/users";
-import type { User } from "@/lib/types";
+import { getRoles } from "@/actions/roles";
 import { useRouter } from "next/navigation";
 
 
@@ -21,16 +21,20 @@ export default function UserRegistrationPage() {
   const [leadOwner, setLeadOwner] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<User['role'] | ''>("");
+  const [roleId, setRoleId] = useState<string>("");
+  const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
 
+  useEffect(() => {
+    getRoles().then(setRoles);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!role) {
+    if (!roleId) {
         toast({ title: "Error", description: "Please select a role.", variant: "destructive"});
         return;
     }
-    await createUser({ name: leadOwner, email: email, role: role as User['role'] });
+    await createUser({ name: leadOwner, email: email, roleId });
     toast({
       title: "User Registered",
       description: `User ${leadOwner} has been successfully registered.`,
@@ -74,14 +78,14 @@ export default function UserRegistrationPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
-              <Select value={role} onValueChange={(value) => setRole(value as User['role'])}>
+              <Select value={roleId} onValueChange={setRoleId}>
                 <SelectTrigger id="role">
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Administrator">Administrator</SelectItem>
-                  <SelectItem value="Manager">Manager</SelectItem>
-                  <SelectItem value="User">User</SelectItem>
+                  {roles.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

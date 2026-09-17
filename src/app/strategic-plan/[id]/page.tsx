@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { getObjectiveWeight, getInitiativeWeight, getPillarWeight } from "@/lib/utils";
 import type { Pillar, Objective, Initiative, Activity, User } from "@/lib/types";
-import { ArrowLeft, Edit, Trash2, User as UserIcon, Calendar, Weight, Info } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, User as UserIcon, Calendar, Weight, Info, Flag, CheckCircle2, Circle } from "lucide-react";
 import { PublishButton } from "@/components/strategic-plan/publish-button";
 
 async function deletePlanAction(formData: FormData) {
@@ -93,7 +93,10 @@ function InitiativeItem({ initiative }: { initiative: Initiative }) {
         <Card className="overflow-hidden bg-background/70">
             <CardHeader className="flex flex-row items-center justify-between p-3">
                 <div>
-                     <h5 className="font-medium">{initiative.title}</h5>
+                     <h5 className="font-medium flex items-center gap-2">
+                        {initiative.title}
+                        {initiative.isContinuous && <Badge variant="outline">Continuous</Badge>}
+                     </h5>
                      <p className="text-xs text-muted-foreground flex items-center gap-1"><UserIcon className="h-3 w-3"/> Owner: {initiative.owner.name}</p>
                 </div>
                  <div className="flex items-center gap-4">
@@ -102,12 +105,40 @@ function InitiativeItem({ initiative }: { initiative: Initiative }) {
                     </div>
                 </div>
             </CardHeader>
+            {initiative.isContinuous && initiative.milestones.length > 0 && (
+                <CardContent className="px-3 pt-0 pb-3">
+                    <MilestonesList milestones={initiative.milestones} />
+                </CardContent>
+            )}
             {initiative.activities.length > 0 && (
                  <CardContent className="px-3 pb-3 space-y-2">
                     {initiative.activities.map(activity => <ActivityItem key={activity.id} activity={activity} />)}
                 </CardContent>
             )}
         </Card>
+    )
+}
+
+function MilestonesList({ milestones }: { milestones: Initiative['milestones'] }) {
+    return (
+        <div className="rounded-md border bg-background p-3 space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><Flag className="h-3 w-3" /> Milestones</p>
+            <ul className="space-y-1">
+                {milestones.map(milestone => (
+                    <li key={milestone.id} className="flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-1.5">
+                            {milestone.isAchieved ? (
+                                <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                            ) : (
+                                <Circle className="h-3.5 w-3.5 text-muted-foreground" />
+                            )}
+                            {milestone.title}
+                        </span>
+                        <span className="text-muted-foreground">{format(new Date(milestone.targetDate), "MMM d, yyyy")}</span>
+                    </li>
+                ))}
+            </ul>
+        </div>
     )
 }
 

@@ -2,6 +2,7 @@
 import { getActivities } from "@/actions/activities";
 import { getRules } from "@/actions/rules";
 import { getUsers } from "@/actions/users";
+import { listStrategicPlans, getStrategicPlanById } from "@/actions/strategic-plan";
 import { ActivityTable } from "@/components/dashboard/activity-table";
 import type { Rule } from "@/lib/types";
 
@@ -12,12 +13,16 @@ export default async function ActivitiesPage() {
   const rules: Rule[] = await getRules();
   const statuses = rules.map(rule => rule.status);
 
+  const plans = await listStrategicPlans();
+  const publishedPlan = plans.find(p => p.status === 'PUBLISHED') ?? plans[0] ?? null;
+  const strategicPlan = publishedPlan ? await getStrategicPlanById(publishedPlan.id) : null;
+
   return (
     <div className="flex-1 space-y-6">
       <div className="flex items-center justify-between space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Activities</h1>
       </div>
-      <ActivityTable activities={activities} users={users} statuses={statuses} />
+      <ActivityTable activities={activities} users={users} statuses={statuses} strategicPlan={strategicPlan} />
     </div>
   );
 }
