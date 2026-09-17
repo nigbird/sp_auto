@@ -1,5 +1,5 @@
 
-import { getStrategicPlanById, deleteStrategicPlan, publishStrategicPlan } from "@/actions/strategic-plan";
+import { getStrategicPlanById, deleteStrategicPlan } from "@/actions/strategic-plan";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,23 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { getObjectiveWeight, getInitiativeWeight, getPillarWeight } from "@/lib/utils";
 import type { Pillar, Objective, Initiative, Activity, User } from "@/lib/types";
-import { ArrowLeft, Edit, Trash2, CheckCircle, User as UserIcon, Calendar, Weight, Info } from "lucide-react";
-
-
-// Server action wrappers
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { ArrowLeft, Edit, Trash2, User as UserIcon, Calendar, Weight, Info } from "lucide-react";
+import { PublishButton } from "@/components/strategic-plan/publish-button";
 
 async function deletePlanAction(formData: FormData) {
   "use server";
   const planId = formData.get("planId") as string;
   await deleteStrategicPlan(planId);
-}
-
-async function publishPlanAction(formData: FormData) {
-  "use server";
-  const planId = formData.get("planId") as string;
-  await publishStrategicPlan(planId);
 }
 
 function ActionButtons({ planId, status }: { planId: string, status: string }) {
@@ -41,14 +31,7 @@ function ActionButtons({ planId, status }: { planId: string, status: string }) {
                     <Trash2 className="mr-2 h-4 w-4" /> Delete
                 </Button>
             </form>
-            {status !== 'PUBLISHED' && (
-                <form action={publishPlanAction}>
-                    <input type="hidden" name="planId" value={planId} />
-                    <Button type="submit">
-                        <CheckCircle className="mr-2 h-4 w-4" /> Publish
-                    </Button>
-                </form>
-            )}
+            {status !== 'PUBLISHED' && <PublishButton planId={planId} />}
         </div>
     )
 }

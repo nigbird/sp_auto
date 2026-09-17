@@ -37,6 +37,47 @@ export const getPillarWeight = (pillar: Pillar): number => {
     }, 0);
 }
 
+/** Sums raw activity weights from wizard form data (weight may still be a string before zod coercion), as opposed to getInitiativeWeight which operates on a fully-typed Initiative. */
+export function calculateInitiativeWeight(activities: { weight: number | string }[] = []): number {
+    return activities.reduce((total, activity) => total + (Number(activity.weight) || 0), 0);
+}
+
+const WEIGHT_RECONCILIATION_TOLERANCE = 0.01;
+
+export interface WeightReconciliationResult {
+    valid: boolean;
+    issues: string[];
+}
+
+/**
+ * Checks that every initiative's activity weights sum to 100% — the only
+ * level with real, user-entered weights (Pillar/Objective weights are purely
+ * derived rollups with nothing of their own to reconcile). Operates on raw
+ * wizard form data (pillars -> objectives -> initiatives -> activities), so
+ * it can run before anything is written to the DB.
+ */
+export function validateWeightReconciliation(
+    pillars: { title?: string; objectives: { statement?: string; initiatives: { title?: string; activities: { weight: number | string }[] }[] }[] }[]
+): WeightReconciliationResult {
+    const issues: string[] = [];
+
+    for (const pillar of pillars) {
+        for (const objective of pillar.objectives) {
+            for (const initiative of objective.initiatives) {
+                if (!initiative.activities || initiative.activities.length === 0) continue;
+                const total = calculateInitiativeWeight(initiative.activities);
+                if (Math.abs(total - 100) > WEIGHT_RECONCILIATION_TOLERANCE) {
+                    issues.push(
+                        `Initiative "${initiative.title || 'Untitled'}" (Objective "${objective.statement || 'Untitled'}", Pillar "${pillar.title || 'Untitled'}"): weights sum to ${total.toFixed(1)}% — must total 100%.`
+                    );
+                }
+            }
+        }
+    }
+
+    return { valid: issues.length === 0, issues };
+}
+
 
 export const getInitiativeProgress = (initiative: Initiative): number => {
     return calculateWeightedProgress(initiative.activities);

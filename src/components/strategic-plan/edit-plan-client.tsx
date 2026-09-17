@@ -22,6 +22,7 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from "@/component
 import type { StrategicPlan, User as AppUser } from "@/lib/types";
 import { useParams } from "next/navigation";
 import { format } from "date-fns";
+import { calculateInitiativeWeight } from "@/lib/utils";
 
 const activitySchema = z.object({
   id: z.string().optional(),
@@ -155,13 +156,15 @@ export function EditPlanClient({ users, departments, plan }: EditPlanClientProps
 
         const result = await updateStrategicPlan(planId, formData);
         if (result?.success === false) {
+             const formIssues = (result.errors as any)?._form as string[] | undefined;
              toast({
                 title: "Validation Error",
-                description: "Please correct the errors and try again.",
+                description: formIssues?.length ? formIssues.join(' ') : "Please correct the errors and try again.",
                 variant: "destructive",
             });
             form.clearErrors();
             for (const [field, messages] of Object.entries(result.errors)) {
+                if (field === '_form') continue;
                 form.setError(field as any, {
                     type: 'manual',
                     message: (messages as string[]).join(', '),
@@ -334,8 +337,11 @@ function ObjectiveAccordion({ pIndex, oIndex, form, removeObjective, users, depa
 }
 
 function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users, departments, peopleOptions, userOptions }: { pIndex: number; oIndex: number; iIndex: number; form: any, removeInitiative: () => void, users: any[], departments: any[], peopleOptions: any[], userOptions: any[] }) {
-    const { control } = form;
+    const { control, watch } = form;
     const { fields: activityFields, append: appendActivity, remove: removeActivity } = useFieldArray({ control, name: `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities` });
+    const activities = watch(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities`) || [];
+    const totalWeight = calculateInitiativeWeight(activities);
+    const isBalanced = Math.abs(totalWeight - 100) < 0.01;
 
     return (
         <Card>
@@ -382,9 +388,14 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users,
                         ))}
                         </TableBody>
                     </Table>
-                     <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: generateId('A'), title: ``, weight: 0, startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] || '', responsible: users[0]?.id || '' })}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
-                    </Button>
+                     <div className="flex items-center justify-between">
+                        <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: generateId('A'), title: ``, weight: 0, startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] || '', responsible: users[0]?.id || '' })}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
+                        </Button>
+                        <p className={`text-sm font-medium ${isBalanced ? 'text-green-600' : 'text-destructive'}`}>
+                            Total weight: {totalWeight.toFixed(1)}% {!isBalanced && '(must total 100%)'}
+                        </p>
+                    </div>
                 </div>
             </CardContent>
         </Card>

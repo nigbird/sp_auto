@@ -22,6 +22,7 @@ import React, { useState, useMemo } from "react";
 import { createStrategicPlan } from "@/actions/strategic-plan";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { format } from "date-fns";
+import { calculateInitiativeWeight } from "@/lib/utils";
 
 const activitySchema = z.object({
   id: z.string().optional(),
@@ -145,23 +146,31 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
         name: "pillars"
     });
 
-    const handleFormSubmit = (status: 'DRAFT' | 'PUBLISHED') => {
+    const handleFormSubmit = async (status: 'DRAFT' | 'PUBLISHED') => {
         const formData = new FormData();
         const formValues = form.getValues();
-        
+
         formData.append('name', formValues.name);
         formData.append('startYear', String(formValues.startYear));
         formData.append('endYear', String(formValues.endYear));
         formData.append('version', formValues.version);
         formData.append('pillars', JSON.stringify(formValues.pillars));
         formData.append('status', status);
-        
+
         toast({
             title: status === 'DRAFT' ? "Saving Draft..." : "Publishing Plan...",
             description: "Please wait.",
         });
 
-        createStrategicPlan(formData);
+        try {
+            await createStrategicPlan(formData);
+        } catch (error) {
+            toast({
+                title: status === 'DRAFT' ? "Could Not Save Draft" : "Could Not Publish Plan",
+                description: error instanceof Error ? error.message : "An unexpected error occurred.",
+                variant: "destructive",
+            });
+        }
     };
 
     const handleNext = async () => {
@@ -428,7 +437,6 @@ function StepHeader({ title, description }: { title: string, description: string
     )
 }
 
-const calculateInitiativeWeight = (activities: any[] = []) => activities.reduce((total, activity) => total + (Number(activity.weight) || 0), 0);
 const calculateObjectiveWeight = (initiatives: any[] = []) => initiatives.reduce((total, initiative) => total + calculateInitiativeWeight(initiative.activities || []), 0);
 const calculatePillarWeight = (objectives: any[] = []) => objectives.reduce((total, objective) => total + calculateObjectiveWeight(objective.initiatives || []), 0);
 
@@ -722,9 +730,20 @@ function InitiativeActivityAccordion({ pIndex, oIndex, iIndex, form, users, depa
                         ))}
                     </TableBody>
                 </Table>
-                <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: generateId('A'), title: ``, weight: 0, startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] || '', responsible: users[0]?.id || '' })}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
-                </Button>
+                <div className="flex items-center justify-between">
+                    <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: generateId('A'), title: ``, weight: 0, startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] || '', responsible: users[0]?.id || '' })}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
+                    </Button>
+                    {(() => {
+                        const total = calculateInitiativeWeight(initiative.activities || []);
+                        const isBalanced = Math.abs(total - 100) < 0.01;
+                        return (
+                            <p className={`text-sm font-medium ${isBalanced ? 'text-green-600' : 'text-destructive'}`}>
+                                Total weight: {total.toFixed(1)}% {!isBalanced && '(must total 100%)'}
+                            </p>
+                        );
+                    })()}
+                </div>
             </AccordionContent>
         </AccordionItem>
     );
@@ -752,9 +771,10 @@ function ReviewSection({ form }: { form: any }) {
                                     <h5 className="font-semibold">{objective.statement} (Total Weight: {objectiveWeight})</h5>
                                     {objective.initiatives.map((initiative: any, iIndex: number) => {
                                         const initiativeWeight = calculateInitiativeWeight(initiative.activities);
+                                        const isBalanced = Math.abs(initiativeWeight - 100) < 0.01;
                                         return (
                                              <div key={iIndex} className="p-2 border rounded-md space-y-2 bg-muted/20 ml-4">
-                                                 <h6 className="font-medium">{initiative.title} (Total Weight: {initiativeWeight})</h6>
+                                                 <h6 className={`font-medium ${isBalanced ? '' : 'text-destructive'}`}>{initiative.title} (Total Weight: {initiativeWeight.toFixed(1)}%{!isBalanced && ' — must total 100%'})</h6>
                                                  <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
                                                     {initiative.activities.map((activity: any, aIndex: number) => (
                                                         <li key={aIndex}>

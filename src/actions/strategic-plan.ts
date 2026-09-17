@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { redirect } from 'next/navigation';
 import { getUsers } from './users';
 import { requireUser } from '@/lib/auth/session';
+import { validateWeightReconciliation } from '@/lib/utils';
 
 const activitySchema = z.object({
   id: z.string().optional(),
@@ -124,6 +125,13 @@ export async function createStrategicPlan(formData: FormData) {
     
     const { name, startYear, endYear, version } = validatedFields.data;
 
+    if (status === 'PUBLISHED') {
+        const reconciliation = validateWeightReconciliation(pillars);
+        if (!reconciliation.valid) {
+            throw new Error(`Cannot publish: ${reconciliation.issues.join(' ')}`);
+        }
+    }
+
     try {
         const newPlan = await prisma.strategicPlan.create({
             data: {
@@ -213,6 +221,16 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
     
     const { name, startYear, endYear, version } = validatedFields.data;
 
+    if (status === 'PUBLISHED') {
+        const reconciliation = validateWeightReconciliation(pillars);
+        if (!reconciliation.valid) {
+            return {
+                success: false,
+                errors: { _form: reconciliation.issues },
+            };
+        }
+    }
+
     try {
         const users = await getUsers();
         
@@ -292,6 +310,14 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
 
 export async function publishStrategicPlan(id: string) {
     await requireUser();
+
+    const plan = await getStrategicPlanById(id);
+    if (!plan) throw new Error("Strategic plan not found.");
+
+    const reconciliation = validateWeightReconciliation(plan.pillars);
+    if (!reconciliation.valid) {
+        throw new Error(`Cannot publish: ${reconciliation.issues.join(' ')}`);
+    }
 
     await prisma.strategicPlan.update({
         where: { id },
