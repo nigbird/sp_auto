@@ -19,6 +19,7 @@ import { Button } from "../ui/button";
 import { ArrowRight } from "lucide-react";
 import { ScrollArea } from "../ui/scroll-area";
 import { calculateKpiAchievement } from "@/lib/kpi";
+import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
 
 type ActivityDetailsDialogProps = {
   isOpen: boolean;
@@ -121,12 +122,15 @@ export function ActivityDetailsDialog({
                     </div>
                 </div>
 
-                {(activity as any).reportingPeriod && (
+                {activity.reportingPeriod && (
                     <div className="space-y-1">
                         <Label>Reporting Period</Label>
-                        <p className="text-sm font-medium">
-                            {(activity as any).reportingPeriod.name}
-                            <span className="text-muted-foreground"> (cut-off {format(new Date((activity as any).reportingPeriod.cutOffDate), "PP")})</span>
+                        <p className="text-sm font-medium flex items-center gap-2">
+                            {activity.reportingPeriod.name}
+                            <span className="text-muted-foreground font-normal">(cut-off {format(new Date(activity.reportingPeriod.cutOffDate), "PP")})</span>
+                            {isPeriodClosedForSubmissions(activity.reportingPeriod) && (
+                                <Badge variant="outline" className="border-amber-500 text-amber-600 bg-amber-500/10">Closed for submissions</Badge>
+                            )}
                         </p>
                     </div>
                 )}

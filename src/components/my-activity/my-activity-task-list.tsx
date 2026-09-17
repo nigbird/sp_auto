@@ -15,6 +15,7 @@ import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { Label } from "../ui/label";
 import { calculateActivityStatus } from "@/lib/utils";
+import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
 import { Progress } from "../ui/progress";
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "../ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../ui/alert-dialog";
@@ -90,6 +91,7 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
 
     const isAdmin = currentUser?.role === 'ADMINISTRATOR';
   const showApprovalControls = isAdmin && activity.approvalStatus === 'PENDING';
+  const periodClosed = isPeriodClosedForSubmissions(activity.reportingPeriod);
 
   React.useEffect(() => {
     const activityWithDateObjects = {
@@ -211,8 +213,15 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
                                 onChange={(e) => setUpdateComment(e.target.value)}
                             />
                          </div>
+                         {periodClosed && (
+                            <p className="text-sm text-destructive">
+                                {activity.reportingPeriod?.status === 'CLOSED'
+                                    ? `The "${activity.reportingPeriod?.name}" reporting period has been closed — updates can no longer be submitted.`
+                                    : `The "${activity.reportingPeriod?.name}" reporting period's cut-off date (${format(new Date(activity.reportingPeriod!.cutOffDate), "PP")}) has passed — updates can no longer be submitted.`}
+                            </p>
+                         )}
                          <div className="flex justify-end">
-                            <Button onClick={handleSubmit}>Resubmit Update for Review</Button>
+                            <Button onClick={handleSubmit} disabled={periodClosed}>Resubmit Update for Review</Button>
                         </div>
                     </>
                     )}

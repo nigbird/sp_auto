@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma';
 import type { Activity } from '@/lib/types';
 import { calculateActivityStatus } from '@/lib/utils';
+import { isPeriodClosedForSubmissions } from '@/lib/reporting-period';
 import type { ApprovalStatus, User } from '@prisma/client';
 import { requireUser } from '@/lib/auth/session';
 
@@ -143,8 +144,16 @@ export async function submitActivityUpdate(activityId: string, progress: number,
     // The submitting user is always the authenticated caller, not the passed userId.
     const user = await requireUser();
 
-    const activity = await prisma.activity.findUnique({ where: { id: activityId } });
+    const activity = await prisma.activity.findUnique({ where: { id: activityId }, include: { reportingPeriod: true } });
     if (!activity) throw new Error("Activity not found");
+
+    if (isPeriodClosedForSubmissions(activity.reportingPeriod)) {
+        const period = activity.reportingPeriod!;
+        const reason = period.status === 'CLOSED'
+            ? 'has been closed by an administrator'
+            : `passed its cut-off date (${period.cutOffDate.toLocaleDateString()})`;
+        throw new Error(`Cannot submit an update: the reporting period "${period.name}" ${reason}.`);
+    }
 
     const pendingUpdate = {
         user: user.name,

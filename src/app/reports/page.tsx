@@ -54,7 +54,7 @@ export default function ReportsPage() {
         activities = activities.filter(a => a.approvalStatus === filters.status);
     }
     if (filters.reportingPeriodId) {
-        activities = activities.filter(a => (a as any).reportingPeriodId === filters.reportingPeriodId);
+        activities = activities.filter(a => a.reportingPeriodId === filters.reportingPeriodId);
     }
 
     return activities;

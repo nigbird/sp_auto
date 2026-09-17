@@ -32,6 +32,7 @@ export type Activity = Omit<PrismaActivity, 'responsibleId'> & {
     responsible: PrismaUser | string;
     kpis: KPI[];
     updates: ActivityUpdate[];
+    reportingPeriod?: ReportingPeriod | null;
 };
 
 export type User = {

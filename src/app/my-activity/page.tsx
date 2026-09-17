@@ -138,8 +138,17 @@ export default function MyActivityPage() {
     updateComment: string
   ) => {
     if (!currentUser) return;
-    await submitActivityUpdate(activityId, newProgress, updateComment, currentUser.id);
-    
+    try {
+      await submitActivityUpdate(activityId, newProgress, updateComment, currentUser.id);
+    } catch (error) {
+      toast({
+        title: "Submission Blocked",
+        description: error instanceof Error ? error.message : "Could not submit the update.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const updatedActivities = myActivities.map(activity => {
         if (activity.id === activityId) {
             const newPendingUpdate: PendingUpdate = {

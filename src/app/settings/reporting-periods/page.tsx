@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { isCutOffPassed } from "@/lib/reporting-period";
 import { listStrategicPlans } from "@/actions/strategic-plan";
 import {
   getReportingPeriods,
@@ -200,9 +201,16 @@ export default function ReportingPeriodsPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant={period.status === "OPEN" ? "outline" : "secondary"} className={period.status === "OPEN" ? "border-green-500 text-green-600 bg-green-500/10" : ""}>
-                        {period.status}
-                      </Badge>
+                      <div className="flex flex-col items-center gap-1">
+                        <Badge variant={period.status === "OPEN" ? "outline" : "secondary"} className={period.status === "OPEN" ? "border-green-500 text-green-600 bg-green-500/10" : ""}>
+                          {period.status}
+                        </Badge>
+                        {period.status === "OPEN" && isCutOffPassed(period) && (
+                          <Badge variant="outline" className="border-amber-500 text-amber-600 bg-amber-500/10 text-[10px]">
+                            Cut-off passed
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-center">
                       {isEditing ? (

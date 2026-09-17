@@ -76,7 +76,7 @@ export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPla
       status: activity?.status ?? "Not Started",
       weight: activity?.weight ?? 50,
       initiativeId: activity?.initiativeId ?? undefined,
-      reportingPeriodId: (activity as any)?.reportingPeriodId ?? undefined,
+      reportingPeriodId: activity?.reportingPeriodId ?? undefined,
       kpi: {
         name: existingKpi?.name ?? "",
         unit: existingKpi?.unit ?? "",
