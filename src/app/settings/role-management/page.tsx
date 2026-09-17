@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, PlusCircle, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -13,24 +13,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { getRoles } from "@/actions/roles";
 import { useEffect, useState } from "react";
 
-type Role = {
+type RoleRow = {
+    role: string;
     name: string;
     description: string;
-    permissions: number;
-}
+    permissions: string[];
+};
 
 export default function RoleManagementPage() {
-    const [roles, setRoles] = useState<Role[]>([]);
+    const [roles, setRoles] = useState<RoleRow[]>([]);
 
     useEffect(() => {
         getRoles().then(setRoles);
@@ -47,20 +42,15 @@ export default function RoleManagementPage() {
             </Button>
             <div>
             <h1 className="text-3xl font-bold tracking-tight">Role Management</h1>
-            <p className="text-muted-foreground">Define roles and their permissions.</p>
+            <p className="text-muted-foreground">The 3 built-in roles and the permissions each one grants.</p>
             </div>
         </div>
-         <Button asChild>
-              <Link href="/settings/role-management/create">
-                <PlusCircle className="mr-2 h-4 w-4" /> Create New Role
-              </Link>
-        </Button>
       </div>
       <Card>
         <CardHeader>
           <CardTitle>Application Roles</CardTitle>
           <CardDescription>
-            Create, edit, or delete roles and manage their associated permissions.
+            Edit a role to change which of the granular permissions it grants.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -75,25 +65,19 @@ export default function RoleManagementPage() {
             </TableHeader>
             <TableBody>
               {roles.map((role) => (
-                <TableRow key={role.name}>
+                <TableRow key={role.role}>
                   <TableCell className="font-medium">{role.name}</TableCell>
                   <TableCell>{role.description}</TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{role.permissions} permissions</Badge>
+                    <Badge variant="secondary">{role.permissions.length} permissions</Badge>
                   </TableCell>
                   <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>Delete</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Button asChild size="icon" variant="ghost">
+                      <Link href={`/settings/role-management/${role.role}`}>
+                        <Edit className="h-4 w-4" />
+                        <span className="sr-only">Edit</span>
+                      </Link>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma';
 import type { User } from '@/lib/types';
 import { Role } from '@prisma/client';
 import { requireUser } from '@/lib/auth/session';
+import { requirePermission } from '@/lib/auth/permissions-server';
 
 export async function getUsers(): Promise<User[]> {
     await requireUser();
@@ -14,7 +15,7 @@ export async function getUsers(): Promise<User[]> {
 }
 
 export async function createUser(data: { name: string, email: string, role: User['role'] }) {
-    await requireUser();
+    await requirePermission('settings:users:manage');
     const newUser = await prisma.user.create({
         data: {
             name: data.name,
@@ -30,7 +31,7 @@ export async function createUser(data: { name: string, email: string, role: User
 }
 
 export async function updateUser(email: string, data: Partial<Pick<User, 'name' | 'role' | 'status'>>) {
-    await requireUser();
+    await requirePermission('settings:users:manage');
     const updateData: any = { ...data };
     if (data.role) {
         updateData.role = data.role.toUpperCase() as Role;
@@ -44,7 +45,7 @@ export async function updateUser(email: string, data: Partial<Pick<User, 'name' 
 }
 
 export async function deleteUser(email: string) {
-    await requireUser();
+    await requirePermission('settings:users:manage');
     await prisma.user.delete({ where: { email } });
     revalidatePath('/settings/user-management');
 }

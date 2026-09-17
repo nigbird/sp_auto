@@ -9,12 +9,13 @@ import type { User, StrategicPlan, Activity } from "@/lib/types";
 import { listStrategicPlans } from "@/actions/strategic-plan";
 
 export default async function DashboardPage() {
-  const reportData = await getReportData();
-  
+  // Only approved records feed this official dashboard view.
+  const reportData = await getReportData(true);
+
   const allPlans: StrategicPlan[] = await listStrategicPlans();
   const initialPlan = allPlans.find(p => p.status === 'PUBLISHED') || allPlans[0] || null;
-  
-  const activities: Activity[] = initialPlan ? await getActivities(initialPlan.id) : [];
+
+  const activities: Activity[] = initialPlan ? await getActivities(initialPlan.id, true) : [];
   
   const users = await getUsers();
 

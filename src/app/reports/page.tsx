@@ -19,11 +19,13 @@ export type ReportFiltersState = {
 export default function ReportsPage() {
   const [data, setData] = useState<ReportData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // Defaults to approved-only ("only approved records feed official reports"),
+  // but a reviewer can deliberately widen this via the Status filter.
   const [filters, setFilters] = useState<ReportFiltersState>({
     planId: null,
     reportingPeriodId: null,
     ownerId: null,
-    status: null,
+    status: 'APPROVED',
   });
 
   useEffect(() => {

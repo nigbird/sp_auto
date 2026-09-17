@@ -8,6 +8,7 @@ import { calculateActivityStatus } from '@/lib/utils';
 import { isPeriodClosedForSubmissions } from '@/lib/reporting-period';
 import type { ApprovalStatus, User } from '@prisma/client';
 import { requireUser } from '@/lib/auth/session';
+import { requirePermission, hasPermission } from '@/lib/auth/permissions-server';
 
 export interface KpiInput {
     name: string;
@@ -37,12 +38,13 @@ function buildKpiData(kpi: KpiInput) {
     };
 }
 
-export async function getActivities(strategicPlanId?: string): Promise<Activity[]> {
+export async function getActivities(strategicPlanId?: string, approvedOnly?: boolean): Promise<Activity[]> {
     await requireUser();
 
     const activities = await prisma.activity.findMany({
         where: {
-            strategicPlanId: strategicPlanId
+            strategicPlanId: strategicPlanId,
+            ...(approvedOnly ? { approvalStatus: 'APPROVED' as const } : {}),
         },
         include: {
             responsible: true,
@@ -69,7 +71,7 @@ export async function getActivities(strategicPlanId?: string): Promise<Activity[
 export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updates' | 'progress' | 'approvalStatus' | 'responsible' | 'deliverables'> & { initiativeId?: string, strategicPlanId: string, responsible: string, userId?: string, reportingPeriodId?: string, kpi?: KpiInput, deliverables?: string[] }) {
     // The creator is always the authenticated caller — a client-supplied userId
     // is never trusted for the auto-approval decision below.
-    const creator = await requireUser();
+    const creator = await requirePermission('activities:create');
 
     await assertValidDepartment(data.department);
 
@@ -79,12 +81,9 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
     if (data.initiativeId) {
         approvalStatus = 'APPROVED';
     } else {
-        // If created manually, check the role.
-        if (creator.role === 'ADMINISTRATOR') {
-            approvalStatus = 'APPROVED';
-        } else {
-            approvalStatus = 'PENDING';
-        }
+        // If created manually: auto-approve when the creator can also approve
+        // activities (the same authority, applied to their own submission).
+        approvalStatus = (await hasPermission(creator.role, 'activities:edit')) ? 'APPROVED' : 'PENDING';
     }
 
     const newActivity = await prisma.activity.create({
@@ -129,7 +128,18 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
 
 
 export async function updateActivity(activityId: string, data: Partial<Omit<Activity, 'id' | 'responsible' | 'kpis' | 'updates' | 'deliverables'>> & { responsible?: string, approvalStatus?: ApprovalStatus, reportingPeriodId?: string, kpi?: KpiInput, deliverables?: string[] }) {
-    await requireUser();
+    const user = await requireUser();
+
+    const currentActivity = await prisma.activity.findUnique({ where: { id: activityId } });
+    if (!currentActivity) throw new Error("Activity not found");
+
+    // Editing arbitrary activities requires activities:edit — except an owner
+    // fixing and resubmitting their own declined activity, which is normal
+    // self-service and shouldn't require an elevated permission.
+    const isOwnerResubmittingDeclined = currentActivity.responsibleId === user.id && currentActivity.approvalStatus === 'DECLINED';
+    if (!isOwnerResubmittingDeclined && !(await hasPermission(user.role, 'activities:edit'))) {
+        throw new Error("You don't have permission to edit this activity.");
+    }
 
     await assertValidDepartment(data.department);
 
@@ -144,10 +154,7 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
 
     // Explicitly set status if progress is changed
     if (data.progress !== undefined) {
-        const currentActivity = await prisma.activity.findUnique({ where: { id: activityId }});
-        if (currentActivity) {
-            activityData.status = calculateActivityStatus({ ...currentActivity, progress: data.progress, endDate: new Date(currentActivity.endDate) });
-        }
+        activityData.status = calculateActivityStatus({ ...currentActivity, progress: data.progress, endDate: new Date(currentActivity.endDate) });
     }
 
     activityData.updatedAt = new Date();
@@ -192,7 +199,7 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
 
 export async function submitActivityUpdate(activityId: string, progress: number, comment: string, userId?: string, completionDate?: string, delayExplanation?: string, recommendedAction?: string) {
     // The submitting user is always the authenticated caller, not the passed userId.
-    const user = await requireUser();
+    const user = await requirePermission('my-activity:update');
 
     const activity = await prisma.activity.findUnique({ where: { id: activityId }, include: { reportingPeriod: true } });
     if (!activity) throw new Error("Activity not found");
@@ -261,7 +268,7 @@ export async function submitActivityUpdate(activityId: string, progress: number,
 }
 
 export async function approveActivityUpdate(activityId: string) {
-    await requireUser();
+    await requirePermission('activities:edit');
 
     const activity = await prisma.activity.findUnique({ where: { id: activityId }});
     if (!activity) return;
@@ -312,7 +319,7 @@ export async function approveActivityUpdate(activityId: string) {
 }
 
 export async function declineActivityUpdate(activityId: string, reason: string) {
-    await requireUser();
+    await requirePermission('activities:edit');
 
     const activity = await prisma.activity.findUnique({ where: { id: activityId }});
     if (!activity) return;

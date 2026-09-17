@@ -1,7 +1,9 @@
 import { prisma } from '@/lib/prisma';
+import type { Role } from '@prisma/client';
 import { CONCURRENT_SESSION_LIMIT, REFRESH_TOKEN_TTL_SECONDS } from './config';
 import { generateOpaqueToken, sha256Hex, generateId } from './crypto';
 import { signAccessToken } from './jwt';
+import { getPermissionsForRole } from './permissions-server';
 
 export interface IssuedTokens {
   accessJwt: string;
@@ -16,7 +18,7 @@ export interface IssuedTokens {
  */
 export async function createSessionWithTokens(params: {
   userId: string;
-  role: string;
+  role: Role;
   sessionVersion: number;
   ip: string;
   userAgent: string;
@@ -57,10 +59,12 @@ export async function createSessionWithTokens(params: {
     return session.id;
   });
 
+  const permissions = await getPermissionsForRole(params.role);
   const accessJwt = await signAccessToken({
     userId: params.userId,
     sessionId,
     role: params.role,
+    permissions,
     sessionVersion: params.sessionVersion,
   });
 
@@ -119,10 +123,12 @@ export async function rotateRefreshToken(rawRefreshToken: string): Promise<Rotat
     await tx.activeSession.update({ where: { id: session.id }, data: { lastSeenAt: new Date() } });
   });
 
+  const permissions = await getPermissionsForRole(session.user.role);
   const accessJwt = await signAccessToken({
     userId: session.userId,
     sessionId: session.id,
     role: session.user.role,
+    permissions,
     sessionVersion: session.user.sessionVersion,
   });
 

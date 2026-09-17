@@ -14,6 +14,23 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model AppConfig {
+  id                    String @id @default("singleton")
+  achievementCapPercent Float  @default(120)
+
+  updatedAt DateTime @updatedAt
+}
+
+model RolePermission {
+  id         String @id @default(cuid())
+  role       Role
+  permission String
+
+  createdAt DateTime @default(now())
+
+  @@unique([role, permission])
+}
+
 model StrategicPlan {
   id        String    @id @default(cuid())
   name      String

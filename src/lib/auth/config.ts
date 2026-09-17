@@ -26,13 +26,6 @@ export function getTrustedOrigin(): string | null {
   return process.env.APP_ORIGIN || null;
 }
 
-// Static role -> permission mapping (this app has no per-portal permission model).
-const ROLE_PERMISSIONS: Record<string, string[]> = {
-  ADMINISTRATOR: ['plan:manage', 'activity:manage', 'activity:approve', 'user:manage', 'settings:manage', 'report:view'],
-  MANAGER: ['activity:manage', 'activity:approve', 'report:view'],
-  USER: ['activity:update-own', 'report:view'],
-};
-
-export function permissionsForRole(role: string): string[] {
-  return ROLE_PERMISSIONS[role] ?? [];
-}
+// Role -> permission lookup is DB-backed (RolePermission table) so an admin
+// editing permissions via /settings/role-management takes effect immediately —
+// see getPermissionsForRole in src/lib/auth/permissions.ts.

@@ -16,11 +16,11 @@ export interface ReportData {
     reportingPeriods: ReportingPeriod[];
 }
 
-export async function getReportData(): Promise<ReportData> {
+export async function getReportData(approvedOnly?: boolean): Promise<ReportData> {
     await requireUser();
 
     const plans = await listStrategicPlans();
-    const activities = await getActivities();
+    const activities = await getActivities(undefined, approvedOnly);
     const users = await getUsers();
     const reportingPeriods = await prisma.reportingPeriod.findMany({ orderBy: { startDate: 'asc' } });
 
@@ -32,6 +32,7 @@ export async function getReportData(): Promise<ReportData> {
                         include: {
                             owner: true,
                             activities: {
+                                where: approvedOnly ? { approvalStatus: 'APPROVED' } : undefined,
                                 include: {
                                     responsible: true,
                                     kpis: true,

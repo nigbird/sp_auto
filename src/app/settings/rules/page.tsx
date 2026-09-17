@@ -10,17 +10,43 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { getRules, updateRule, createRule, deleteRule } from "@/actions/rules";
+import { getAppConfig, updateAchievementCap } from "@/actions/app-config";
 import type { Rule } from "@/lib/types";
 
 export default function RulesPage() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedRule, setEditedRule] = useState<Partial<Rule> | null>(null);
+  const [achievementCap, setAchievementCap] = useState<number>(120);
+  const [isEditingCap, setIsEditingCap] = useState(false);
+  const [capDraft, setCapDraft] = useState("120");
   const { toast } = useToast();
 
   useEffect(() => {
     getRules().then(setRules);
+    getAppConfig().then((config) => setAchievementCap(config.achievementCapPercent));
   }, []);
+
+  const handleEditCap = () => {
+    setCapDraft(String(achievementCap));
+    setIsEditingCap(true);
+  };
+
+  const handleSaveCap = async () => {
+    const value = parseFloat(capDraft);
+    try {
+      await updateAchievementCap(value);
+      setAchievementCap(value);
+      setIsEditingCap(false);
+      toast({ title: "Achievement Cap Updated" });
+    } catch (error) {
+      toast({
+        title: "Could Not Update Achievement Cap",
+        description: error instanceof Error ? error.message : "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleEditClick = (rule: Rule) => {
     setEditingId(rule.id);
@@ -106,6 +132,35 @@ export default function RulesPage() {
             <PlusCircle className="mr-2 h-4 w-4" /> Add New Status
         </Button>
       </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Achievement Cap</CardTitle>
+          <CardDescription>
+            The maximum achievement percentage a KPI can be reported at, even if actual performance exceeds target.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center gap-3">
+          {isEditingCap ? (
+            <>
+              <Input
+                type="number"
+                min={100}
+                value={capDraft}
+                onChange={(e) => setCapDraft(e.target.value)}
+                className="w-32"
+              />
+              <span>%</span>
+              <Button size="icon" variant="ghost" onClick={handleSaveCap}><Save className="h-4 w-4 text-green-600" /></Button>
+              <Button size="icon" variant="ghost" onClick={() => setIsEditingCap(false)}><X className="h-4 w-4 text-red-600" /></Button>
+            </>
+          ) : (
+            <>
+              <span className="text-2xl font-bold">{achievementCap}%</span>
+              <Button size="icon" variant="ghost" onClick={handleEditCap}><Edit className="h-4 w-4" /></Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle>Status Definitions</CardTitle>

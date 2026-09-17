@@ -1,5 +1,5 @@
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
-import { ACCESS_TOKEN_TTL_SECONDS, getAuthSecret, permissionsForRole } from './config';
+import { ACCESS_TOKEN_TTL_SECONDS, getAuthSecret } from './config';
 
 export interface AccessTokenClaims extends JWTPayload {
   sub: string; // user id
@@ -22,12 +22,13 @@ export async function signAccessToken(params: {
   userId: string;
   sessionId: string;
   role: string;
+  permissions: string[];
   sessionVersion: number;
 }): Promise<string> {
   return new SignJWT({
     sid: params.sessionId,
     role: params.role,
-    permissions: permissionsForRole(params.role),
+    permissions: params.permissions,
     sessionVersion: params.sessionVersion,
   })
     .setProtectedHeader({ alg: 'HS256' })

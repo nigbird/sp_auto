@@ -92,11 +92,11 @@ export function ReportFilters({ plans, users, periods, filters, onFiltersChange,
         planId: plans.find(p => p.status === 'PUBLISHED')?.id || plans[0]?.id || null,
         reportingPeriodId: null,
         ownerId: null,
-        status: null,
+        status: 'APPROVED',
     });
   }
 
-  const isFiltered = filters.reportingPeriodId || filters.ownerId || filters.status;
+  const isFiltered = filters.reportingPeriodId || filters.ownerId || (filters.status && filters.status !== 'APPROVED');
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-card p-4 text-card-foreground shadow-sm">

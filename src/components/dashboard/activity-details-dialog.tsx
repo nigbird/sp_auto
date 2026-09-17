@@ -19,7 +19,8 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { ArrowRight, Paperclip } from "lucide-react";
 import { ScrollArea } from "../ui/scroll-area";
-import { calculateKpiAchievement } from "@/lib/kpi";
+import { calculateKpiAchievement, ACHIEVEMENT_CAP_PERCENT } from "@/lib/kpi";
+import { getAppConfig } from "@/actions/app-config";
 import { calculateDelayDays } from "@/lib/utils";
 import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
 import { getEvidenceList, type EvidenceMeta } from "@/actions/evidence";
@@ -47,6 +48,7 @@ export function ActivityDetailsDialog({
   onDecline
 }: ActivityDetailsDialogProps) {
   const [evidenceList, setEvidenceList] = useState<EvidenceMeta[]>([]);
+  const [achievementCap, setAchievementCap] = useState(ACHIEVEMENT_CAP_PERCENT);
 
   useEffect(() => {
     if (activity) {
@@ -54,6 +56,7 @@ export function ActivityDetailsDialog({
     } else {
       setEvidenceList([]);
     }
+    getAppConfig().then((config) => setAchievementCap(config.achievementCapPercent));
   }, [activity]);
 
   if (!activity) {
@@ -159,7 +162,7 @@ export function ActivityDetailsDialog({
                         <Label>KPIs</Label>
                         <div className="space-y-2">
                             {activity.kpis.map((kpi, idx) => {
-                                const achievement = calculateKpiAchievement(kpi);
+                                const achievement = calculateKpiAchievement(kpi, achievementCap);
                                 return (
                                     <div key={kpi.id ?? idx} className="rounded-lg border p-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                                         <div className="col-span-2 md:col-span-1">

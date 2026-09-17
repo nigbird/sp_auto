@@ -1,6 +1,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { DEFAULT_ROLE_PERMISSIONS } from '../src/lib/auth/permissions';
 
 
 import { Role, UserStatus, PlanStatus, ApprovalStatus } from "@prisma/client";
@@ -76,6 +77,17 @@ async function main() {
         await prisma.department.upsert({ where: { name }, update: {}, create: { name } });
     }
     console.log(`Seeded ${baseDepartments.length} departments.`);
+
+    for (const [role, permissions] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
+        for (const permission of permissions) {
+            await prisma.rolePermission.upsert({
+                where: { role_permission: { role: role as Role, permission } },
+                update: {},
+                create: { role: role as Role, permission },
+            });
+        }
+    }
+    console.log(`Seeded role permissions for ${Object.keys(DEFAULT_ROLE_PERMISSIONS).length} roles.`);
 
     // Get the first user to associate notifications
     const firstUser = await prisma.user.findFirst();

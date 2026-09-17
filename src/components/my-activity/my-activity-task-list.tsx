@@ -100,7 +100,7 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
     setIsOpen(true);
   }
 
-    const isAdmin = currentUser?.role === 'ADMINISTRATOR';
+    const isAdmin = currentUser?.permissions.includes('activities:edit') ?? false;
   const showApprovalControls = isAdmin && activity.approvalStatus === 'PENDING';
   const periodClosed = isPeriodClosedForSubmissions(activity.reportingPeriod);
   const isCompleting = progress >= 100;

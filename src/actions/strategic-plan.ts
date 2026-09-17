@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { redirect } from 'next/navigation';
 import { getUsers } from './users';
 import { requireUser } from '@/lib/auth/session';
+import { requirePermission } from '@/lib/auth/permissions-server';
 import { validateWeightReconciliation } from '@/lib/utils';
 
 const activitySchema = z.object({
@@ -121,7 +122,7 @@ export async function getStrategicPlanById(id: string) {
 }
 
 export async function createStrategicPlan(formData: FormData) {
-    await requireUser();
+    await requirePermission('strategic-plan:edit');
 
     console.log('Received data for plan creation:', Object.fromEntries(formData));
 
@@ -222,7 +223,7 @@ export async function createStrategicPlan(formData: FormData) {
 
 
 export async function updateStrategicPlan(id: string, formData: FormData) {
-    await requireUser();
+    await requirePermission('strategic-plan:edit');
 
     const data = Object.fromEntries(formData);
     const pillars = JSON.parse(data.pillars as string);
@@ -341,7 +342,7 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
 
 
 export async function publishStrategicPlan(id: string) {
-    await requireUser();
+    await requirePermission('strategic-plan:edit');
 
     const plan = await getStrategicPlanById(id);
     if (!plan) throw new Error("Strategic plan not found.");
@@ -360,7 +361,7 @@ export async function publishStrategicPlan(id: string) {
 }
 
 export async function deleteStrategicPlan(id: string) {
-    await requireUser();
+    await requirePermission('strategic-plan:edit');
 
     // Make sure to delete related records in the correct order if cascading delete is not set up
     const plan = await prisma.strategicPlan.findUnique({

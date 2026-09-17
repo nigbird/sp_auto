@@ -12,6 +12,14 @@ export interface SessionUser {
   avatar: string;
   role: 'ADMINISTRATOR' | 'MANAGER' | 'USER';
   status: 'ACTIVE' | 'INACTIVE';
+  /**
+   * UI-level hint only, sourced from the access token's embedded snapshot
+   * (taken at login/refresh time) — not re-checked against the DB on every
+   * render. Use it to show/hide controls; the authoritative check for any
+   * actual mutation is requirePermission() (src/lib/auth/permissions.ts),
+   * which reads live DB state.
+   */
+  permissions: string[];
 }
 
 /**
@@ -53,6 +61,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     avatar: session.user.avatar,
     role: session.user.role,
     status: session.user.status,
+    permissions: claims.permissions ?? [],
   };
 }
 
