@@ -74,11 +74,20 @@ model Initiative {
   id            String     @id @default(cuid())
   title         String
   description   String?
-  owner         String
+  owner         User       @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  ownerId       String
   collaborators String[]
   objective     Objective? @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
   objectiveId   String?
   activities    Activity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Department {
+  id   String @id @default(cuid())
+  name String @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -162,6 +171,7 @@ model User {
   activities     Activity[]
   sessions       ActiveSession[]
   uploadedEvidence Evidence[]
+  ownedInitiatives Initiative[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -30,6 +30,7 @@ export async function getReportData(): Promise<ReportData> {
                 include: {
                     initiatives: {
                         include: {
+                            owner: true,
                             activities: {
                                 include: {
                                     responsible: true,
@@ -51,7 +52,6 @@ export async function getReportData(): Promise<ReportData> {
             initiatives: o.initiatives.map(i => ({
                 ...i,
                 description: i.description || '',
-                owner: i.owner || '',
                 activities: i.activities.map(a => ({
                     ...a,
                     kpis: a.kpis ?? [],

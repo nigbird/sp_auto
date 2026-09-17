@@ -101,9 +101,7 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
     const [highestCompletedStep, setHighestCompletedStep] = useState(0);
 
     const userOptions = useMemo(() => users.map(u => ({ value: u.id, label: u.name })), [users]);
-    const peopleOptions: MultiSelectOption[] = useMemo(() => 
-        [...userOptions, ...departments.map(d => ({ value: d, label: d }))]
-    , [userOptions, departments]);
+    const peopleOptions: MultiSelectOption[] = userOptions;
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),

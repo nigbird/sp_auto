@@ -70,7 +70,13 @@ async function main() {
       )
     );
     console.log(`Seeded ${rules.length} rules.`);
-    
+
+    const baseDepartments = ["Marketing", "Sales", "Engineering", "Human Resources", "Support", "Finance"];
+    for (const name of baseDepartments) {
+        await prisma.department.upsert({ where: { name }, update: {}, create: { name } });
+    }
+    console.log(`Seeded ${baseDepartments.length} departments.`);
+
     // Get the first user to associate notifications
     const firstUser = await prisma.user.findFirst();
     if(firstUser) {
@@ -104,7 +110,8 @@ async function main() {
     // Get user emails for responsible
     const olivia = await prisma.user.findUnique({ where: { email: "olivia@corp-plan.com" } });
     const noah = await prisma.user.findUnique({ where: { email: "noah@corp-plan.com" } });
-    if (!olivia || !noah) {
+    const admin = await prisma.user.findUnique({ where: { email: "admin@corp-plan.com" } });
+    if (!olivia || !noah || !admin) {
         console.error("Could not find required users for seeding pillars");
         return;
     }
@@ -120,7 +127,7 @@ async function main() {
                         initiatives: {
                             create: {
                                 title: "Aggressive Marketing & Sales",
-                                owner: 'Selamawit Assefa',
+                                ownerId: admin.id,
                                 collaborators: ['Almaz Tesfaye'],
                                 activities: {
                                     create: [
@@ -147,7 +154,7 @@ async function main() {
                         initiatives: {
                             create: {
                                 title: "Digital Presence Overhaul",
-                                owner: 'Selamawit Assefa',
+                                ownerId: admin.id,
                                 collaborators: ['Dawit Bekele'],
                                 activities: {
                                     create: {
@@ -192,7 +199,7 @@ async function main() {
                         initiatives: {
                             create: {
                                 title: "Workplace Wellness",
-                                owner: 'Selamawit Assefa',
+                                ownerId: admin.id,
                                 collaborators: ['Hana Girma'],
                                 activities: {
                                     create: {
@@ -217,7 +224,7 @@ async function main() {
                         initiatives: {
                             create: {
                                 title: "Support Enhancement",
-                                owner: 'Selamawit Assefa',
+                                ownerId: admin.id,
                                 collaborators: ['Yonas Alemu'],
                                 activities: {
                                     create: {

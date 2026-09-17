@@ -93,9 +93,7 @@ export function EditPlanClient({ users, departments, plan }: EditPlanClientProps
     const planId = params.id as string;
     
     const userOptions = useMemo(() => users.map(u => ({ value: u.id, label: u.name })), [users]);
-    const peopleOptions: MultiSelectOption[] = useMemo(() => 
-        [...userOptions, ...departments.map(d => ({ value: d, label: d }))]
-    , [userOptions, departments]);
+    const peopleOptions: MultiSelectOption[] = userOptions;
 
     // Prepare initial default values from plan
     const initialDefaultValues = useMemo(() => {
@@ -106,7 +104,7 @@ export function EditPlanClient({ users, departments, plan }: EditPlanClientProps
             p.objectives.forEach((o:any) => {
                 o.initiatives.forEach((i:any) => {
                     i.description = i.description ?? '';
-                    i.owner = i.owner || "";
+                    i.owner = (i.owner as AppUser)?.id || i.owner || "";
                     i.collaborators = i.collaborators || [];
                     i.activities.forEach((a:any) => {
                         if (a.startDate) a.startDate = a.startDate.split('T')[0];

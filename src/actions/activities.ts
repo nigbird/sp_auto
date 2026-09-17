@@ -18,6 +18,14 @@ export interface KpiInput {
     direction?: 'HIGHER_IS_BETTER' | 'LOWER_IS_BETTER';
 }
 
+async function assertValidDepartment(department: string | undefined): Promise<void> {
+    if (!department) return;
+    const match = await prisma.department.findUnique({ where: { name: department } });
+    if (!match) {
+        throw new Error(`"${department}" is not in the approved department list.`);
+    }
+}
+
 function buildKpiData(kpi: KpiInput) {
     return {
         name: kpi.name,
@@ -60,6 +68,8 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
     // The creator is always the authenticated caller — a client-supplied userId
     // is never trusted for the auto-approval decision below.
     const creator = await requireUser();
+
+    await assertValidDepartment(data.department);
 
     let approvalStatus: ApprovalStatus = 'PENDING';
 
@@ -115,6 +125,8 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
 
 export async function updateActivity(activityId: string, data: Partial<Omit<Activity, 'id' | 'responsible' | 'kpis' | 'updates'>> & { responsible?: string, approvalStatus?: ApprovalStatus, reportingPeriodId?: string, kpi?: KpiInput }) {
     await requireUser();
+
+    await assertValidDepartment(data.department);
 
     const { kpi, ...rest } = data;
     const activityData: any = { ...rest };

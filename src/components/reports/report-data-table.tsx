@@ -159,7 +159,7 @@ const InitiativeRow = ({ initiative, openStates, toggleOpen }: { initiative: Ini
             {initiative.title}
           </div>
         </TableCell>
-        <TableCell>{initiative.owner}</TableCell>
+        <TableCell>{initiative.owner.name}</TableCell>
         <TableCell></TableCell>
         <TableCell></TableCell>
         <TableCell className="text-right">

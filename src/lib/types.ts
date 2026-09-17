@@ -55,7 +55,8 @@ export type Notification = {
   reportingPeriodId?: string | null;
 };
 
-export type Initiative = Omit<PrismaInitiative, 'objectiveId'> & {
+export type Initiative = Omit<PrismaInitiative, 'objectiveId' | 'ownerId'> & {
+    owner: PrismaUser;
     activities: Activity[];
     weight?: number;
 }

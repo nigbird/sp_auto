@@ -94,7 +94,7 @@ function InitiativeItem({ initiative }: { initiative: Initiative }) {
             <CardHeader className="flex flex-row items-center justify-between p-3">
                 <div>
                      <h5 className="font-medium">{initiative.title}</h5>
-                     <p className="text-xs text-muted-foreground flex items-center gap-1"><UserIcon className="h-3 w-3"/> Owner: {initiative.owner}</p>
+                     <p className="text-xs text-muted-foreground flex items-center gap-1"><UserIcon className="h-3 w-3"/> Owner: {initiative.owner.name}</p>
                 </div>
                  <div className="flex items-center gap-4">
                     <div className="text-right">

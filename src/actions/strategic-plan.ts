@@ -51,6 +51,24 @@ const planSchema = z.object({
   pillars: z.array(pillarSchema), // Simplified for server action
 });
 
+/** Rejects any activity department not in the master list, per the operational rule. */
+async function findUnmappedDepartments(pillars: any[]): Promise<string[]> {
+    const validDepartments = new Set((await prisma.department.findMany({ select: { name: true } })).map(d => d.name));
+    const issues: string[] = [];
+    for (const p of pillars) {
+        for (const o of p.objectives ?? []) {
+            for (const i of o.initiatives ?? []) {
+                for (const a of i.activities ?? []) {
+                    if (a.department && !validDepartments.has(a.department)) {
+                        issues.push(`Activity "${a.title}" references department "${a.department}", which is not in the approved department list.`);
+                    }
+                }
+            }
+        }
+    }
+    return issues;
+}
+
 
 export async function listStrategicPlans() {
     await requireUser();
@@ -77,6 +95,7 @@ export async function getStrategicPlanById(id: string) {
                             initiatives: {
                                 orderBy: { createdAt: 'asc' },
                                 include: {
+                                    owner: true,
                                     activities: {
                                         orderBy: { createdAt: 'asc' },
                                         include: {
@@ -125,6 +144,11 @@ export async function createStrategicPlan(formData: FormData) {
     
     const { name, startYear, endYear, version } = validatedFields.data;
 
+    const departmentIssues = await findUnmappedDepartments(pillars);
+    if (departmentIssues.length > 0) {
+        throw new Error(departmentIssues.join(' '));
+    }
+
     if (status === 'PUBLISHED') {
         const reconciliation = validateWeightReconciliation(pillars);
         if (!reconciliation.valid) {
@@ -156,7 +180,7 @@ export async function createStrategicPlan(formData: FormData) {
                                 create: o.initiatives.map((i: any) => ({
                                     title: i.title,
                                     description: i.description,
-                                    owner: i.owner,
+                                    ownerId: i.owner,
                                     collaborators: i.collaborators,
                                     activities: {
                                         create: i.activities.map((a: any) => {
@@ -221,6 +245,14 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
     
     const { name, startYear, endYear, version } = validatedFields.data;
 
+    const departmentIssues = await findUnmappedDepartments(pillars);
+    if (departmentIssues.length > 0) {
+        return {
+            success: false,
+            errors: { _form: departmentIssues },
+        };
+    }
+
     if (status === 'PUBLISHED') {
         const reconciliation = validateWeightReconciliation(pillars);
         if (!reconciliation.valid) {
@@ -257,7 +289,7 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
                                     create: o.initiatives.map((i: any) => ({
                                         title: i.title,
                                         description: i.description,
-                                        owner: i.owner,
+                                        ownerId: i.owner,
                                         collaborators: i.collaborators,
                                         activities: {
                                             create: i.activities.map((a: any) => {
