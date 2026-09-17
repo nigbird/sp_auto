@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { ACCESS_TOKEN_TTL_SECONDS, getTrustedOrigin } from '@/lib/auth/config';
+import { ACCESS_TOKEN_TTL_SECONDS } from '@/lib/auth/config';
+import { originIsTrusted } from '@/lib/auth/origin';
 import { getRequestIp, isIdentifierLocked, isIpLocked } from '@/lib/auth/rate-limit';
 import { createSessionWithTokens } from '@/lib/auth/issue';
 import { setAuthCookies } from '@/lib/auth/cookies';
@@ -16,15 +17,6 @@ const loginSchema = z.object({
 // Precomputed so the "no such user" path still spends bcrypt-compare-comparable
 // time, rather than returning near-instantly and leaking which emails exist.
 const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10);
-
-function originIsTrusted(request: NextRequest): boolean {
-  const trusted = getTrustedOrigin();
-  const origin = request.headers.get('origin');
-  if (origin) return origin === trusted;
-  const referer = request.headers.get('referer');
-  if (referer) return referer.startsWith(trusted);
-  return false;
-}
 
 export async function POST(request: NextRequest) {
   if (!originIsTrusted(request)) {

@@ -21,12 +21,9 @@ export function getAuthSecret(): string {
   return secret;
 }
 
-export function getTrustedOrigin(): string {
-  const origin = process.env.APP_ORIGIN;
-  if (!origin) {
-    throw new Error('APP_ORIGIN environment variable is not set');
-  }
-  return origin;
+/** Optional extra allowlisted origin (e.g. a production domain behind a proxy). Same-origin requests are always trusted regardless — see origin.ts. */
+export function getTrustedOrigin(): string | null {
+  return process.env.APP_ORIGIN || null;
 }
 
 // Static role -> permission mapping (this app has no per-portal permission model).
