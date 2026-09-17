@@ -23,9 +23,19 @@ import { Textarea } from "@/components/ui/textarea"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
-import type { Activity, StrategicPlan, Pillar, Objective, Initiative } from "@/lib/types"
+import type { Activity, StrategicPlan, Pillar, Objective, Initiative, ReportingPeriod } from "@/lib/types"
 import { ScrollArea } from "../ui/scroll-area"
+
+const kpiSchema = z.object({
+  name: z.string().optional(),
+  unit: z.string().optional(),
+  hasTarget: z.boolean().default(true),
+  direction: z.enum(["HIGHER_IS_BETTER", "LOWER_IS_BETTER"]).default("HIGHER_IS_BETTER"),
+  target: z.coerce.number().optional(),
+  actual: z.coerce.number().optional(),
+})
 
 const activitySchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters." }),
@@ -39,6 +49,8 @@ const activitySchema = z.object({
   initiativeId: z.string().optional(),
   pillarId: z.string().optional(),
   objectiveId: z.string().optional(),
+  reportingPeriodId: z.string().optional(),
+  kpi: kpiSchema.optional(),
 })
 
 type ActivityFormProps = {
@@ -47,9 +59,11 @@ type ActivityFormProps = {
   users: {id: string, name: string}[];
   onCancel: () => void;
   strategicPlan?: StrategicPlan | null;
+  periods?: ReportingPeriod[];
 }
 
-export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPlan }: ActivityFormProps) {
+export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPlan, periods }: ActivityFormProps) {
+  const existingKpi = activity?.kpis?.[0];
   const form = useForm<z.infer<typeof activitySchema>>({
     resolver: zodResolver(activitySchema),
     defaultValues: {
@@ -62,8 +76,19 @@ export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPla
       status: activity?.status ?? "Not Started",
       weight: activity?.weight ?? 50,
       initiativeId: activity?.initiativeId ?? undefined,
+      reportingPeriodId: (activity as any)?.reportingPeriodId ?? undefined,
+      kpi: {
+        name: existingKpi?.name ?? "",
+        unit: existingKpi?.unit ?? "",
+        hasTarget: existingKpi?.hasTarget ?? true,
+        direction: existingKpi?.direction ?? "HIGHER_IS_BETTER",
+        target: existingKpi?.target ?? undefined,
+        actual: existingKpi?.actual ?? undefined,
+      },
     },
   })
+
+  const kpiHasTarget = form.watch("kpi.hasTarget");
   
   const [selectedPillar, setSelectedPillar] = useState<Pillar | null>(null);
   const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
@@ -301,7 +326,7 @@ export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPla
                 />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               
+
                 <FormField
                     control={form.control}
                     name="weight"
@@ -315,6 +340,125 @@ export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPla
             </FormItem>
           )}
                     />
+                {periods && periods.length > 0 && (
+                  <FormField
+                    control={form.control}
+                    name="reportingPeriodId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Reporting Period</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a period" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {periods.map((period) => (
+                              <SelectItem key={period.id} value={period.id}>{period.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+            </div>
+
+            <div className="space-y-4 rounded-lg border p-4">
+              <FormLabel>KPI (optional)</FormLabel>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="kpi.name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs text-muted-foreground">Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="E.g. Customer Satisfaction Score" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="kpi.unit"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs text-muted-foreground">Unit</FormLabel>
+                      <FormControl>
+                        <Input placeholder="E.g. %, days, count" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <FormField
+                  control={form.control}
+                  name="kpi.direction"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs text-muted-foreground">Direction</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="HIGHER_IS_BETTER">Higher is better</SelectItem>
+                          <SelectItem value="LOWER_IS_BETTER">Lower is better</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="kpi.target"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs text-muted-foreground">Target</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="any" disabled={kpiHasTarget === false} {...field} value={field.value ?? ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="kpi.actual"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs text-muted-foreground">Actual</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="any" {...field} value={field.value ?? ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="kpi.hasTarget"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                    <FormControl>
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <FormLabel className="text-xs text-muted-foreground !mt-0">
+                      Has a target (uncheck for no-target items, reported separately)
+                    </FormLabel>
+                  </FormItem>
+                )}
+              />
             </div>
           </div>
         </ScrollArea>

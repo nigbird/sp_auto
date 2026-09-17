@@ -22,6 +22,7 @@ import {
   UserCheck,
   Network,
   Gavel,
+  CalendarRange,
 } from "lucide-react";
 import { Logo } from "./icons";
 
@@ -104,8 +105,18 @@ export function AppSidebar() {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
+              href="/settings/reporting-periods"
+              isActive={pathname.startsWith("/settings/reporting-periods")}
+              tooltip="Reporting Periods"
+            >
+              <CalendarRange />
+              Reporting Periods
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
               href="/settings"
-              isActive={pathname.startsWith("/settings") && !pathname.startsWith("/settings/rules")}
+              isActive={pathname.startsWith("/settings") && !pathname.startsWith("/settings/rules") && !pathname.startsWith("/settings/reporting-periods")}
               tooltip="Settings"
             >
               <Settings />

@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReportFiltersState } from '@/app/reports/page';
-import type { StrategicPlan, User, Pillar, Activity } from '@/lib/types';
+import type { StrategicPlan, User, Pillar, Activity, ReportingPeriod } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileDown, X } from 'lucide-react';
@@ -11,36 +11,43 @@ import { format } from 'date-fns';
 type ReportFiltersProps = {
   plans: StrategicPlan[];
   users: User[];
+  periods: ReportingPeriod[];
   filters: ReportFiltersState;
   onFiltersChange: (filters: ReportFiltersState) => void;
   filteredPillars: Pillar[];
   filteredActivities: Activity[];
 };
 
-export function ReportFilters({ plans, users, filters, onFiltersChange, filteredPillars, filteredActivities }: ReportFiltersProps) {
+export function ReportFilters({ plans, users, periods, filters, onFiltersChange, filteredPillars, filteredActivities }: ReportFiltersProps) {
+  const periodsForPlan = periods.filter((p) => p.strategicPlanId === filters.planId);
 
   const handleFilterChange = (key: keyof ReportFiltersState, value: string | null) => {
     onFiltersChange({ ...filters, [key]: value });
   };
   
   const handleExportExcel = () => {
-    const flatData = filteredPillars.flatMap(pillar => 
-      pillar.objectives.flatMap(objective => 
-        objective.initiatives.flatMap(initiative => 
-          initiative.activities.map(activity => ({
-            "Pillar": pillar.title,
-            "Objective": objective.statement,
-            "Initiative": initiative.title,
-            "Activity": activity.title,
-            "Department": activity.department,
-            "Responsible": (activity.responsible as User)?.name || 'N/A',
-            "Start Date": format(new Date(activity.startDate), 'yyyy-MM-dd'),
-            "End Date": format(new Date(activity.endDate), 'yyyy-MM-dd'),
-            "Status": activity.status,
-            "Progress (%)": activity.progress,
-            "Weight (%)": activity.weight,
-            "Approval Status": activity.approvalStatus,
-          }))
+    const flatData = filteredPillars.flatMap(pillar =>
+      pillar.objectives.flatMap(objective =>
+        objective.initiatives.flatMap(initiative =>
+          initiative.activities.map(activity => {
+            const period = periods.find(p => p.id === (activity as any).reportingPeriodId);
+            return {
+              "Pillar": pillar.title,
+              "Objective": objective.statement,
+              "Initiative": initiative.title,
+              "Activity": activity.title,
+              "Department": activity.department,
+              "Responsible": (activity.responsible as User)?.name || 'N/A',
+              "Reporting Period": period?.name || 'N/A',
+              "Cut-off Date": period ? format(new Date(period.cutOffDate), 'yyyy-MM-dd') : 'N/A',
+              "Start Date": format(new Date(activity.startDate), 'yyyy-MM-dd'),
+              "End Date": format(new Date(activity.endDate), 'yyyy-MM-dd'),
+              "Status": activity.status,
+              "Progress (%)": activity.progress,
+              "Weight (%)": activity.weight,
+              "Approval Status": activity.approvalStatus,
+            };
+          })
         )
       )
     );
@@ -83,14 +90,13 @@ export function ReportFilters({ plans, users, filters, onFiltersChange, filtered
   const resetFilters = () => {
     onFiltersChange({
         planId: plans.find(p => p.status === 'PUBLISHED')?.id || plans[0]?.id || null,
-        year: null,
-        quarter: null,
+        reportingPeriodId: null,
         ownerId: null,
         status: null,
     });
   }
 
-  const isFiltered = filters.year || filters.quarter || filters.ownerId || filters.status;
+  const isFiltered = filters.reportingPeriodId || filters.ownerId || filters.status;
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
@@ -106,16 +112,17 @@ export function ReportFilters({ plans, users, filters, onFiltersChange, filtered
           </SelectContent>
         </Select>
         
-        <Select value={filters.year?.toString() ?? ''} onValueChange={(v) => handleFilterChange('year', v === '' ? null : v)}>
-          <SelectTrigger className="w-full sm:w-[120px]">
-            <SelectValue placeholder="Year" />
+        <Select value={filters.reportingPeriodId ?? ''} onValueChange={(v) => handleFilterChange('reportingPeriodId', v === '' ? null : v)}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="Reporting Period" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="2024">2024</SelectItem>
-            <SelectItem value="2025">2025</SelectItem>
+            {periodsForPlan.map(period => (
+              <SelectItem key={period.id} value={period.id}>{period.name}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
-        
+
         <Select value={filters.ownerId ?? ''} onValueChange={(v) => handleFilterChange('ownerId', v === '' ? null : v)}>
           <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Lead/Owner" />

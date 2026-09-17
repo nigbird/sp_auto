@@ -11,8 +11,7 @@ import { Loader2 } from 'lucide-react';
 
 export type ReportFiltersState = {
   planId: string | null;
-  year: number | null;
-  quarter: number | null;
+  reportingPeriodId: string | null;
   ownerId: string | null;
   status: string | null;
 };
@@ -22,8 +21,7 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<ReportFiltersState>({
     planId: null,
-    year: null,
-    quarter: null,
+    reportingPeriodId: null,
     ownerId: null,
     status: null,
   });
@@ -55,11 +53,8 @@ export default function ReportsPage() {
     if (filters.status) {
         activities = activities.filter(a => a.approvalStatus === filters.status);
     }
-    if (filters.year) {
-        activities = activities.filter(a => new Date(a.startDate).getFullYear() === filters.year);
-    }
-    if (filters.quarter) {
-        activities = activities.filter(a => Math.floor(new Date(a.startDate).getMonth() / 3) + 1 === filters.quarter);
+    if (filters.reportingPeriodId) {
+        activities = activities.filter(a => (a as any).reportingPeriodId === filters.reportingPeriodId);
     }
 
     return activities;
@@ -104,9 +99,10 @@ export default function ReportsPage() {
         <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
       </div>
       
-      <ReportFilters 
-        plans={data.plans} 
-        users={data.users} 
+      <ReportFilters
+        plans={data.plans}
+        users={data.users}
+        periods={data.reportingPeriods}
         filters={filters}
         onFiltersChange={setFilters}
         filteredPillars={filteredPillars}

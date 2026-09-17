@@ -12,6 +12,8 @@ import { getUsers } from "@/actions/users";
 import { getCurrentUserAction } from "@/actions/auth";
 import type { SessionUser } from "@/lib/auth/session";
 import { listStrategicPlans, getStrategicPlanById } from "@/actions/strategic-plan";
+import { getReportingPeriods } from "@/actions/reporting-periods";
+import type { ReportingPeriod } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -34,6 +36,7 @@ export default function MyActivityPage() {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<StrategicPlan | null>(null);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [periods, setPeriods] = useState<ReportingPeriod[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -66,16 +69,19 @@ export default function MyActivityPage() {
       if (!selectedPlanId) {
         setAllActivitiesForPlan([]);
         setSelectedPlan(null);
+        setPeriods([]);
         return;
       };
 
-      const [activities, planDetails] = await Promise.all([
+      const [activities, planDetails, planPeriods] = await Promise.all([
         getActivities(selectedPlanId),
-        getStrategicPlanById(selectedPlanId)
+        getStrategicPlanById(selectedPlanId),
+        getReportingPeriods(selectedPlanId),
       ]);
-      
+
       setAllActivitiesForPlan(activities);
       setSelectedPlan(planDetails);
+      setPeriods(planPeriods as unknown as ReportingPeriod[]);
 
       const uniqueDepartments = Array.from(new Set(activities.map((a) => a.department).filter(d => d)));
       setDepartments(uniqueDepartments);
@@ -274,14 +280,13 @@ export default function MyActivityPage() {
                   <DialogHeader>
                       <DialogTitle>{editingActivity ? 'Edit Activity' : 'Create New Activity'}</DialogTitle>
                   </DialogHeader>
-                  <ActivityForm 
+                  <ActivityForm
                       onSubmit={handleFormSubmit}
                       activity={editingActivity}
                       users={users as any}
-                      statuses={statuses}
-                      onReset={() => {}}
                       onCancel={() => { setIsCreateFormOpen(false); setEditingActivity(null); }}
                       strategicPlan={selectedPlan}
+                      periods={periods}
                   />
               </DialogContent>
           </Dialog>

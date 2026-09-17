@@ -8,6 +8,26 @@ import { calculateActivityStatus } from '@/lib/utils';
 import type { ApprovalStatus, User } from '@prisma/client';
 import { requireUser } from '@/lib/auth/session';
 
+export interface KpiInput {
+    name: string;
+    unit?: string | null;
+    target?: number | null;
+    actual?: number | null;
+    hasTarget?: boolean;
+    direction?: 'HIGHER_IS_BETTER' | 'LOWER_IS_BETTER';
+}
+
+function buildKpiData(kpi: KpiInput) {
+    return {
+        name: kpi.name,
+        unit: kpi.unit || null,
+        target: kpi.hasTarget === false ? null : kpi.target ?? null,
+        actual: kpi.actual ?? null,
+        hasTarget: kpi.hasTarget ?? true,
+        direction: kpi.direction ?? 'HIGHER_IS_BETTER' as const,
+    };
+}
+
 export async function getActivities(strategicPlanId?: string): Promise<Activity[]> {
     await requireUser();
 
@@ -16,7 +36,9 @@ export async function getActivities(strategicPlanId?: string): Promise<Activity[
             strategicPlanId: strategicPlanId
         },
         include: {
-            responsible: true
+            responsible: true,
+            kpis: true,
+            reportingPeriod: true,
         },
         orderBy: {
             endDate: 'asc'
@@ -24,16 +46,16 @@ export async function getActivities(strategicPlanId?: string): Promise<Activity[
     });
 
     const plainActivities = JSON.parse(JSON.stringify(activities));
-    
+
     return plainActivities.map((a: any) => ({
         ...a,
-        kpis: [],
+        kpis: a.kpis ?? [],
         updates: [],
         pendingUpdate: a.pendingUpdate ? JSON.parse(a.pendingUpdate) : null,
     }));
 }
 
-export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updates' | 'progress' | 'approvalStatus' | 'responsible'> & { initiativeId?: string, strategicPlanId: string, responsible: string, userId?: string }) {
+export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updates' | 'progress' | 'approvalStatus' | 'responsible'> & { initiativeId?: string, strategicPlanId: string, responsible: string, userId?: string, reportingPeriodId?: string, kpi?: KpiInput }) {
     // The creator is always the authenticated caller — a client-supplied userId
     // is never trusted for the auto-approval decision below.
     const creator = await requireUser();
@@ -51,7 +73,7 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
             approvalStatus = 'PENDING';
         }
     }
-    
+
     const newActivity = await prisma.activity.create({
         data: {
             title: data.title,
@@ -63,9 +85,11 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
             weight: data.weight,
             initiativeId: data.initiativeId,
             strategicPlanId: data.strategicPlanId,
+            reportingPeriodId: data.reportingPeriodId || null,
             progress: 0,
             status: 'Not Started',
             approvalStatus: approvalStatus,
+            kpis: data.kpi && data.kpi.name ? { create: [buildKpiData(data.kpi)] } : undefined,
         }
     });
     revalidatePath('/activities');
@@ -74,17 +98,18 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
 }
 
 
-export async function updateActivity(activityId: string, data: Partial<Omit<Activity, 'id' | 'responsible' | 'kpis' | 'updates'>> & { responsible?: string, approvalStatus?: ApprovalStatus }) {
+export async function updateActivity(activityId: string, data: Partial<Omit<Activity, 'id' | 'responsible' | 'kpis' | 'updates'>> & { responsible?: string, approvalStatus?: ApprovalStatus, reportingPeriodId?: string, kpi?: KpiInput }) {
     await requireUser();
 
-    const activityData: any = { ...data };
+    const { kpi, ...rest } = data;
+    const activityData: any = { ...rest };
     if (data.startDate) activityData.startDate = new Date(data.startDate);
     if (data.endDate) activityData.endDate = new Date(data.endDate);
     if (data.responsible) {
         activityData.responsibleId = data.responsible;
         delete activityData.responsible;
     }
-    
+
     // Explicitly set status if progress is changed
     if (data.progress !== undefined) {
         const currentActivity = await prisma.activity.findUnique({ where: { id: activityId }});
@@ -92,13 +117,22 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
             activityData.status = calculateActivityStatus({ ...currentActivity, progress: data.progress, endDate: new Date(currentActivity.endDate) });
         }
     }
-    
+
     activityData.updatedAt = new Date();
 
     const updatedActivity = await prisma.activity.update({
         where: { id: activityId },
         data: activityData
     });
+
+    if (kpi !== undefined) {
+        const existingKpi = await prisma.kpi.findFirst({ where: { activityId } });
+        if (existingKpi) {
+            await prisma.kpi.update({ where: { id: existingKpi.id }, data: buildKpiData(kpi) });
+        } else if (kpi.name) {
+            await prisma.kpi.create({ data: { ...buildKpiData(kpi), activityId } });
+        }
+    }
 
     revalidatePath('/activities');
     revalidatePath('/my-activity');

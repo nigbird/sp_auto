@@ -5,9 +5,14 @@ export type ActivityStatus = "Not Started" | "On Track" | "Completed As Per Targ
 export type ApprovalStatus = "PENDING" | "APPROVED" | "DECLINED";
 
 export type KPI = {
+  id?: string;
   name: string;
-  target: number;
-  actual: number;
+  unit?: string | null;
+  target: number | null;
+  actual: number | null;
+  hasTarget: boolean;
+  direction: 'HIGHER_IS_BETTER' | 'LOWER_IS_BETTER';
+  weight?: number;
 };
 
 export type ActivityUpdate = {
@@ -77,3 +82,13 @@ export type StrategicPlan = Omit<PrismaStrategicPlan, 'status'> & {
   status: 'DRAFT' | 'PUBLISHED';
   pillars: Pillar[];
 }
+
+export type ReportingPeriod = {
+  id: string;
+  strategicPlanId: string;
+  name: string;
+  startDate: string | Date;
+  endDate: string | Date;
+  cutOffDate: string | Date;
+  status: 'OPEN' | 'CLOSED';
+};

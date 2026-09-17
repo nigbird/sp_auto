@@ -23,9 +23,27 @@ model StrategicPlan {
   status    PlanStatus @default(DRAFT)
   pillars   Pillar[]
   activities Activity[]
+  reportingPeriods ReportingPeriod[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+}
+
+model ReportingPeriod {
+  id              String                @id @default(cuid())
+  strategicPlan   StrategicPlan         @relation(fields: [strategicPlanId], references: [id], onDelete: Cascade)
+  strategicPlanId String
+  name            String
+  startDate       DateTime
+  endDate         DateTime
+  cutOffDate      DateTime
+  status          ReportingPeriodStatus @default(OPEN)
+  activities      Activity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([strategicPlanId, name])
 }
 
 model Pillar {
@@ -85,6 +103,25 @@ model Activity {
   initiativeId    String?
   strategicPlan   StrategicPlan? @relation(fields: [strategicPlanId], references: [id])
   strategicPlanId String?
+  reportingPeriod   ReportingPeriod? @relation(fields: [reportingPeriodId], references: [id], onDelete: SetNull)
+  reportingPeriodId String?
+  kpis            Kpi[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Kpi {
+  id         String       @id @default(cuid())
+  activity   Activity     @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  activityId String
+  name       String
+  unit       String?
+  target     Float?
+  actual     Float?
+  hasTarget  Boolean      @default(true)
+  direction  KpiDirection @default(HIGHER_IS_BETTER)
+  weight     Float        @default(100)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -196,4 +233,14 @@ enum ApprovalStatus {
     PENDING
     APPROVED
     DECLINED
+}
+
+enum ReportingPeriodStatus {
+    OPEN
+    CLOSED
+}
+
+enum KpiDirection {
+    HIGHER_IS_BETTER
+    LOWER_IS_BETTER
 }

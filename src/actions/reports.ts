@@ -1,7 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma';
-import type { Activity, Pillar, StrategicPlan, User } from '@/lib/types';
+import type { Activity, Pillar, StrategicPlan, User, ReportingPeriod } from '@/lib/types';
 import { getStrategicPlanById } from './strategic-plan';
 import { getActivities } from './activities';
 import { getUsers } from './users';
@@ -13,6 +13,7 @@ export interface ReportData {
     activities: Activity[];
     users: User[];
     pillars: Pillar[];
+    reportingPeriods: ReportingPeriod[];
 }
 
 export async function getReportData(): Promise<ReportData> {
@@ -21,7 +22,8 @@ export async function getReportData(): Promise<ReportData> {
     const plans = await listStrategicPlans();
     const activities = await getActivities();
     const users = await getUsers();
-    
+    const reportingPeriods = await prisma.reportingPeriod.findMany({ orderBy: { startDate: 'asc' } });
+
     const allPillars = await prisma.pillar.findMany({
         include: {
             objectives: {
@@ -30,7 +32,8 @@ export async function getReportData(): Promise<ReportData> {
                         include: {
                             activities: {
                                 include: {
-                                    responsible: true
+                                    responsible: true,
+                                    kpis: true,
                                 }
                             }
                         }
@@ -51,7 +54,7 @@ export async function getReportData(): Promise<ReportData> {
                 owner: i.owner || '',
                 activities: i.activities.map(a => ({
                     ...a,
-                    kpis: [],
+                    kpis: a.kpis ?? [],
                     updates: [],
                     pendingUpdate: a.pendingUpdate ? JSON.parse(a.pendingUpdate as string) : undefined
                 }))
@@ -65,5 +68,6 @@ export async function getReportData(): Promise<ReportData> {
         activities: JSON.parse(JSON.stringify(activities)),
         users: JSON.parse(JSON.stringify(users)),
         pillars: JSON.parse(JSON.stringify(pillars)),
+        reportingPeriods: JSON.parse(JSON.stringify(reportingPeriods)),
     };
 }

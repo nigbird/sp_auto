@@ -18,6 +18,7 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { ArrowRight } from "lucide-react";
 import { ScrollArea } from "../ui/scroll-area";
+import { calculateKpiAchievement } from "@/lib/kpi";
 
 type ActivityDetailsDialogProps = {
   isOpen: boolean;
@@ -119,6 +120,49 @@ export function ActivityDetailsDialog({
                     <span className="text-sm font-medium">{activity.progress}%</span>
                     </div>
                 </div>
+
+                {(activity as any).reportingPeriod && (
+                    <div className="space-y-1">
+                        <Label>Reporting Period</Label>
+                        <p className="text-sm font-medium">
+                            {(activity as any).reportingPeriod.name}
+                            <span className="text-muted-foreground"> (cut-off {format(new Date((activity as any).reportingPeriod.cutOffDate), "PP")})</span>
+                        </p>
+                    </div>
+                )}
+
+                {activity.kpis && activity.kpis.length > 0 && (
+                    <div className="space-y-2">
+                        <Label>KPIs</Label>
+                        <div className="space-y-2">
+                            {activity.kpis.map((kpi, idx) => {
+                                const achievement = calculateKpiAchievement(kpi);
+                                return (
+                                    <div key={kpi.id ?? idx} className="rounded-lg border p-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                        <div className="col-span-2 md:col-span-1">
+                                            <p className="font-medium">{kpi.name}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {kpi.direction === 'LOWER_IS_BETTER' ? 'Lower is better' : 'Higher is better'}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-muted-foreground">Target</p>
+                                            <p className="font-medium">{kpi.hasTarget ? `${kpi.target ?? '—'} ${kpi.unit ?? ''}` : 'No target'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-muted-foreground">Actual</p>
+                                            <p className="font-medium">{kpi.actual ?? '—'} {kpi.unit ?? ''}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-muted-foreground">Achievement</p>
+                                            <p className="font-medium">{achievement != null ? `${achievement.toFixed(1)}%` : 'N/A'}</p>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 {activity.approvalStatus === 'DECLINED' && activity.declineReason && (
                     <div className="space-y-2">
