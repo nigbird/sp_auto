@@ -1,18 +1,24 @@
 
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 
 import { Role, UserStatus, PlanStatus, ApprovalStatus } from "@prisma/client";
 const prisma = new PrismaClient();
 
+// Dev-only default password for every seeded user. Change on first login in any
+// environment that isn't a throwaway local dev database.
+const DEV_DEFAULT_PASSWORD = "Passw0rd!123";
+const devPasswordHash = bcrypt.hashSync(DEV_DEFAULT_PASSWORD, 10);
+
 // Data from src/lib/data.ts (adapted for seeding)
 const users = [
-    { name: "Liam Johnson", email: "liam@corp-plan.com", avatar: "https://picsum.photos/id/1005/100", role: Role.MANAGER, status: UserStatus.ACTIVE },
-    { name: "Olivia Smith", email: "olivia@corp-plan.com", avatar: "https://picsum.photos/id/1011/100", role: Role.USER, status: UserStatus.ACTIVE },
-    { name: "Noah Williams", email: "noah@corp-plan.com", avatar: "https://picsum.photos/id/1012/100", role: Role.USER, status: UserStatus.ACTIVE },
-    { name: "Emma Brown", email: "emma@corp-plan.com", avatar: "https://picsum.photos/id/1013/100", role: Role.USER, status: UserStatus.ACTIVE },
-    { name: "Oliver Jones", email: "oliver@corp-plan.com", avatar: "https://picsum.photos/id/1014/100", role: Role.USER, status: UserStatus.INACTIVE },
-    { name: "Admin User", email: "admin@corp-plan.com", avatar: "https://picsum.photos/id/1/100", role: Role.ADMINISTRATOR, status: UserStatus.ACTIVE },
+    { name: "Abebe Kebede", email: "liam@corp-plan.com", avatar: "https://picsum.photos/id/1005/100", role: Role.MANAGER, status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
+    { name: "Almaz Tesfaye", email: "olivia@corp-plan.com", avatar: "https://picsum.photos/id/1011/100", role: Role.USER, status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
+    { name: "Dawit Bekele", email: "noah@corp-plan.com", avatar: "https://picsum.photos/id/1012/100", role: Role.USER, status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
+    { name: "Hana Girma", email: "emma@corp-plan.com", avatar: "https://picsum.photos/id/1013/100", role: Role.USER, status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
+    { name: "Yonas Alemu", email: "oliver@corp-plan.com", avatar: "https://picsum.photos/id/1014/100", role: Role.USER, status: UserStatus.INACTIVE, passwordHash: devPasswordHash },
+    { name: "Selamawit Assefa", email: "admin@corp-plan.com", avatar: "https://picsum.photos/id/1/100", role: Role.ADMINISTRATOR, status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
 ];
 
 const rules = [
@@ -25,7 +31,7 @@ const rules = [
 
 const notifications = [
     { message: "Activity 'Customer Support Training' is delayed.", date: new Date(), read: false },
-    { message: "Noah Williams completed 'Website Redesign Project'.", date: new Date(Date.now() - 1000 * 60 * 60 * 2), read: false },
+    { message: "Dawit Bekele completed 'Website Redesign Project'.", date: new Date(Date.now() - 1000 * 60 * 60 * 2), read: false },
     { message: "Deadline for 'New CRM System Implementation' is approaching.", date: new Date(Date.now() - 1000 * 60 * 60 * 24), read: true },
 ];
 
@@ -36,7 +42,7 @@ async function main() {
     for (const u of users) {
         const user = await prisma.user.upsert({
             where: { email: u.email },
-            update: {},
+            update: { passwordHash: u.passwordHash },
             create: u,
         });
         console.log(`Created user with id: ${user.id}`);
@@ -114,8 +120,8 @@ async function main() {
                         initiatives: {
                             create: {
                                 title: "Aggressive Marketing & Sales",
-                                owner: 'Admin User',
-                                collaborators: ['Olivia Smith'],
+                                owner: 'Selamawit Assefa',
+                                collaborators: ['Almaz Tesfaye'],
                                 activities: {
                                     create: [
                                         {
@@ -141,8 +147,8 @@ async function main() {
                         initiatives: {
                             create: {
                                 title: "Digital Presence Overhaul",
-                                owner: 'Admin User',
-                                collaborators: ['Noah Williams'],
+                                owner: 'Selamawit Assefa',
+                                collaborators: ['Dawit Bekele'],
                                 activities: {
                                     create: {
                                         title: "Website Redesign Project",
@@ -186,8 +192,8 @@ async function main() {
                         initiatives: {
                             create: {
                                 title: "Workplace Wellness",
-                                owner: 'Admin User',
-                                collaborators: ['Emma Brown'],
+                                owner: 'Selamawit Assefa',
+                                collaborators: ['Hana Girma'],
                                 activities: {
                                     create: {
                                         title: "Employee Wellness Program",
@@ -211,8 +217,8 @@ async function main() {
                         initiatives: {
                             create: {
                                 title: "Support Enhancement",
-                                owner: 'Admin User',
-                                collaborators: ['Oliver Jones'],
+                                owner: 'Selamawit Assefa',
+                                collaborators: ['Yonas Alemu'],
                                 activities: {
                                     create: {
                                         title: "Customer Support Training",

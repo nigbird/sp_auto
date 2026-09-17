@@ -52,6 +52,7 @@ import type { Activity, User } from "@/lib/types";
 import { StatusBadge } from "../status-badge";
 import { approveActivityUpdate, declineActivityUpdate, updateActivity, createActivity } from "@/actions/activities";
 import { getActivities } from "@/actions/activities";
+import { getCurrentUserAction } from "@/actions/auth";
 import { Progress } from "../ui/progress";
 import { ActivityForm } from "./activity-form";
 import { ActivityDetailsDialog } from "./activity-details-dialog";
@@ -95,13 +96,13 @@ export function ActivityTable({ activities: initialActivities, users, statuses }
       setData(updatedData);
       toast({ title: "Activity Updated", description: "The activity details have been updated." });
     } else {
-      // The user ID needs to be passed for creation approval logic
-      // In a real app, you'd get this from the current session.
-      // For now, let's find the admin user to pass.
-      const admin = await (await getUsers()).find(u => u.role === 'ADMINISTRATOR');
-      const userId = admin ? admin.id : 'default-user-id';
-      
-      await createActivity({ ...values, userId });
+      const currentUser = await getCurrentUserAction();
+      if (!currentUser) {
+        toast({ title: "Not signed in", description: "Please log in again.", variant: "destructive" });
+        return;
+      }
+
+      await createActivity({ ...values, userId: currentUser.id });
       const updatedData = await getActivities();
       setData(updatedData);
       toast({ title: "Activity Created", description: "The new activity has been submitted for approval." });

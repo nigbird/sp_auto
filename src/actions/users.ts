@@ -6,12 +6,15 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma';
 import type { User } from '@/lib/types';
 import { Role } from '@prisma/client';
+import { requireUser } from '@/lib/auth/session';
 
 export async function getUsers(): Promise<User[]> {
+    await requireUser();
     return await prisma.user.findMany();
 }
 
 export async function createUser(data: { name: string, email: string, role: User['role'] }) {
+    await requireUser();
     const newUser = await prisma.user.create({
         data: {
             name: data.name,
@@ -27,6 +30,7 @@ export async function createUser(data: { name: string, email: string, role: User
 }
 
 export async function updateUser(email: string, data: Partial<Pick<User, 'name' | 'role' | 'status'>>) {
+    await requireUser();
     const updateData: any = { ...data };
     if (data.role) {
         updateData.role = data.role.toUpperCase() as Role;
@@ -40,6 +44,7 @@ export async function updateUser(email: string, data: Partial<Pick<User, 'name' 
 }
 
 export async function deleteUser(email: string) {
+    await requireUser();
     await prisma.user.delete({ where: { email } });
     revalidatePath('/settings/user-management');
 }

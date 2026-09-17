@@ -92,17 +92,64 @@ model Activity {
 
 
 model User {
-  id            String       @id @default(cuid())
-  name          String
-  email         String       @unique
-  avatar        String
-  role          Role
-  status        UserStatus
-  notifications Notification[]
-  activities    Activity[]
+  id             String       @id @default(cuid())
+  name           String
+  email          String       @unique
+  avatar         String
+  role           Role
+  status         UserStatus
+  passwordHash   String       @default("")
+  sessionVersion Int          @default(0)
+  notifications  Notification[]
+  activities     Activity[]
+  sessions       ActiveSession[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ActiveSession {
+  id            String         @id @default(cuid())
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String
+  ip            String?
+  userAgent     String?
+  createdAt     DateTime       @default(now())
+  lastSeenAt    DateTime       @default(now())
+  revokedAt     DateTime?
+  refreshTokens RefreshToken[]
+
+  @@index([userId])
+}
+
+model RefreshToken {
+  id              String        @id @default(cuid())
+  session         ActiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId       String
+  tokenHash       String        @unique
+  familyId        String
+  createdAt       DateTime      @default(now())
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  replacedById    String?
+
+  @@index([sessionId])
+  @@index([familyId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String
+  identifier String?
+  userId     String?
+  ip         String?
+  userAgent  String?
+  success    Boolean
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([identifier, createdAt])
+  @@index([ip, createdAt])
 }
 
 model Notification {

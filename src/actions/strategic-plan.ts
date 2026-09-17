@@ -7,6 +7,7 @@ import type { StrategicPlan as StrategicPlanType } from '@/lib/types';
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
 import { getUsers } from './users';
+import { requireUser } from '@/lib/auth/session';
 
 const activitySchema = z.object({
   id: z.string().optional(),
@@ -51,6 +52,8 @@ const planSchema = z.object({
 
 
 export async function listStrategicPlans() {
+    await requireUser();
+
     return await prisma.strategicPlan.findMany({
         orderBy: {
             updatedAt: 'desc',
@@ -59,6 +62,8 @@ export async function listStrategicPlans() {
 }
 
 export async function getStrategicPlanById(id: string) {
+    await requireUser();
+
     const plan = await prisma.strategicPlan.findUnique({
         where: { id },
         include: {
@@ -96,6 +101,8 @@ export async function getStrategicPlanById(id: string) {
 }
 
 export async function createStrategicPlan(formData: FormData) {
+    await requireUser();
+
     console.log('Received data for plan creation:', Object.fromEntries(formData));
 
     const data = Object.fromEntries(formData);
@@ -183,6 +190,8 @@ export async function createStrategicPlan(formData: FormData) {
 
 
 export async function updateStrategicPlan(id: string, formData: FormData) {
+    await requireUser();
+
     const data = Object.fromEntries(formData);
     const pillars = JSON.parse(data.pillars as string);
     const status = data.status as 'DRAFT' | 'PUBLISHED';
@@ -282,6 +291,8 @@ export async function updateStrategicPlan(id: string, formData: FormData) {
 
 
 export async function publishStrategicPlan(id: string) {
+    await requireUser();
+
     await prisma.strategicPlan.update({
         where: { id },
         data: { status: 'PUBLISHED' },
@@ -291,6 +302,8 @@ export async function publishStrategicPlan(id: string) {
 }
 
 export async function deleteStrategicPlan(id: string) {
+    await requireUser();
+
     // Make sure to delete related records in the correct order if cascading delete is not set up
     const plan = await prisma.strategicPlan.findUnique({
         where: { id },

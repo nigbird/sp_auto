@@ -4,8 +4,11 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma';
 import type { Rule } from '@/lib/types';
+import { requireUser } from '@/lib/auth/session';
 
 export async function getRules(): Promise<Rule[]> {
+    await requireUser();
+
     const rules = await prisma.rule.findMany();
     // Prisma returns Float fields as numbers, so no conversion is needed.
     return rules.map(rule => ({
@@ -16,6 +19,8 @@ export async function getRules(): Promise<Rule[]> {
 }
 
 export async function updateRule(id: string, data: Partial<Omit<Rule, 'id' | 'isSystem'>>) {
+    await requireUser();
+
     const updatedRule = await prisma.rule.update({
         where: { id },
         data,
@@ -25,6 +30,8 @@ export async function updateRule(id: string, data: Partial<Omit<Rule, 'id' | 'is
 }
 
 export async function createRule(data: Omit<Rule, 'id' | 'isSystem'>) {
+    await requireUser();
+
     const newRule = await prisma.rule.create({
         data: {
             ...data,
@@ -36,6 +43,8 @@ export async function createRule(data: Omit<Rule, 'id' | 'isSystem'>) {
 }
 
 export async function deleteRule(id: string) {
+    await requireUser();
+
     await prisma.rule.delete({ where: { id } });
     revalidatePath('/settings/rules');
 }

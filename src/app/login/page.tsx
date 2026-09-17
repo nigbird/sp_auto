@@ -1,15 +1,15 @@
 
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
   Eye,
   EyeOff,
   Lock,
-  Phone,
+  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,22 +18,54 @@ import { LoginLogo } from "@/components/login-logo";
 import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
-  const [phone, setPhone] = useState("0912345678");
-  const [password, setPassword] = useState("Admin@123");
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (phone === "0912345678" && password === "Admin@123") {
-      router.push("/");
-    } else {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: email, password }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        toast({
+          title: response.status === 429 ? "Too many attempts" : "Login Failed",
+          description: data.error || "Invalid email or password.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const next = searchParams.get("next") || "/";
+      router.push(next);
+      router.refresh();
+    } catch {
       toast({
         title: "Login Failed",
-        description: "Invalid phone number or password.",
+        description: "Could not reach the server. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -50,19 +82,21 @@ export default function LoginPage() {
         <form className="space-y-8" onSubmit={handleLogin}>
           <div className="space-y-2">
             <Label
-              htmlFor="phone"
+              htmlFor="email"
               className="flex items-center gap-2 text-gray-600"
             >
-              <Phone className="h-4 w-4" />
-              <span>Phone Number</span>
+              <Mail className="h-4 w-4" />
+              <span>Email</span>
             </Label>
             <Input
-              id="phone"
-              type="tel"
-              placeholder="0912345678"
+              id="email"
+              type="email"
+              placeholder="you@corp-plan.com"
               className="border-0 border-b border-gray-300 bg-transparent px-1 pb-2 focus-visible:ring-0 focus-visible:ring-offset-0"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+              required
             />
           </div>
 
@@ -89,6 +123,8 @@ export default function LoginPage() {
                 className="border-0 border-b border-gray-300 bg-transparent px-1 pb-2 pr-10 focus-visible:ring-0 focus-visible:ring-offset-0"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                required
               />
               <button
                 type="button"
@@ -105,10 +141,11 @@ export default function LoginPage() {
           </div>
           <Button
             type="submit"
+            disabled={isSubmitting}
             className="w-full rounded-full bg-primary py-6 text-lg font-semibold text-primary-foreground hover:bg-primary/90"
           >
             <ArrowRight className="mr-2 h-5 w-5" />
-            Sign In
+            {isSubmitting ? "Signing in..." : "Sign In"}
           </Button>
         </form>
       </div>

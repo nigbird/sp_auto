@@ -6,6 +6,7 @@ import { getStrategicPlanById } from './strategic-plan';
 import { getActivities } from './activities';
 import { getUsers } from './users';
 import { listStrategicPlans } from './strategic-plan';
+import { requireUser } from '@/lib/auth/session';
 
 export interface ReportData {
     plans: StrategicPlan[];
@@ -15,6 +16,8 @@ export interface ReportData {
 }
 
 export async function getReportData(): Promise<ReportData> {
+    await requireUser();
+
     const plans = await listStrategicPlans();
     const activities = await getActivities();
     const users = await getUsers();

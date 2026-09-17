@@ -6,8 +6,11 @@ import { prisma } from '@/lib/prisma';
 import type { Activity } from '@/lib/types';
 import { calculateActivityStatus } from '@/lib/utils';
 import type { ApprovalStatus, User } from '@prisma/client';
+import { requireUser } from '@/lib/auth/session';
 
 export async function getActivities(strategicPlanId?: string): Promise<Activity[]> {
+    await requireUser();
+
     const activities = await prisma.activity.findMany({
         where: {
             strategicPlanId: strategicPlanId
@@ -30,9 +33,10 @@ export async function getActivities(strategicPlanId?: string): Promise<Activity[
     }));
 }
 
-export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updates' | 'progress' | 'approvalStatus' | 'responsible'> & { initiativeId?: string, strategicPlanId: string, responsible: string, userId: string }) {
-    const creator = await prisma.user.findUnique({ where: { id: data.userId }});
-    if (!creator) throw new Error("Creator not found");
+export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updates' | 'progress' | 'approvalStatus' | 'responsible'> & { initiativeId?: string, strategicPlanId: string, responsible: string, userId?: string }) {
+    // The creator is always the authenticated caller — a client-supplied userId
+    // is never trusted for the auto-approval decision below.
+    const creator = await requireUser();
 
     let approvalStatus: ApprovalStatus = 'PENDING';
 
@@ -71,6 +75,8 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
 
 
 export async function updateActivity(activityId: string, data: Partial<Omit<Activity, 'id' | 'responsible' | 'kpis' | 'updates'>> & { responsible?: string, approvalStatus?: ApprovalStatus }) {
+    await requireUser();
+
     const activityData: any = { ...data };
     if (data.startDate) activityData.startDate = new Date(data.startDate);
     if (data.endDate) activityData.endDate = new Date(data.endDate);
@@ -99,9 +105,9 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
     return updatedActivity;
 }
 
-export async function submitActivityUpdate(activityId: string, progress: number, comment: string, userId: string) {
-    const user = await prisma.user.findUnique({ where: { id: userId }});
-    if (!user) throw new Error("User not found");
+export async function submitActivityUpdate(activityId: string, progress: number, comment: string, userId?: string) {
+    // The submitting user is always the authenticated caller, not the passed userId.
+    const user = await requireUser();
 
     const activity = await prisma.activity.findUnique({ where: { id: activityId } });
     if (!activity) throw new Error("Activity not found");
@@ -135,6 +141,8 @@ export async function submitActivityUpdate(activityId: string, progress: number,
 }
 
 export async function approveActivityUpdate(activityId: string) {
+    await requireUser();
+
     const activity = await prisma.activity.findUnique({ where: { id: activityId }});
     if (!activity) return;
 
@@ -169,6 +177,8 @@ export async function approveActivityUpdate(activityId: string) {
 }
 
 export async function declineActivityUpdate(activityId: string, reason: string) {
+    await requireUser();
+
     const activity = await prisma.activity.findUnique({ where: { id: activityId }});
     if (!activity) return;
 

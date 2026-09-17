@@ -15,7 +15,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { getNotifications } from "@/actions/notifications";
+import { getCurrentUserAction } from "@/actions/auth";
 import type { Notification } from "@/lib/types";
+import type { SessionUser } from "@/lib/auth/session";
 import { useEffect, useState, type ReactNode } from "react";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -68,11 +70,25 @@ function Notifications() {
   );
 }
 
+function roleLabel(role: SessionUser['role']): string {
+  return role.charAt(0) + role.slice(1).toLowerCase();
+}
+
 export function Header({ pageTitle, headerActions }: { pageTitle: ReactNode, headerActions?: ReactNode }) {
   const router = useRouter();
+  const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
 
-  const handleLogout = () => {
-    router.push("/login");
+  useEffect(() => {
+    getCurrentUserAction().then(setCurrentUser);
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } finally {
+      router.push("/login");
+      router.refresh();
+    }
   };
 
   return (
@@ -98,8 +114,8 @@ export function Header({ pageTitle, headerActions }: { pageTitle: ReactNode, hea
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="icon" className="rounded-full">
                 <Avatar className="h-9 w-9">
-                    <AvatarImage src="https://picsum.photos/100" alt="Admin User" data-ai-hint="person" />
-                    <AvatarFallback>AU</AvatarFallback>
+                    <AvatarImage src={currentUser?.avatar} alt={currentUser?.name ?? "User"} data-ai-hint="person" />
+                    <AvatarFallback>{currentUser?.name?.slice(0, 2).toUpperCase() ?? "U"}</AvatarFallback>
                   </Avatar>
                 <span className="sr-only">Toggle user menu</span>
               </Button>
@@ -107,9 +123,9 @@ export function Header({ pageTitle, headerActions }: { pageTitle: ReactNode, hea
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>
                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">Admin User</p>
+                    <p className="text-sm font-medium leading-none">{currentUser?.name ?? "..."}</p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      Administrator
+                      {currentUser ? roleLabel(currentUser.role) : ""}
                     </p>
                   </div>
               </DropdownMenuLabel>

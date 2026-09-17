@@ -9,6 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { getActivities, createActivity, submitActivityUpdate, updateActivity, approveActivityUpdate, declineActivityUpdate } from "@/actions/activities";
 import { getRules } from "@/actions/rules";
 import { getUsers } from "@/actions/users";
+import { getCurrentUserAction } from "@/actions/auth";
+import type { SessionUser } from "@/lib/auth/session";
 import { listStrategicPlans, getStrategicPlanById } from "@/actions/strategic-plan";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -25,7 +27,7 @@ export default function MyActivityPage() {
   const [activeFilter, setActiveFilter] = useState<FilterType>("All");
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
   const [departments, setDepartments] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
   const [strategicPlans, setStrategicPlans] = useState<StrategicPlan[]>([]);
@@ -36,17 +38,15 @@ export default function MyActivityPage() {
 
   useEffect(() => {
     async function loadInitialData() {
-      const [userList, rules, plans] = await Promise.all([
+      const [userList, rules, plans, sessionUser] = await Promise.all([
         getUsers(),
         getRules(),
         listStrategicPlans(),
+        getCurrentUserAction(),
       ]);
-      
+
       setUsers(userList);
-      // In a real app, you'd get this from an auth context.
-      // For demo, we find the Admin user, or default to another user if not found.
-      const adminUser = userList.find(u => u.role === 'ADMINISTRATOR');
-      setCurrentUser(adminUser || userList.find(u => u.name === "Liam Johnson") || null);
+      setCurrentUser(sessionUser);
 
       setStatuses(rules.map(rule => rule.status));
       

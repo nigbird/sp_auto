@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from "react"
-import type { Activity, ActivityStatus, ApprovalStatus, User } from "@/lib/types";
+import type { Activity, ActivityStatus, ApprovalStatus } from "@/lib/types";
+import type { SessionUser } from "@/lib/auth/session";
 import { format, formatDistanceToNow } from "date-fns";
 import { AlertTriangle, ChevronDown, ChevronUp, Hourglass, Clock, CheckCircle, ShieldQuestion, ShieldX, Edit, Check, List, Save, X, Info } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../ui/card";
@@ -63,7 +64,7 @@ const ApprovalBadge = ({ status, reason }: { status: ApprovalStatus; reason?: st
 
 type TaskCardProps = { 
   activity: Activity;
-  currentUser: User | null;
+  currentUser: SessionUser | null;
   onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string) => void;
   onEditDeclined: (activity: Activity) => void;
   onApprove: (activityId: string) => void;
@@ -87,7 +88,7 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
     setIsOpen(true);
   }
 
-    const isAdmin = currentUser?.role === 'Administrator';
+    const isAdmin = currentUser?.role === 'ADMINISTRATOR';
   const showApprovalControls = isAdmin && activity.approvalStatus === 'PENDING';
 
   React.useEffect(() => {
@@ -276,7 +277,7 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
 }
 
 
-export function MyActivityTaskList({ title, count, activities, currentUser, onUpdateActivity, onEditDeclined, onApprove, onDecline }: { title: string; count: number; activities: Activity[]; currentUser: User | null; onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string) => void; onEditDeclined: (activity: Activity) => void; onApprove: (activityId: string) => void; onDecline: (activityId: string, reason: string) => void; }) {
+export function MyActivityTaskList({ title, count, activities, currentUser, onUpdateActivity, onEditDeclined, onApprove, onDecline }: { title: string; count: number; activities: Activity[]; currentUser: SessionUser | null; onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string) => void; onEditDeclined: (activity: Activity) => void; onApprove: (activityId: string) => void; onDecline: (activityId: string, reason: string) => void; }) {
   
   const titleIcon: Record<string, React.ReactNode> = {
     Overdue: <AlertTriangle className="text-destructive" />,
