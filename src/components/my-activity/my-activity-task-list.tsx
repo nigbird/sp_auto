@@ -69,7 +69,7 @@ const ApprovalBadge = ({ status, reason }: { status: ApprovalStatus; reason?: st
 type TaskCardProps = {
   activity: Activity;
   currentUser: SessionUser | null;
-  onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string, completionDate?: string) => void;
+  onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string, completionDate?: string, delayExplanation?: string, recommendedAction?: string) => void;
   onEditDeclined: (activity: Activity) => void;
   onApprove: (activityId: string) => void;
   onDecline: (activityId: string, reason: string) => void;
@@ -87,6 +87,8 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
   const [completionDate, setCompletionDate] = React.useState("");
   const [evidenceList, setEvidenceList] = React.useState<EvidenceMeta[]>([]);
   const [isUploadingEvidence, setIsUploadingEvidence] = React.useState(false);
+  const [delayExplanation, setDelayExplanation] = React.useState("");
+  const [recommendedAction, setRecommendedAction] = React.useState("");
 
   // Fix: define openProgressUpdateForm to reset and open the progress update form
   const openProgressUpdateForm = () => {
@@ -100,6 +102,8 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
   const periodClosed = isPeriodClosedForSubmissions(activity.reportingPeriod);
   const isCompleting = progress >= 100;
   const missingCompletionRequirements = isCompleting && (!completionDate || evidenceList.length === 0);
+  const isUnderperforming = status === 'Delayed' || status === 'Overdue';
+  const missingUnderperformanceRequirements = isUnderperforming && (!delayExplanation.trim() || !recommendedAction.trim());
 
   React.useEffect(() => {
     if (isOpen) {
@@ -148,13 +152,25 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
                 alert("Completing this activity requires both a completion date and at least one attached piece of evidence.");
                 return;
         }
+        if (missingUnderperformanceRequirements) {
+                alert("Reporting underperformance requires both an explanation and a recommended action.");
+                return;
+        }
         const activityWithDateObjects = {
             ...activity,
             startDate: typeof activity.startDate === 'string' ? new Date(activity.startDate) : activity.startDate,
             endDate: typeof activity.endDate === 'string' ? new Date(activity.endDate) : activity.endDate,
         }
         const newStatus = calculateActivityStatus({ ...activityWithDateObjects, progress });
-        onUpdateActivity(activity.id, progress, newStatus, updateComment, isCompleting ? completionDate : undefined);
+        onUpdateActivity(
+            activity.id,
+            progress,
+            newStatus,
+            updateComment,
+            isCompleting ? completionDate : undefined,
+            isUnderperforming ? delayExplanation : undefined,
+            isUnderperforming ? recommendedAction : undefined
+        );
         setLastSubmitted({progress, comment: updateComment});
         setIsOpen(false);
   };
@@ -292,6 +308,30 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
                             </div>
                          )}
 
+                         {isUnderperforming && (
+                            <div className="space-y-3 rounded-lg border border-amber-500/50 p-4">
+                                <p className="text-sm font-medium">This update is behind schedule. Please explain and provide a recommended action.</p>
+                                <div className="space-y-2">
+                                    <Label htmlFor={`delay-explanation-${activity.id}`}>Explanation</Label>
+                                    <Textarea
+                                        id={`delay-explanation-${activity.id}`}
+                                        placeholder="Why is this activity delayed?"
+                                        value={delayExplanation}
+                                        onChange={(e) => setDelayExplanation(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor={`recommended-action-${activity.id}`}>Recommended Action / Ways Forward</Label>
+                                    <Textarea
+                                        id={`recommended-action-${activity.id}`}
+                                        placeholder="What will be done to get back on track?"
+                                        value={recommendedAction}
+                                        onChange={(e) => setRecommendedAction(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                         )}
+
                          {periodClosed && (
                             <p className="text-sm text-destructive">
                                 {activity.reportingPeriod?.status === 'CLOSED'
@@ -300,7 +340,7 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
                             </p>
                          )}
                          <div className="flex justify-end">
-                            <Button onClick={handleSubmit} disabled={periodClosed || missingCompletionRequirements}>Resubmit Update for Review</Button>
+                            <Button onClick={handleSubmit} disabled={periodClosed || missingCompletionRequirements || missingUnderperformanceRequirements}>Resubmit Update for Review</Button>
                         </div>
                     </>
                     )}
@@ -365,7 +405,7 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
 }
 
 
-export function MyActivityTaskList({ title, count, activities, currentUser, onUpdateActivity, onEditDeclined, onApprove, onDecline }: { title: string; count: number; activities: Activity[]; currentUser: SessionUser | null; onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string, completionDate?: string) => void; onEditDeclined: (activity: Activity) => void; onApprove: (activityId: string) => void; onDecline: (activityId: string, reason: string) => void; }) {
+export function MyActivityTaskList({ title, count, activities, currentUser, onUpdateActivity, onEditDeclined, onApprove, onDecline }: { title: string; count: number; activities: Activity[]; currentUser: SessionUser | null; onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string, completionDate?: string, delayExplanation?: string, recommendedAction?: string) => void; onEditDeclined: (activity: Activity) => void; onApprove: (activityId: string) => void; onDecline: (activityId: string, reason: string) => void; }) {
   
   const titleIcon: Record<string, React.ReactNode> = {
     Overdue: <AlertTriangle className="text-destructive" />,
