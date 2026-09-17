@@ -48,6 +48,7 @@ export async function getActivities(strategicPlanId?: string): Promise<Activity[
             responsible: true,
             kpis: true,
             reportingPeriod: true,
+            deliverables: true,
         },
         orderBy: {
             endDate: 'asc'
@@ -59,12 +60,13 @@ export async function getActivities(strategicPlanId?: string): Promise<Activity[
     return plainActivities.map((a: any) => ({
         ...a,
         kpis: a.kpis ?? [],
+        deliverables: a.deliverables ?? [],
         updates: [],
         pendingUpdate: a.pendingUpdate ? JSON.parse(a.pendingUpdate) : null,
     }));
 }
 
-export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updates' | 'progress' | 'approvalStatus' | 'responsible'> & { initiativeId?: string, strategicPlanId: string, responsible: string, userId?: string, reportingPeriodId?: string, kpi?: KpiInput }) {
+export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updates' | 'progress' | 'approvalStatus' | 'responsible' | 'deliverables'> & { initiativeId?: string, strategicPlanId: string, responsible: string, userId?: string, reportingPeriodId?: string, kpi?: KpiInput, deliverables?: string[] }) {
     // The creator is always the authenticated caller — a client-supplied userId
     // is never trusted for the auto-approval decision below.
     const creator = await requireUser();
@@ -101,6 +103,9 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
             status: 'Not Started',
             approvalStatus: approvalStatus,
             kpis: data.kpi && data.kpi.name ? { create: [buildKpiData(data.kpi)] } : undefined,
+            deliverables: data.deliverables && data.deliverables.length > 0
+                ? { create: data.deliverables.filter(t => t.trim()).map(title => ({ title: title.trim() })) }
+                : undefined,
         }
     });
 
@@ -123,12 +128,12 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
 }
 
 
-export async function updateActivity(activityId: string, data: Partial<Omit<Activity, 'id' | 'responsible' | 'kpis' | 'updates'>> & { responsible?: string, approvalStatus?: ApprovalStatus, reportingPeriodId?: string, kpi?: KpiInput }) {
+export async function updateActivity(activityId: string, data: Partial<Omit<Activity, 'id' | 'responsible' | 'kpis' | 'updates' | 'deliverables'>> & { responsible?: string, approvalStatus?: ApprovalStatus, reportingPeriodId?: string, kpi?: KpiInput, deliverables?: string[] }) {
     await requireUser();
 
     await assertValidDepartment(data.department);
 
-    const { kpi, ...rest } = data;
+    const { kpi, deliverables, ...rest } = data;
     const activityData: any = { ...rest };
     if (data.startDate) activityData.startDate = new Date(data.startDate);
     if (data.endDate) activityData.endDate = new Date(data.endDate);
@@ -161,6 +166,25 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
         }
     }
 
+    if (deliverables !== undefined) {
+        // Reconcile by title rather than delete-and-recreate, so an edit to
+        // the activity doesn't wipe out isDelivered/deliveredDate on rows
+        // that staff have already checked off from My Activity.
+        const existingDeliverables = await prisma.deliverable.findMany({ where: { activityId } });
+        const incomingTitles = deliverables.map(t => t.trim()).filter(Boolean);
+        const existingTitles = new Set(existingDeliverables.map(d => d.title));
+
+        const toDelete = existingDeliverables.filter(d => !incomingTitles.includes(d.title));
+        if (toDelete.length > 0) {
+            await prisma.deliverable.deleteMany({ where: { id: { in: toDelete.map(d => d.id) } } });
+        }
+
+        const toCreate = incomingTitles.filter(t => !existingTitles.has(t));
+        if (toCreate.length > 0) {
+            await prisma.deliverable.createMany({ data: toCreate.map(title => ({ activityId, title })) });
+        }
+    }
+
     revalidatePath('/activities');
     revalidatePath('/my-activity');
     return updatedActivity;
@@ -188,6 +212,13 @@ export async function submitActivityUpdate(activityId: string, progress: number,
         const evidenceCount = await prisma.evidence.count({ where: { activityId } });
         if (evidenceCount === 0) {
             throw new Error("Completing this activity requires at least one piece of supporting evidence to be attached first.");
+        }
+        const undeliveredDeliverables = await prisma.deliverable.findMany({
+            where: { activityId, isDelivered: false },
+            select: { title: true },
+        });
+        if (undeliveredDeliverables.length > 0) {
+            throw new Error(`Completing this activity requires all deliverables to be marked delivered first: ${undeliveredDeliverables.map(d => `"${d.title}"`).join(', ')}.`);
         }
     }
 

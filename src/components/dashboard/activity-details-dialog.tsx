@@ -209,6 +209,23 @@ export function ActivityDetailsDialog({
                     </div>
                 )}
 
+                {activity.deliverables && activity.deliverables.length > 0 && (
+                    <div className="space-y-2">
+                        <Label>Deliverables</Label>
+                        <ul className="space-y-1">
+                            {activity.deliverables.map((d) => (
+                                <li key={d.id} className="text-sm flex items-center gap-2">
+                                    <Badge variant="outline" className={d.isDelivered ? "border-green-500 text-green-600 bg-green-500/10" : "border-amber-500 text-amber-600 bg-amber-500/10"}>
+                                        {d.isDelivered ? "Delivered" : "Pending"}
+                                    </Badge>
+                                    <span className={d.isDelivered ? "line-through text-muted-foreground" : ""}>{d.title}</span>
+                                    {d.dueDate && <span className="text-xs text-muted-foreground">(due {format(new Date(d.dueDate), "PP")})</span>}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
                 {activity.approvalStatus === 'DECLINED' && activity.declineReason && (
                     <div className="space-y-2">
                     <Label>Reason for Decline</Label>

@@ -35,6 +35,7 @@ export async function getReportData(): Promise<ReportData> {
                                 include: {
                                     responsible: true,
                                     kpis: true,
+                                    deliverables: true,
                                 }
                             }
                         }
@@ -55,6 +56,7 @@ export async function getReportData(): Promise<ReportData> {
                 activities: i.activities.map(a => ({
                     ...a,
                     kpis: a.kpis ?? [],
+                    deliverables: a.deliverables ?? [],
                     updates: [],
                     pendingUpdate: a.pendingUpdate ? JSON.parse(a.pendingUpdate as string) : undefined
                 }))

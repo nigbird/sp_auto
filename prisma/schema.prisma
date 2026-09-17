@@ -121,9 +121,26 @@ model Activity {
   recommendedAction String?
   evidence        Evidence[]
   notifications   Notification[]
+  deliverables    Deliverable[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Deliverable {
+  id            String    @id @default(cuid())
+  activity      Activity  @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  activityId    String
+  title         String
+  description   String?
+  dueDate       DateTime?
+  isDelivered   Boolean   @default(false)
+  deliveredDate DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([activityId])
 }
 
 model Evidence {

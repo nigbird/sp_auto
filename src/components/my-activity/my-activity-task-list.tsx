@@ -15,9 +15,11 @@ import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { Checkbox } from "../ui/checkbox";
 import { calculateActivityStatus } from "@/lib/utils";
 import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
 import { getEvidenceList, uploadEvidence, deleteEvidence, type EvidenceMeta } from "@/actions/evidence";
+import { toggleDeliverableDelivered } from "@/actions/deliverables";
 import { Progress } from "../ui/progress";
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "../ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../ui/alert-dialog";
@@ -89,6 +91,7 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
   const [isUploadingEvidence, setIsUploadingEvidence] = React.useState(false);
   const [delayExplanation, setDelayExplanation] = React.useState("");
   const [recommendedAction, setRecommendedAction] = React.useState("");
+  const [deliverables, setDeliverables] = React.useState(activity.deliverables ?? []);
 
   // Fix: define openProgressUpdateForm to reset and open the progress update form
   const openProgressUpdateForm = () => {
@@ -101,7 +104,8 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
   const showApprovalControls = isAdmin && activity.approvalStatus === 'PENDING';
   const periodClosed = isPeriodClosedForSubmissions(activity.reportingPeriod);
   const isCompleting = progress >= 100;
-  const missingCompletionRequirements = isCompleting && (!completionDate || evidenceList.length === 0);
+  const allDeliverablesDelivered = deliverables.every((d) => d.isDelivered);
+  const missingCompletionRequirements = isCompleting && (!completionDate || evidenceList.length === 0 || !allDeliverablesDelivered);
   const isUnderperforming = status === 'Delayed' || status === 'Overdue';
   const missingUnderperformanceRequirements = isUnderperforming && (!delayExplanation.trim() || !recommendedAction.trim());
 
@@ -131,6 +135,16 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
   const handleRemoveEvidence = async (id: string) => {
     await deleteEvidence(id);
     setEvidenceList((prev) => prev.filter((ev) => ev.id !== id));
+  };
+
+  const handleToggleDeliverable = async (id: string, delivered: boolean) => {
+    setDeliverables((prev) => prev.map((d) => (d.id === id ? { ...d, isDelivered: delivered } : d)));
+    try {
+      await toggleDeliverableDelivered(id, delivered);
+    } catch (err) {
+      setDeliverables((prev) => prev.map((d) => (d.id === id ? { ...d, isDelivered: !delivered } : d)));
+      alert(err instanceof Error ? err.message : 'Failed to update deliverable.');
+    }
   };
 
   React.useEffect(() => {
@@ -270,9 +284,31 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
                             />
                          </div>
 
+                         {deliverables.length > 0 && (
+                            <div className="space-y-2 rounded-lg border p-4">
+                                <Label>Deliverables</Label>
+                                <ul className="space-y-2">
+                                    {deliverables.map((d) => (
+                                        <li key={d.id} className="flex items-center gap-2">
+                                            <Checkbox
+                                                checked={d.isDelivered}
+                                                onCheckedChange={(checked) => handleToggleDeliverable(d.id, checked === true)}
+                                            />
+                                            <span className={`text-sm ${d.isDelivered ? 'line-through text-muted-foreground' : ''}`}>{d.title}</span>
+                                            {d.dueDate && (
+                                                <span className="text-xs text-muted-foreground">(due {format(new Date(d.dueDate), "PP")})</span>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                         )}
+
                          {isCompleting && (
                             <div className="space-y-3 rounded-lg border p-4">
-                                <p className="text-sm font-medium">Completing this activity requires a completion date and at least one piece of supporting evidence.</p>
+                                <p className="text-sm font-medium">
+                                    Completing this activity requires a completion date, at least one piece of supporting evidence{deliverables.length > 0 ? ', and all deliverables above checked off' : ''}.
+                                </p>
                                 <div className="space-y-2">
                                     <Label htmlFor={`completion-date-${activity.id}`}>Completion Date</Label>
                                     <Input

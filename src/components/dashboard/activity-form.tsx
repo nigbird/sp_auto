@@ -51,10 +51,13 @@ const activitySchema = z.object({
   objectiveId: z.string().optional(),
   reportingPeriodId: z.string().optional(),
   kpi: kpiSchema.optional(),
+  deliverablesText: z.string().optional(),
 })
 
+type ActivityFormValues = Omit<z.infer<typeof activitySchema>, 'deliverablesText'> & { deliverables: string[] };
+
 type ActivityFormProps = {
-  onSubmit: (values: z.infer<typeof activitySchema>) => void;
+  onSubmit: (values: ActivityFormValues) => void;
   activity?: Activity | null;
   users: {id: string, name: string}[];
   onCancel: () => void;
@@ -77,6 +80,7 @@ export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPla
       weight: activity?.weight ?? 50,
       initiativeId: activity?.initiativeId ?? undefined,
       reportingPeriodId: activity?.reportingPeriodId ?? undefined,
+      deliverablesText: activity?.deliverables?.map(d => d.title).join('\n') ?? "",
       kpi: {
         name: existingKpi?.name ?? "",
         unit: existingKpi?.unit ?? "",
@@ -122,9 +126,18 @@ export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPla
     return "Submit for Approval";
   }
 
+  const handleValidSubmit = (values: z.infer<typeof activitySchema>) => {
+    const { deliverablesText, ...rest } = values;
+    const deliverables = (deliverablesText ?? "")
+      .split('\n')
+      .map(line => line.trim())
+      .filter(Boolean);
+    onSubmit({ ...rest, deliverables });
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleValidSubmit)} className="space-y-6">
         <ScrollArea className="h-[60vh] p-1">
           <div className="space-y-6 pr-6">
             {strategicPlan && (
@@ -460,6 +473,20 @@ export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPla
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="deliverablesText"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Deliverables (optional, one per line)</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder={"E.g. Final report\nLaunched website"} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
         </ScrollArea>
         <div className="flex justify-end items-center pt-4 gap-2">

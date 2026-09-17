@@ -15,6 +15,15 @@ export type KPI = {
   weight?: number;
 };
 
+export type Deliverable = {
+  id: string;
+  title: string;
+  description?: string | null;
+  dueDate?: string | Date | null;
+  isDelivered: boolean;
+  deliveredDate?: string | Date | null;
+};
+
 export type ActivityUpdate = {
   user: string;
   date: Date;
@@ -31,6 +40,7 @@ export type PendingUpdate = {
 export type Activity = Omit<PrismaActivity, 'responsibleId'> & {
     responsible: PrismaUser | string;
     kpis: KPI[];
+    deliverables: Deliverable[];
     updates: ActivityUpdate[];
     reportingPeriod?: ReportingPeriod | null;
 };
