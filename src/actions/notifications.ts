@@ -4,7 +4,7 @@
 import { prisma } from '@/lib/prisma';
 import type { Notification } from '@/lib/types';
 import { requireUser } from '@/lib/auth/session';
-import { calculateActivityStatus } from '@/lib/utils';
+import { calculateActivityStatus, calculateDelayDays } from '@/lib/utils';
 import { isCutOffPassed } from '@/lib/reporting-period';
 import { isWithinDeadlineWindow, type NotificationType } from '@/lib/notifications';
 
@@ -70,11 +70,13 @@ async function syncTimeBasedNotifications(): Promise<void> {
                 endDate: activity.endDate,
             });
             if (liveStatus === 'Delayed' || liveStatus === 'Overdue') {
+                const delayDays = calculateDelayDays(activity, now);
+                const delaySuffix = delayDays > 0 ? ` (${delayDays} day${delayDays === 1 ? '' : 's'} past deadline)` : '';
                 await createNotificationIfMissing({
                     type: 'ACTIVITY_DELAYED',
                     userId: activity.responsibleId,
                     activityId: activity.id,
-                    message: `"${activity.title}" is now ${liveStatus.toLowerCase()}.`,
+                    message: `"${activity.title}" is now ${liveStatus.toLowerCase()}${delaySuffix}.`,
                 });
             }
         } else {

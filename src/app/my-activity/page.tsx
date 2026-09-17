@@ -136,11 +136,13 @@ export default function MyActivityPage() {
     newProgress: number,
     _newStatus: ActivityStatus,
     updateComment: string,
-    completionDate?: string
+    completionDate?: string,
+    delayExplanation?: string,
+    recommendedAction?: string
   ) => {
     if (!currentUser) return;
     try {
-      await submitActivityUpdate(activityId, newProgress, updateComment, currentUser.id, completionDate);
+      await submitActivityUpdate(activityId, newProgress, updateComment, currentUser.id, completionDate, delayExplanation, recommendedAction);
     } catch (error) {
       toast({
         title: "Submission Blocked",

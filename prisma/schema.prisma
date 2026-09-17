@@ -108,6 +108,8 @@ model Activity {
   reportingPeriodId String?
   kpis            Kpi[]
   completionDate  DateTime?
+  delayExplanation String?
+  recommendedAction String?
   evidence        Evidence[]
   notifications   Notification[]
 

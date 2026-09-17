@@ -144,6 +144,20 @@ export function calculateActivityStatus(activity: { progress: number; startDate:
   return "On Track";
 }
 
+/**
+ * Whole calendar days past the activity's end date — 0 while it's still
+ * complete or not yet past its deadline, even if `calculateActivityStatus`
+ * already reports "Delayed" due to slow pace before the deadline. Computed
+ * live wherever it's needed rather than stored, since there's no scheduler
+ * in this app to keep a stored count fresh day to day.
+ */
+export function calculateDelayDays(activity: { progress: number; endDate: Date }, now: Date = new Date()): number {
+  if (activity.progress >= 100) return 0;
+  if (now <= activity.endDate) return 0;
+  const msPerDay = 1000 * 60 * 60 * 24;
+  return Math.floor((now.getTime() - activity.endDate.getTime()) / msPerDay);
+}
+
 function sumWeights(items: { weight: number }[]): number {
     if (items.length === 0) return 0;
     return items.reduce((sum, item) => sum + item.weight, 0) / 100;

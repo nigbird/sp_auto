@@ -154,7 +154,7 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
     return updatedActivity;
 }
 
-export async function submitActivityUpdate(activityId: string, progress: number, comment: string, userId?: string, completionDate?: string) {
+export async function submitActivityUpdate(activityId: string, progress: number, comment: string, userId?: string, completionDate?: string, delayExplanation?: string, recommendedAction?: string) {
     // The submitting user is always the authenticated caller, not the passed userId.
     const user = await requireUser();
 
@@ -179,12 +179,21 @@ export async function submitActivityUpdate(activityId: string, progress: number,
         }
     }
 
+    const projectedStatus = calculateActivityStatus({ ...activity, progress });
+    if (projectedStatus === 'Delayed' || projectedStatus === 'Overdue') {
+        if (!delayExplanation?.trim() || !recommendedAction?.trim()) {
+            throw new Error("Reporting underperformance requires both an explanation and a recommended action.");
+        }
+    }
+
     const pendingUpdate = {
         user: user.name,
         date: new Date(),
         comment,
         progress,
         completionDate: completionDate || undefined,
+        delayExplanation: delayExplanation || undefined,
+        recommendedAction: recommendedAction || undefined,
     };
 
     const updateData: any = {
@@ -194,7 +203,7 @@ export async function submitActivityUpdate(activityId: string, progress: number,
 
     // If this is the first update, transition the status from "Not Started"
     if (activity.status === 'Not Started' && progress > 0) {
-        const newStatus = calculateActivityStatus({ ...activity, progress });
+        const newStatus = projectedStatus;
         if (newStatus !== 'Not Started') {
             updateData.status = newStatus;
         }
@@ -228,6 +237,8 @@ export async function approveActivityUpdate(activityId: string) {
             declineReason: null,
             updatedAt: new Date(),
             ...(pendingUpdate.completionDate ? { completionDate: new Date(pendingUpdate.completionDate) } : {}),
+            ...(pendingUpdate.delayExplanation ? { delayExplanation: pendingUpdate.delayExplanation } : {}),
+            ...(pendingUpdate.recommendedAction ? { recommendedAction: pendingUpdate.recommendedAction } : {}),
         };
     } else {
         // This is for approving a newly created activity that has no pending update yet.

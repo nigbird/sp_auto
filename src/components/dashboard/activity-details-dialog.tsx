@@ -20,6 +20,7 @@ import { Button } from "../ui/button";
 import { ArrowRight, Paperclip } from "lucide-react";
 import { ScrollArea } from "../ui/scroll-area";
 import { calculateKpiAchievement } from "@/lib/kpi";
+import { calculateDelayDays } from "@/lib/utils";
 import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
 import { getEvidenceList, type EvidenceMeta } from "@/actions/evidence";
 
@@ -121,8 +122,14 @@ export function ActivityDetailsDialog({
                     </div>
                     <div className="space-y-1">
                     <Label>Status</Label>
-                    <div>
+                    <div className="flex items-center gap-2">
                         <StatusBadge status={activity.status} />
+                        {(() => {
+                            const delayDays = calculateDelayDays({ progress: activity.progress, endDate: new Date(activity.endDate) });
+                            return delayDays > 0 ? (
+                                <Badge variant="destructive">{delayDays} day{delayDays === 1 ? '' : 's'} late</Badge>
+                            ) : null;
+                        })()}
                     </div>
                     </div>
                 </div>
@@ -208,6 +215,23 @@ export function ActivityDetailsDialog({
                     <div className="p-3 rounded-md border bg-muted text-sm text-destructive">
                         {activity.declineReason}
                     </div>
+                    </div>
+                )}
+
+                {(activity.delayExplanation || activity.recommendedAction) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {activity.delayExplanation && (
+                            <div className="space-y-2">
+                                <Label>Delay Explanation</Label>
+                                <div className="p-3 rounded-md border bg-muted text-sm">{activity.delayExplanation}</div>
+                            </div>
+                        )}
+                        {activity.recommendedAction && (
+                            <div className="space-y-2">
+                                <Label>Recommended Action</Label>
+                                <div className="p-3 rounded-md border bg-muted text-sm">{activity.recommendedAction}</div>
+                            </div>
+                        )}
                     </div>
                 )}
 
