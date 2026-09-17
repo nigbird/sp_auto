@@ -93,6 +93,20 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
             kpis: data.kpi && data.kpi.name ? { create: [buildKpiData(data.kpi)] } : undefined,
         }
     });
+
+    if (data.responsible !== creator.id) {
+        await prisma.notification.create({
+            data: {
+                type: 'ACTIVITY_ASSIGNED',
+                message: `You've been assigned a new activity: "${newActivity.title}".`,
+                date: new Date(),
+                read: false,
+                userId: data.responsible,
+                activityId: newActivity.id,
+            },
+        });
+    }
+
     revalidatePath('/activities');
     revalidatePath('/my-activity');
     return newActivity;
@@ -140,7 +154,7 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
     return updatedActivity;
 }
 
-export async function submitActivityUpdate(activityId: string, progress: number, comment: string, userId?: string) {
+export async function submitActivityUpdate(activityId: string, progress: number, comment: string, userId?: string, completionDate?: string) {
     // The submitting user is always the authenticated caller, not the passed userId.
     const user = await requireUser();
 
@@ -155,11 +169,22 @@ export async function submitActivityUpdate(activityId: string, progress: number,
         throw new Error(`Cannot submit an update: the reporting period "${period.name}" ${reason}.`);
     }
 
+    if (progress >= 100) {
+        if (!completionDate) {
+            throw new Error("Completing this activity requires a completion date.");
+        }
+        const evidenceCount = await prisma.evidence.count({ where: { activityId } });
+        if (evidenceCount === 0) {
+            throw new Error("Completing this activity requires at least one piece of supporting evidence to be attached first.");
+        }
+    }
+
     const pendingUpdate = {
         user: user.name,
         date: new Date(),
         comment,
         progress,
+        completionDate: completionDate || undefined,
     };
 
     const updateData: any = {
@@ -202,6 +227,7 @@ export async function approveActivityUpdate(activityId: string) {
             approvalStatus: 'APPROVED',
             declineReason: null,
             updatedAt: new Date(),
+            ...(pendingUpdate.completionDate ? { completionDate: new Date(pendingUpdate.completionDate) } : {}),
         };
     } else {
         // This is for approving a newly created activity that has no pending update yet.
@@ -215,6 +241,18 @@ export async function approveActivityUpdate(activityId: string) {
         where: { id: activityId },
         data: updateData
     });
+
+    await prisma.notification.create({
+        data: {
+            type: 'UPDATE_APPROVED',
+            message: `Your update for "${activity.title}" was approved.`,
+            date: new Date(),
+            read: false,
+            userId: activity.responsibleId,
+            activityId: activity.id,
+        },
+    });
+
     revalidatePath('/activities');
     revalidatePath('/my-activity');
 }
@@ -246,6 +284,17 @@ export async function declineActivityUpdate(activityId: string, reason: string) 
             }
         });
     }
+
+    await prisma.notification.create({
+        data: {
+            type: 'UPDATE_DECLINED',
+            message: `Your update for "${activity.title}" was returned: ${reason}`,
+            date: new Date(),
+            read: false,
+            userId: activity.responsibleId,
+            activityId: activity.id,
+        },
+    });
 
     revalidatePath('/activities');
     revalidatePath('/my-activity');

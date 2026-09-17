@@ -33,6 +33,24 @@ export async function createReportingPeriod(strategicPlanId: string, data: Repor
       cutOffDate: new Date(data.cutOffDate),
     },
   });
+
+  // No activities can be tied to a brand-new period yet, so there's no other
+  // natural audience — notify the people who manage periods/plans.
+  const managers = await prisma.user.findMany({
+    where: { status: 'ACTIVE', role: { in: ['ADMINISTRATOR', 'MANAGER'] } },
+    select: { id: true },
+  });
+  await prisma.notification.createMany({
+    data: managers.map((m) => ({
+      type: 'PERIOD_OPENED',
+      message: `Reporting period "${newPeriod.name}" is now open.`,
+      date: new Date(),
+      read: false,
+      userId: m.id,
+      reportingPeriodId: newPeriod.id,
+    })),
+  });
+
   revalidatePath('/settings/reporting-periods');
   return newPeriod;
 }
@@ -43,6 +61,8 @@ export async function updateReportingPeriod(
 ) {
   await requireUser();
 
+  const before = await prisma.reportingPeriod.findUnique({ where: { id } });
+
   const updateData: Record<string, unknown> = { ...data };
   if (data.startDate) updateData.startDate = new Date(data.startDate);
   if (data.endDate) updateData.endDate = new Date(data.endDate);
@@ -52,6 +72,25 @@ export async function updateReportingPeriod(
     where: { id },
     data: updateData,
   });
+
+  if (before && before.status !== 'CLOSED' && updatedPeriod.status === 'CLOSED') {
+    const activities = await prisma.activity.findMany({
+      where: { reportingPeriodId: id },
+      select: { responsibleId: true },
+    });
+    const responsibleIds = [...new Set(activities.map((a) => a.responsibleId))];
+    await prisma.notification.createMany({
+      data: responsibleIds.map((userId) => ({
+        type: 'PERIOD_CLOSED',
+        message: `The reporting period "${updatedPeriod.name}" has been closed — updates can no longer be submitted for it.`,
+        date: new Date(),
+        read: false,
+        userId,
+        reportingPeriodId: updatedPeriod.id,
+      })),
+    });
+  }
+
   revalidatePath('/settings/reporting-periods');
   return updatedPeriod;
 }

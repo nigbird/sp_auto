@@ -39,6 +39,7 @@ model ReportingPeriod {
   cutOffDate      DateTime
   status          ReportingPeriodStatus @default(OPEN)
   activities      Activity[]
+  notifications   Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -106,9 +107,27 @@ model Activity {
   reportingPeriod   ReportingPeriod? @relation(fields: [reportingPeriodId], references: [id], onDelete: SetNull)
   reportingPeriodId String?
   kpis            Kpi[]
+  completionDate  DateTime?
+  evidence        Evidence[]
+  notifications   Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Evidence {
+  id           String   @id @default(cuid())
+  activity     Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  activityId   String
+  fileName     String
+  mimeType     String
+  fileSize     Int
+  data         Bytes
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  uploadedById String
+  uploadedAt   DateTime @default(now())
+
+  @@index([activityId])
 }
 
 model Kpi {
@@ -140,6 +159,7 @@ model User {
   notifications  Notification[]
   activities     Activity[]
   sessions       ActiveSession[]
+  uploadedEvidence Evidence[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -191,11 +211,16 @@ model AuditLog {
 
 model Notification {
   id      String   @id @default(cuid())
+  type    String   @default("GENERAL")
   message String
   date    DateTime
   read    Boolean
   user    User     @relation(fields: [userId], references: [id])
   userId  String
+  activity   Activity? @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  activityId String?
+  reportingPeriod   ReportingPeriod? @relation(fields: [reportingPeriodId], references: [id], onDelete: Cascade)
+  reportingPeriodId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

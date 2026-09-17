@@ -14,7 +14,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { getNotifications } from "@/actions/notifications";
+import { getNotifications, markNotificationRead, markAllNotificationsRead } from "@/actions/notifications";
 import { getCurrentUserAction } from "@/actions/auth";
 import type { Notification } from "@/lib/types";
 import type { SessionUser } from "@/lib/auth/session";
@@ -37,32 +37,57 @@ import { usePathname, useRouter } from "next/navigation";
 function Notifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  useEffect(() => {
+  const refresh = () => {
     getNotifications().then(setNotifications);
+  };
+
+  useEffect(() => {
+    refresh();
   }, []);
+
+  const handleMarkAllRead = async () => {
+    await markAllNotificationsRead();
+    refresh();
+  };
+
+  const handleNotificationClick = async (notification: Notification) => {
+    if (notification.read) return;
+    await markNotificationRead(notification.id);
+    refresh();
+  };
+
+  const hasUnread = notifications.some((n) => !n.read);
 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon">
+        <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
+          {hasUnread && <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-accent" />}
           <span className="sr-only">Toggle notifications</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80">
         <div className="flex items-center justify-between">
           <p className="font-medium">Notifications</p>
-          <Button variant="link" size="sm" className="p-0 h-auto">Mark all as read</Button>
+          <Button variant="link" size="sm" className="p-0 h-auto" onClick={handleMarkAllRead} disabled={!hasUnread}>Mark all as read</Button>
         </div>
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 space-y-4 max-h-96 overflow-y-auto">
+          {notifications.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-4">No notifications.</p>
+          )}
           {notifications.map((notification) => (
-             <div className="flex items-start gap-3" key={notification.id}>
-              <div className={`mt-1 h-2 w-2 rounded-full ${notification.read ? '' : 'bg-accent'}`} />
+             <button
+                key={notification.id}
+                onClick={() => handleNotificationClick(notification)}
+                className="flex items-start gap-3 w-full text-left hover:bg-muted/50 rounded-md p-1 -m-1"
+             >
+              <div className={`mt-1 h-2 w-2 shrink-0 rounded-full ${notification.read ? '' : 'bg-accent'}`} />
               <div>
                 <p className="text-sm">{notification.message}</p>
                 <p className="text-xs text-muted-foreground">{formatDistanceToNow(notification.date, { addSuffix: true })}</p>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </PopoverContent>

@@ -13,12 +13,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
+import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { calculateActivityStatus } from "@/lib/utils";
 import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
+import { getEvidenceList, uploadEvidence, deleteEvidence, type EvidenceMeta } from "@/actions/evidence";
 import { Progress } from "../ui/progress";
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "../ui/tooltip";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../ui/alert-dialog";
+import { Paperclip, Download } from "lucide-react";
 
 const ApprovalBadge = ({ status, reason }: { status: ApprovalStatus; reason?: string | null }) => {
     if (status === 'APPROVED') {
@@ -63,10 +66,10 @@ const ApprovalBadge = ({ status, reason }: { status: ApprovalStatus; reason?: st
     return null;
 }
 
-type TaskCardProps = { 
+type TaskCardProps = {
   activity: Activity;
   currentUser: SessionUser | null;
-  onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string) => void;
+  onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string, completionDate?: string) => void;
   onEditDeclined: (activity: Activity) => void;
   onApprove: (activityId: string) => void;
   onDecline: (activityId: string, reason: string) => void;
@@ -81,6 +84,9 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
     const [lastSubmitted, setLastSubmitted] = React.useState<{progress: number, comment: string}>({progress: activity.progress, comment: ""});
   const [isDeclineModalOpen, setIsDeclineModalOpen] = React.useState(false);
   const [declineReason, setDeclineReason] = React.useState("");
+  const [completionDate, setCompletionDate] = React.useState("");
+  const [evidenceList, setEvidenceList] = React.useState<EvidenceMeta[]>([]);
+  const [isUploadingEvidence, setIsUploadingEvidence] = React.useState(false);
 
   // Fix: define openProgressUpdateForm to reset and open the progress update form
   const openProgressUpdateForm = () => {
@@ -92,6 +98,36 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
     const isAdmin = currentUser?.role === 'ADMINISTRATOR';
   const showApprovalControls = isAdmin && activity.approvalStatus === 'PENDING';
   const periodClosed = isPeriodClosedForSubmissions(activity.reportingPeriod);
+  const isCompleting = progress >= 100;
+  const missingCompletionRequirements = isCompleting && (!completionDate || evidenceList.length === 0);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      getEvidenceList(activity.id).then(setEvidenceList);
+    }
+  }, [isOpen, activity.id]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingEvidence(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      await uploadEvidence(activity.id, formData);
+      setEvidenceList(await getEvidenceList(activity.id));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to upload file.');
+    } finally {
+      setIsUploadingEvidence(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveEvidence = async (id: string) => {
+    await deleteEvidence(id);
+    setEvidenceList((prev) => prev.filter((ev) => ev.id !== id));
+  };
 
   React.useEffect(() => {
     const activityWithDateObjects = {
@@ -108,13 +144,17 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
                 alert("Please provide an update comment.");
                 return;
         }
+        if (missingCompletionRequirements) {
+                alert("Completing this activity requires both a completion date and at least one attached piece of evidence.");
+                return;
+        }
         const activityWithDateObjects = {
             ...activity,
             startDate: typeof activity.startDate === 'string' ? new Date(activity.startDate) : activity.startDate,
             endDate: typeof activity.endDate === 'string' ? new Date(activity.endDate) : activity.endDate,
         }
         const newStatus = calculateActivityStatus({ ...activityWithDateObjects, progress });
-        onUpdateActivity(activity.id, progress, newStatus, updateComment);
+        onUpdateActivity(activity.id, progress, newStatus, updateComment, isCompleting ? completionDate : undefined);
         setLastSubmitted({progress, comment: updateComment});
         setIsOpen(false);
   };
@@ -213,6 +253,45 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
                                 onChange={(e) => setUpdateComment(e.target.value)}
                             />
                          </div>
+
+                         {isCompleting && (
+                            <div className="space-y-3 rounded-lg border p-4">
+                                <p className="text-sm font-medium">Completing this activity requires a completion date and at least one piece of supporting evidence.</p>
+                                <div className="space-y-2">
+                                    <Label htmlFor={`completion-date-${activity.id}`}>Completion Date</Label>
+                                    <Input
+                                        id={`completion-date-${activity.id}`}
+                                        type="date"
+                                        value={completionDate}
+                                        onChange={(e) => setCompletionDate(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor={`evidence-${activity.id}`}>Attach Evidence</Label>
+                                    <Input
+                                        id={`evidence-${activity.id}`}
+                                        type="file"
+                                        onChange={handleFileUpload}
+                                        disabled={isUploadingEvidence}
+                                    />
+                                    {evidenceList.length > 0 && (
+                                        <ul className="space-y-1">
+                                            {evidenceList.map((ev) => (
+                                                <li key={ev.id} className="flex items-center justify-between text-sm rounded-md border px-2 py-1">
+                                                    <a href={`/api/evidence/${ev.id}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-primary hover:underline">
+                                                        <Paperclip className="h-3 w-3" /> {ev.fileName}
+                                                    </a>
+                                                    <Button size="icon" variant="ghost" onClick={() => handleRemoveEvidence(ev.id)}>
+                                                        <X className="h-3 w-3 text-destructive" />
+                                                    </Button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                            </div>
+                         )}
+
                          {periodClosed && (
                             <p className="text-sm text-destructive">
                                 {activity.reportingPeriod?.status === 'CLOSED'
@@ -221,7 +300,7 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
                             </p>
                          )}
                          <div className="flex justify-end">
-                            <Button onClick={handleSubmit} disabled={periodClosed}>Resubmit Update for Review</Button>
+                            <Button onClick={handleSubmit} disabled={periodClosed || missingCompletionRequirements}>Resubmit Update for Review</Button>
                         </div>
                     </>
                     )}
@@ -286,7 +365,7 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
 }
 
 
-export function MyActivityTaskList({ title, count, activities, currentUser, onUpdateActivity, onEditDeclined, onApprove, onDecline }: { title: string; count: number; activities: Activity[]; currentUser: SessionUser | null; onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string) => void; onEditDeclined: (activity: Activity) => void; onApprove: (activityId: string) => void; onDecline: (activityId: string, reason: string) => void; }) {
+export function MyActivityTaskList({ title, count, activities, currentUser, onUpdateActivity, onEditDeclined, onApprove, onDecline }: { title: string; count: number; activities: Activity[]; currentUser: SessionUser | null; onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string, completionDate?: string) => void; onEditDeclined: (activity: Activity) => void; onApprove: (activityId: string) => void; onDecline: (activityId: string, reason: string) => void; }) {
   
   const titleIcon: Record<string, React.ReactNode> = {
     Overdue: <AlertTriangle className="text-destructive" />,

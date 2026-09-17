@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,10 +17,11 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Paperclip } from "lucide-react";
 import { ScrollArea } from "../ui/scroll-area";
 import { calculateKpiAchievement } from "@/lib/kpi";
 import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
+import { getEvidenceList, type EvidenceMeta } from "@/actions/evidence";
 
 type ActivityDetailsDialogProps = {
   isOpen: boolean;
@@ -43,10 +45,20 @@ export function ActivityDetailsDialog({
   onApprove,
   onDecline
 }: ActivityDetailsDialogProps) {
+  const [evidenceList, setEvidenceList] = useState<EvidenceMeta[]>([]);
+
+  useEffect(() => {
+    if (activity) {
+      getEvidenceList(activity.id).then(setEvidenceList);
+    } else {
+      setEvidenceList([]);
+    }
+  }, [activity]);
+
   if (!activity) {
     return null;
   }
-  
+
   const { pendingUpdate, progress: currentProgress } = activity;
   const responsible = activity.responsible as User;
 
@@ -165,6 +177,28 @@ export function ActivityDetailsDialog({
                                 );
                             })}
                         </div>
+                    </div>
+                )}
+
+                {(activity.completionDate || evidenceList.length > 0) && (
+                    <div className="space-y-2">
+                        <Label>Completion</Label>
+                        {activity.completionDate && (
+                            <p className="text-sm font-medium">
+                                Completed on {format(new Date(activity.completionDate), "PP")}
+                            </p>
+                        )}
+                        {evidenceList.length > 0 && (
+                            <ul className="space-y-1">
+                                {evidenceList.map((ev) => (
+                                    <li key={ev.id}>
+                                        <a href={`/api/evidence/${ev.id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+                                            <Paperclip className="h-3 w-3" /> {ev.fileName}
+                                        </a>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                     </div>
                 )}
 

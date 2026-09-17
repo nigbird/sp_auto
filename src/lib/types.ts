@@ -47,9 +47,12 @@ export type User = {
 
 export type Notification = {
   id: string;
+  type: string;
   message: string;
   date: Date;
   read: boolean;
+  activityId?: string | null;
+  reportingPeriodId?: string | null;
 };
 
 export type Initiative = Omit<PrismaInitiative, 'objectiveId'> & {
