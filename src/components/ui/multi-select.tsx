@@ -40,13 +40,12 @@ export function MultiSelect({ options, selected, onChange, className, ...props }
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <div className={cn("relative", className)}>
             <Button
+                type="button"
                 variant="outline"
                 role="combobox"
                 aria-expanded={open}
-                className="w-full justify-between h-10"
-                onClick={() => setOpen(!open)}
+                className={cn("w-full justify-between h-10 font-normal", className)}
             >
                 <div className="flex gap-1 flex-wrap">
                     {selected.length > 0 ? (
@@ -69,7 +68,6 @@ export function MultiSelect({ options, selected, onChange, className, ...props }
                     )}
                 </div>
             </Button>
-        </div>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0" align="start">
         <Command>
@@ -80,6 +78,8 @@ export function MultiSelect({ options, selected, onChange, className, ...props }
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
+                  value={option.label}
+                  className="cursor-pointer"
                   onSelect={() => {
                     handleSelect(option.value)
                   }}

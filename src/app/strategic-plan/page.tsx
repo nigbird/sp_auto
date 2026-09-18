@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { PlanRowActions } from '@/components/strategic-plan/plan-row-actions';
 
 export default async function StrategicPlanListPage() {
   const plans = await listStrategicPlans();
@@ -47,6 +48,7 @@ export default async function StrategicPlanListPage() {
                 <TableHead>Period</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Last Updated</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -66,11 +68,14 @@ export default async function StrategicPlanListPage() {
                         </Badge>
                     </TableCell>
                     <TableCell>{format(new Date(plan.updatedAt), 'PP')}</TableCell>
+                    <TableCell>
+                      <PlanRowActions planId={plan.id} planName={plan.name} status={plan.status} />
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                  <TableCell colSpan={6} className="h-24 text-center">
                     No strategic plans found. Get started by creating one.
                   </TableCell>
                 </TableRow>

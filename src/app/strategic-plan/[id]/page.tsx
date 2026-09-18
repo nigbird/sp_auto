@@ -1,5 +1,5 @@
 
-import { getStrategicPlanById, deleteStrategicPlan } from "@/actions/strategic-plan";
+import { getStrategicPlanById } from "@/actions/strategic-plan";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,16 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { getObjectiveWeight, getInitiativeWeight, getPillarWeight } from "@/lib/utils";
 import type { Pillar, Objective, Initiative, Activity, User } from "@/lib/types";
-import { ArrowLeft, Edit, Trash2, User as UserIcon, Calendar, Weight, Info, Flag, CheckCircle2, Circle } from "lucide-react";
+import { ArrowLeft, Edit, User as UserIcon, Calendar, Weight, Info, Flag, CheckCircle2, Circle } from "lucide-react";
 import { PublishButton } from "@/components/strategic-plan/publish-button";
+import { DeletePlanButton } from "@/components/strategic-plan/delete-plan-button";
 
-async function deletePlanAction(formData: FormData) {
-  "use server";
-  const planId = formData.get("planId") as string;
-  await deleteStrategicPlan(planId);
-}
-
-function ActionButtons({ planId, status }: { planId: string, status: string }) {
+function ActionButtons({ planId, planName, status }: { planId: string, planName: string, status: string }) {
     return (
         <div className="flex gap-2">
             <Button asChild variant="outline">
@@ -25,12 +20,7 @@ function ActionButtons({ planId, status }: { planId: string, status: string }) {
                     <Edit className="mr-2 h-4 w-4" /> Edit
                 </Link>
             </Button>
-            <form action={deletePlanAction}>
-                <input type="hidden" name="planId" value={planId} />
-                <Button variant="destructive" type="submit">
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete
-                </Button>
-            </form>
+            <DeletePlanButton planId={planId} planName={planName} />
             {status !== 'PUBLISHED' && <PublishButton planId={planId} />}
         </div>
     )
@@ -195,7 +185,7 @@ export default async function StrategicPlanDetailPage({ params }: { params: { id
             <p className="text-muted-foreground">Version {plan.version} &bull; {plan.startYear} - {plan.endYear}</p>
           </div>
         </div>
-        <ActionButtons planId={plan.id} status={plan.status} />
+        <ActionButtons planId={plan.id} planName={plan.name} status={plan.status} />
       </div>
 
       <Card>

@@ -20,6 +20,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Stepper } from "@/components/ui/stepper";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import React, { useState, useMemo } from "react";
+import { unstable_rethrow } from "next/navigation";
 import { createStrategicPlan } from "@/actions/strategic-plan";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { format } from "date-fns";
@@ -176,6 +177,10 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
         try {
             await createStrategicPlan(formData);
         } catch (error) {
+            // createStrategicPlan redirects on success, which Next.js implements by throwing
+            // a special error. unstable_rethrow lets that pass through so navigation still
+            // happens; only genuine failures reach the toast below.
+            unstable_rethrow(error);
             toast({
                 title: status === 'DRAFT' ? "Could Not Save Draft" : "Could Not Publish Plan",
                 description: error instanceof Error ? error.message : "An unexpected error occurred.",
