@@ -16,7 +16,7 @@ import { Textarea } from "../ui/textarea";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Checkbox } from "../ui/checkbox";
-import { calculateActivityStatus } from "@/lib/utils";
+import { calculateActivityStatus, type StatusRule } from "@/lib/utils";
 import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
 import { getEvidenceList, uploadEvidence, deleteEvidence, type EvidenceMeta } from "@/actions/evidence";
 import { toggleDeliverableDelivered } from "@/actions/deliverables";
@@ -71,13 +71,14 @@ const ApprovalBadge = ({ status, reason }: { status: ApprovalStatus; reason?: st
 type TaskCardProps = {
   activity: Activity;
   currentUser: SessionUser | null;
+  rules: StatusRule[];
   onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string, completionDate?: string, delayExplanation?: string, recommendedAction?: string) => void;
   onEditDeclined: (activity: Activity) => void;
   onApprove: (activityId: string) => void;
   onDecline: (activityId: string, reason: string) => void;
 };
 
-function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onApprove, onDecline }: TaskCardProps) {
+function TaskCard({ activity, currentUser, rules, onUpdateActivity, onEditDeclined, onApprove, onDecline }: TaskCardProps) {
     const [isOpen, setIsOpen] = React.useState(false);
     const [progress, setProgress] = React.useState(activity.progress);
     const [status, setStatus] = React.useState(activity.status);
@@ -153,9 +154,9 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
       startDate: typeof activity.startDate === 'string' ? new Date(activity.startDate) : activity.startDate,
       endDate: typeof activity.endDate === 'string' ? new Date(activity.endDate) : activity.endDate,
     }
-    const newStatus = calculateActivityStatus({ ...activityWithDateObjects, progress });
+    const newStatus = calculateActivityStatus({ ...activityWithDateObjects, progress }, rules);
     setStatus(newStatus);
-  }, [progress, activity]);
+  }, [progress, activity, rules]);
 
   const handleSubmit = () => {
         if (updateComment.trim() === "") {
@@ -175,7 +176,7 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
             startDate: typeof activity.startDate === 'string' ? new Date(activity.startDate) : activity.startDate,
             endDate: typeof activity.endDate === 'string' ? new Date(activity.endDate) : activity.endDate,
         }
-        const newStatus = calculateActivityStatus({ ...activityWithDateObjects, progress });
+        const newStatus = calculateActivityStatus({ ...activityWithDateObjects, progress }, rules);
         onUpdateActivity(
             activity.id,
             progress,
@@ -441,7 +442,7 @@ function TaskCard({ activity, currentUser, onUpdateActivity, onEditDeclined, onA
 }
 
 
-export function MyActivityTaskList({ title, count, activities, currentUser, onUpdateActivity, onEditDeclined, onApprove, onDecline }: { title: string; count: number; activities: Activity[]; currentUser: SessionUser | null; onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string, completionDate?: string, delayExplanation?: string, recommendedAction?: string) => void; onEditDeclined: (activity: Activity) => void; onApprove: (activityId: string) => void; onDecline: (activityId: string, reason: string) => void; }) {
+export function MyActivityTaskList({ title, count, activities, currentUser, rules, onUpdateActivity, onEditDeclined, onApprove, onDecline }: { title: string; count: number; activities: Activity[]; currentUser: SessionUser | null; rules: StatusRule[]; onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string, completionDate?: string, delayExplanation?: string, recommendedAction?: string) => void; onEditDeclined: (activity: Activity) => void; onApprove: (activityId: string) => void; onDecline: (activityId: string, reason: string) => void; }) {
   
   const titleIcon: Record<string, React.ReactNode> = {
     Overdue: <AlertTriangle className="text-destructive" />,
@@ -475,7 +476,7 @@ export function MyActivityTaskList({ title, count, activities, currentUser, onUp
       </h2>
       <div className="space-y-4">
         {activities.map(activity => (
-          <TaskCard key={activity.id} activity={activity} currentUser={currentUser} onUpdateActivity={onUpdateActivity} onEditDeclined={onEditDeclined!} onApprove={onApprove} onDecline={onDecline} />
+          <TaskCard key={activity.id} activity={activity} currentUser={currentUser} rules={rules} onUpdateActivity={onUpdateActivity} onEditDeclined={onEditDeclined!} onApprove={onApprove} onDecline={onDecline} />
         ))}
       </div>
     </div>

@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PlusCircle } from "lucide-react";
 import { ActivityForm } from "@/components/dashboard/activity-form";
+import type { StatusRule } from "@/lib/utils";
 
 type FilterType = "Overdue" | "Not Started" | "On Track" | "Completed As Per Target" | "All";
 
@@ -32,6 +33,7 @@ export default function MyActivityPage() {
   const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
   const [departments, setDepartments] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
+  const [statusRules, setStatusRules] = useState<StatusRule[]>([]);
   const [strategicPlans, setStrategicPlans] = useState<StrategicPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<StrategicPlan | null>(null);
@@ -52,6 +54,7 @@ export default function MyActivityPage() {
       setCurrentUser(sessionUser);
 
       setStatuses(rules.map(rule => rule.status));
+      setStatusRules(rules);
       
       const publishedPlans = plans.filter(p => p.status === 'PUBLISHED');
       setStrategicPlans(publishedPlans);
@@ -320,6 +323,7 @@ export default function MyActivityPage() {
           onUpdateActivity={handleUpdateActivity}
           onEditDeclined={handleEditDeclined}
           currentUser={currentUser}
+          rules={statusRules}
           onApprove={handleApproveActivity}
           onDecline={handleDeclineActivity}
       />

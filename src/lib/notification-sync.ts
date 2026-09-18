@@ -53,9 +53,10 @@ async function createNotificationIfMissing(params: {
 export async function syncTimeBasedNotifications(): Promise<void> {
     const now = new Date();
 
-    const activities = await prisma.activity.findMany({
-        where: { approvalStatus: { not: 'DECLINED' } },
-    });
+    const [activities, statusRules] = await Promise.all([
+        prisma.activity.findMany({ where: { approvalStatus: { not: 'DECLINED' } } }),
+        prisma.rule.findMany({ select: { status: true, min: true, max: true } }),
+    ]);
 
     for (const activity of activities) {
         if (activity.progress < 100) {
@@ -72,7 +73,7 @@ export async function syncTimeBasedNotifications(): Promise<void> {
                 progress: activity.progress,
                 startDate: activity.startDate,
                 endDate: activity.endDate,
-            });
+            }, statusRules);
             if (liveStatus === 'Delayed' || liveStatus === 'Overdue') {
                 const delayDays = calculateDelayDays(activity, now);
                 const delaySuffix = delayDays > 0 ? ` (${delayDays} day${delayDays === 1 ? '' : 's'} past deadline)` : '';

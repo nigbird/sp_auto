@@ -123,7 +123,7 @@ function ObjectivePerformanceTable({ pillars }: { pillars: Pillar[] }) {
                         </TableCell>
                     </TableRow>
                     {pillar.objectives.map(objective => {
-                        const plan = getObjectiveWeight(objective) / 100;
+                        const plan = getObjectiveWeight(objective);
                         const actual = (getObjectiveProgress(objective) / 100) * plan;
                         const achievement = plan > 0 ? (actual / plan) * 100 : 0;
                         const statement = objective.statement || objective.title;

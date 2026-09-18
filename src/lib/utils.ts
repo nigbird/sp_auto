@@ -2,7 +2,9 @@
 
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { Pillar, Objective, Initiative, Activity, ActivityStatus } from "./types";
+import type { Pillar, Objective, Initiative, Activity, ActivityStatus, Rule } from "./types";
+
+export type StatusRule = Pick<Rule, 'status' | 'min' | 'max'>;
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -50,32 +52,33 @@ export interface WeightReconciliationResult {
 }
 
 /**
- * Checks that every initiative's activity weights sum to 100% — the only
- * level with real, user-entered weights (Pillar/Objective weights are purely
- * derived rollups with nothing of their own to reconcile). Operates on raw
- * wizard form data (pillars -> objectives -> initiatives -> activities), so
- * it can run before anything is written to the DB.
+ * Checks that every activity's weight across the WHOLE plan sums to 100% —
+ * one absolute weight pool shared by every activity regardless of which
+ * pillar/objective/initiative it sits under, rather than each initiative
+ * having its own independent 100% pool. Operates on raw wizard form data
+ * (pillars -> objectives -> initiatives -> activities), so it can run
+ * before anything is written to the DB.
  */
 export function validateWeightReconciliation(
     pillars: { title?: string; objectives: { statement?: string; initiatives: { title?: string; activities: { weight: number | string }[] }[] }[] }[]
 ): WeightReconciliationResult {
-    const issues: string[] = [];
-
+    let total = 0;
     for (const pillar of pillars) {
         for (const objective of pillar.objectives) {
             for (const initiative of objective.initiatives) {
-                if (!initiative.activities || initiative.activities.length === 0) continue;
-                const total = calculateInitiativeWeight(initiative.activities);
-                if (Math.abs(total - 100) > WEIGHT_RECONCILIATION_TOLERANCE) {
-                    issues.push(
-                        `Initiative "${initiative.title || 'Untitled'}" (Objective "${objective.statement || 'Untitled'}", Pillar "${pillar.title || 'Untitled'}"): weights sum to ${total.toFixed(1)}% — must total 100%.`
-                    );
-                }
+                total += calculateInitiativeWeight(initiative.activities);
             }
         }
     }
 
-    return { valid: issues.length === 0, issues };
+    if (Math.abs(total - 100) > WEIGHT_RECONCILIATION_TOLERANCE) {
+        return {
+            valid: false,
+            issues: [`Activity weights across the whole plan sum to ${total.toFixed(1)}% — must total 100%.`],
+        };
+    }
+
+    return { valid: true, issues: [] };
 }
 
 
@@ -154,35 +157,50 @@ export function generateReportSummary(pillars: Pillar[]): ReportSummary {
   };
 }
 
-export function calculateActivityStatus(activity: { progress: number; startDate: Date; endDate: Date }): ActivityStatus {
+/**
+ * Classifies an activity's status from its progress percentage, using the
+ * live, admin-configurable thresholds from Settings > Rules (src/actions/rules.ts)
+ * rather than hardcoded numbers — editing a rule's min/max there now actually
+ * changes what counts as "Delayed" vs "On Track", etc.
+ *
+ * "Overdue" and "Not Started" stay time-conditioned overrides (past deadline;
+ * zero progress before the start date) rather than pure progress bands —
+ * otherwise they'd shadow "Delayed"/"On Track" for every 0%-progress activity,
+ * since their configured ranges happen to include 0.
+ */
+export function calculateActivityStatus(
+  activity: { progress: number; startDate: Date; endDate: Date },
+  rules: StatusRule[]
+): ActivityStatus {
   const { progress, startDate, endDate } = activity;
   const now = new Date();
 
+  const byName = (name: string) => (rules.find((r) => r.status === name)?.status ?? name) as ActivityStatus;
+  const findByRange = (value: number, pool: StatusRule[]) =>
+    pool.find((r) => value >= r.min && value <= r.max)?.status as ActivityStatus | undefined;
+
+  const timeConditionedNames = new Set(['Overdue', 'Not Started']);
+  const progressBandRules = rules.filter((r) => !timeConditionedNames.has(r.status));
+
   if (progress >= 100) {
-    return "Completed As Per Target";
+    return findByRange(progress, rules) ?? byName('Completed As Per Target');
   }
 
   if (now > endDate) {
     if (progress === 0) {
-        return "Overdue";
+      return byName('Overdue');
     }
-    return "Delayed";
-  }
-  
-  if (progress === 0) {
-    if (now < startDate) {
-      return "Not Started";
-    }
-    // after start date but before end date
-    return "Delayed";
-  }
-  
-  // In-progress
-  if (progress < 70) {
-    return "Delayed";
+    return findByRange(progress, progressBandRules) ?? byName('Delayed');
   }
 
-  return "On Track";
+  if (progress === 0 && now < startDate) {
+    return byName('Not Started');
+  }
+
+  // Zero progress after the start date (but before the deadline) falls
+  // through here too: it won't match "Delayed"'s configured range (which
+  // typically starts above 0), so the byName fallback covers it.
+  return findByRange(progress, progressBandRules) ?? byName('Delayed');
 }
 
 /**
@@ -200,18 +218,14 @@ export function calculateDelayDays(activity: { progress: number; endDate: Date }
 }
 
 function sumWeights(items: { weight: number }[]): number {
-    if (items.length === 0) return 0;
-    return items.reduce((sum, item) => sum + item.weight, 0) / 100;
+    return items.reduce((sum, item) => sum + item.weight, 0);
 }
 
 function sumActual(items: { weight: number, progress: number }[]): number {
-    if (items.length === 0) return 0;
-    const totalWeight = items.reduce((sum, item) => sum + item.weight, 0);
-    if(totalWeight === 0) return 0;
-    const weightedSum = items.reduce((sum, item) => sum + (item.progress/100 * item.weight), 0);
-    return weightedSum / 100;
+    return items.reduce((sum, item) => sum + (item.progress / 100 * item.weight), 0);
 }
 
+/** This pillar's share of the whole plan's 100-point weight pool (its "quota"). */
 export function getPillarPlan(pillar: Pillar): number {
     let totalPlan = 0;
     pillar.objectives.forEach(objective => {
@@ -222,6 +236,7 @@ export function getPillarPlan(pillar: Pillar): number {
     return totalPlan;
 }
 
+/** Points this pillar has actually earned out of its getPillarPlan() quota (weight * progress, summed). */
 export function getPillarActual(pillar: Pillar): number {
     let totalActual = 0;
     pillar.objectives.forEach(objective => {

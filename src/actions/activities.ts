@@ -4,11 +4,16 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma';
 import type { Activity } from '@/lib/types';
-import { calculateActivityStatus } from '@/lib/utils';
+import { calculateActivityStatus, type StatusRule } from '@/lib/utils';
 import { isPeriodClosedForSubmissions } from '@/lib/reporting-period';
 import type { ApprovalStatus, User } from '@prisma/client';
 import { requireUser } from '@/lib/auth/session';
 import { requirePermission, hasPermission } from '@/lib/auth/permissions-server';
+
+/** The live, admin-configurable status thresholds from Settings > Rules. */
+async function getStatusRules(): Promise<StatusRule[]> {
+    return prisma.rule.findMany({ select: { status: true, min: true, max: true } });
+}
 
 export interface KpiInput {
     name: string;
@@ -151,7 +156,8 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
 
     // Explicitly set status if progress is changed
     if (data.progress !== undefined) {
-        activityData.status = calculateActivityStatus({ ...currentActivity, progress: data.progress, endDate: new Date(currentActivity.endDate) });
+        const rules = await getStatusRules();
+        activityData.status = calculateActivityStatus({ ...currentActivity, progress: data.progress, endDate: new Date(currentActivity.endDate) }, rules);
     }
 
     activityData.updatedAt = new Date();
@@ -226,7 +232,8 @@ export async function submitActivityUpdate(activityId: string, progress: number,
         }
     }
 
-    const projectedStatus = calculateActivityStatus({ ...activity, progress });
+    const statusRules = await getStatusRules();
+    const projectedStatus = calculateActivityStatus({ ...activity, progress }, statusRules);
     if (projectedStatus === 'Delayed' || projectedStatus === 'Overdue') {
         if (!delayExplanation?.trim() || !recommendedAction?.trim()) {
             throw new Error("Reporting underperformance requires both an explanation and a recommended action.");
@@ -274,7 +281,8 @@ export async function approveActivityUpdate(activityId: string) {
 
     if (activity.pendingUpdate) {
         const pendingUpdate = JSON.parse(activity.pendingUpdate as string);
-        const newStatus = calculateActivityStatus({ ...activity, progress: pendingUpdate.progress, endDate: new Date(activity.endDate) });
+        const rules = await getStatusRules();
+        const newStatus = calculateActivityStatus({ ...activity, progress: pendingUpdate.progress, endDate: new Date(activity.endDate) }, rules);
         
         updateData = {
             progress: pendingUpdate.progress,

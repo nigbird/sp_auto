@@ -18,12 +18,14 @@ import { MultiSelect, type MultiSelectOption } from "@/components/ui/multi-selec
 import { Checkbox } from "@/components/ui/checkbox";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useState, useEffect, useMemo } from "react";
+import { unstable_rethrow } from "next/navigation";
 import { updateStrategicPlan } from "@/actions/strategic-plan";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import type { StrategicPlan, User as AppUser } from "@/lib/types";
 import { useParams } from "next/navigation";
 import { format } from "date-fns";
 import { calculateInitiativeWeight } from "@/lib/utils";
+import { describeFieldPath, extractQuoted, findFirstErrorPath, focusFieldByPath, scrollToAndHighlight, scrollToListItemContaining } from "@/lib/form-focus";
 
 const activitySchema = z.object({
   id: z.string().optional(),
@@ -92,6 +94,21 @@ const getOneMonthFromToday = () => {
     const d = new Date();
     d.setMonth(d.getMonth() + 1);
     return format(d, 'yyyy-MM-dd');
+}
+
+const calculateObjectiveWeight = (initiatives: any[] = []) => initiatives.reduce((total, initiative) => total + calculateInitiativeWeight(initiative.activities || []), 0);
+const calculatePillarWeight = (objectives: any[] = []) => objectives.reduce((total, objective) => total + calculateObjectiveWeight(objective.initiatives || []), 0);
+/** Sum of every activity's weight across the whole plan — the one pool that must total 100%. */
+const calculatePlanWeight = (pillars: any[] = []) => pillars.reduce((total, pillar) => total + calculatePillarWeight(pillar.objectives || []), 0);
+
+function PlanWeightSummary({ pillars, id }: { pillars: any[]; id?: string }) {
+    const total = calculatePlanWeight(pillars);
+    const isBalanced = Math.abs(total - 100) < 0.01;
+    return (
+        <p id={id} className={`text-sm font-semibold ${isBalanced ? 'text-green-600' : 'text-destructive'}`}>
+            Total plan weight: {total.toFixed(1)}% {!isBalanced && '(must total 100% across the whole plan before publishing)'}
+        </p>
+    );
 }
 
 type EditPlanClientProps = {
@@ -170,12 +187,28 @@ export function EditPlanClient({ users, departments, plan }: EditPlanClientProps
             description: "Please wait.",
         });
 
-        const result = await updateStrategicPlan(planId, formData);
+        let result: Awaited<ReturnType<typeof updateStrategicPlan>>;
+        try {
+            result = await updateStrategicPlan(planId, formData);
+        } catch (error) {
+            // updateStrategicPlan redirects on success, which Next.js implements by
+            // throwing a special error — let that pass through so navigation still
+            // happens; only genuine failures (e.g. a permission error thrown before
+            // any validation runs) reach the toast below.
+            unstable_rethrow(error);
+            toast({
+                title: status === 'DRAFT' ? "Could Not Save Draft" : "Could Not Publish Plan",
+                description: error instanceof Error ? error.message : "An unexpected error occurred.",
+                variant: "destructive",
+            });
+            return;
+        }
         if (result?.success === false) {
              const formIssues = (result.errors as any)?._form as string[] | undefined;
+             const combinedMessage = formIssues?.length ? formIssues.join(' ') : "Please correct the errors and try again.";
              toast({
-                title: "Validation Error",
-                description: formIssues?.length ? formIssues.join(' ') : "Please correct the errors and try again.",
+                title: status === 'DRAFT' ? "Could Not Save Draft" : "Could Not Publish Plan",
+                description: combinedMessage,
                 variant: "destructive",
             });
             form.clearErrors();
@@ -185,6 +218,15 @@ export function EditPlanClient({ users, departments, plan }: EditPlanClientProps
                     type: 'manual',
                     message: (messages as string[]).join(', '),
                 });
+            }
+
+            // Pull the user's attention to whatever the server flagged, rather than
+            // leaving them to hunt for it after the toast disappears.
+            if (formIssues?.length && /weight/i.test(combinedMessage)) {
+                setTimeout(() => scrollToAndHighlight(document.getElementById('plan-weight-summary-edit')), 100);
+            } else if (formIssues?.length) {
+                const activityTitle = extractQuoted(combinedMessage);
+                if (activityTitle) setTimeout(() => scrollToListItemContaining(document.body, activityTitle), 100);
             }
         }
     };
@@ -206,7 +248,22 @@ export function EditPlanClient({ users, departments, plan }: EditPlanClientProps
                     </div>
                      <div className="flex gap-2">
                         <Button variant="outline" type="button" onClick={() => handleFormSubmit('DRAFT')}>Save Draft</Button>
-                        <Button type="button" onClick={() => form.handleSubmit(() => handleFormSubmit('PUBLISHED'))()}>Update & Publish</Button>
+                        <Button type="button" onClick={() => form.handleSubmit(
+                            () => handleFormSubmit('PUBLISHED'),
+                            (errors) => {
+                                // handleSubmit silently does nothing on invalid fields unless we
+                                // handle that case ourselves — never leave this unhandled.
+                                const path = findFirstErrorPath(errors);
+                                const scrolled = path ? focusFieldByPath(path) : false;
+                                toast({
+                                    title: "Can't publish yet",
+                                    description: path
+                                        ? `${describeFieldPath(path)} has a problem.${scrolled ? '' : ' Expand that section above to fix it.'}`
+                                        : "Please correct the highlighted fields before publishing.",
+                                    variant: "destructive",
+                                });
+                            }
+                        )()}>Update & Publish</Button>
                     </div>
                 </div>
                 <Card>
@@ -268,6 +325,8 @@ export function EditPlanClient({ users, departments, plan }: EditPlanClientProps
                                 )}
                             />
                         </div>
+
+                        <PlanWeightSummary pillars={form.watch('pillars')} id="plan-weight-summary-edit" />
 
                         <Accordion type="multiple" className="w-full space-y-4" defaultValue={pillarFields.map(p => p.id || '')}>
                             {pillarFields.map((pillar, pIndex) => (
@@ -357,7 +416,6 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users,
     const { fields: activityFields, append: appendActivity, remove: removeActivity } = useFieldArray({ control, name: `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities` });
     const activities = watch(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities`) || [];
     const totalWeight = calculateInitiativeWeight(activities);
-    const isBalanced = Math.abs(totalWeight - 100) < 0.01;
 
     return (
         <Card>
@@ -409,8 +467,8 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users,
                         <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: generateId('A'), title: ``, weight: 0, startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] || '', responsible: users[0]?.id || '' })}>
                             <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
                         </Button>
-                        <p className={`text-sm font-medium ${isBalanced ? 'text-green-600' : 'text-destructive'}`}>
-                            Total weight: {totalWeight.toFixed(1)}% {!isBalanced && '(must total 100%)'}
+                        <p className="text-sm font-medium text-muted-foreground">
+                            Subtotal: {totalWeight.toFixed(1)}% of whole plan
                         </p>
                     </div>
                 </div>

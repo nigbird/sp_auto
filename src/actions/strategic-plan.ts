@@ -391,11 +391,6 @@ export async function publishStrategicPlan(id: string) {
     revalidatePath(`/strategic-plan/${id}`);
 }
 
-export async function deleteStrategicPlanAction(formData: FormData) {
-    const planId = formData.get('planId') as string;
-    await deleteStrategicPlan(planId);
-}
-
 export async function deleteStrategicPlan(id: string) {
     await requirePermission('strategic-plan:edit');
 

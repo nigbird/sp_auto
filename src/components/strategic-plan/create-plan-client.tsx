@@ -25,6 +25,7 @@ import { createStrategicPlan } from "@/actions/strategic-plan";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { format } from "date-fns";
 import { calculateInitiativeWeight } from "@/lib/utils";
+import { describeFieldPath, extractQuoted, focusFieldByPath, scrollToAndHighlight, scrollToListItemContaining } from "@/lib/form-focus";
 
 const activitySchema = z.object({
   id: z.string().optional(),
@@ -181,11 +182,25 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
             // a special error. unstable_rethrow lets that pass through so navigation still
             // happens; only genuine failures reach the toast below.
             unstable_rethrow(error);
+            const message = error instanceof Error ? error.message : "An unexpected error occurred.";
             toast({
                 title: status === 'DRAFT' ? "Could Not Save Draft" : "Could Not Publish Plan",
-                description: error instanceof Error ? error.message : "An unexpected error occurred.",
+                description: message,
                 variant: "destructive",
             });
+
+            // Jump to Review & Save and highlight whatever the server flagged, so the
+            // problem is in front of the user rather than just named in a toast.
+            if (/weight/i.test(message)) {
+                setCurrentTab('review');
+                setTimeout(() => scrollToAndHighlight(document.getElementById('plan-weight-summary-review')), 100);
+            } else if (/department/i.test(message)) {
+                const activityTitle = extractQuoted(message);
+                setCurrentTab('review');
+                if (activityTitle) {
+                    setTimeout(() => scrollToListItemContaining(document.body, activityTitle), 100);
+                }
+            }
         }
     };
 
@@ -193,52 +208,49 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
         const currentTabIndex = TABS.findIndex(t => t.value === currentTab);
         const currentTabInfo = TABS[currentTabIndex];
 
-        let result = true;
-                if(currentTabInfo.value === 'plan-info') {
-                        result = await form.trigger(['name', 'startYear', 'endYear', 'version']);
-                } else if (currentTabInfo.value === 'pillars') {
-                        const fieldsToValidate = form.getValues().pillars.map((_, index) => `pillars.${index}.title` as const);
-                        result = await form.trigger(fieldsToValidate as any);
-                } else if (currentTabInfo.value === 'objectives') {
-                        const fieldsToValidate = form.getValues().pillars.flatMap((_, pIndex) => 
-                                form.getValues().pillars[pIndex].objectives.map((_, oIndex) => `pillars.${pIndex}.objectives.${oIndex}.statement` as const)
-                        );
-                        result = await form.trigger(fieldsToValidate);
-                } else if (currentTabInfo.value === 'initiatives') {
-                        const fieldsToValidate = form.getValues().pillars.flatMap((_, pIndex) =>
-                                form.getValues().pillars[pIndex].objectives.flatMap((_, oIndex) =>
-                                        form.getValues().pillars[pIndex].objectives[oIndex].initiatives.map((_, iIndex) => `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.title` as const)
-                                )
-                        );
-                        result = await form.trigger(fieldsToValidate);
-                } else if (currentTabInfo.value === 'activities') {
-                        // Validate all fields of all activities
-                        const fieldsToValidate: string[] = [];
-                        form.getValues().pillars.forEach((pillar, pIndex) => {
-                            pillar.objectives.forEach((objective, oIndex) => {
-                                objective.initiatives.forEach((initiative, iIndex) => {
-                                    initiative.activities.forEach((activity, aIndex) => {
-                                        fieldsToValidate.push(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.title`);
-                                        fieldsToValidate.push(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.weight`);
-                                        fieldsToValidate.push(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.startDate`);
-                                        fieldsToValidate.push(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.endDate`);
-                                        fieldsToValidate.push(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.department`);
-                                        fieldsToValidate.push(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.responsible`);
-                                    });
-                                });
-                            });
+        let fieldsToValidate: string[] = [];
+        if (currentTabInfo.value === 'plan-info') {
+            fieldsToValidate = ['name', 'startYear', 'endYear', 'version'];
+        } else if (currentTabInfo.value === 'pillars') {
+            fieldsToValidate = form.getValues().pillars.map((_, index) => `pillars.${index}.title`);
+        } else if (currentTabInfo.value === 'objectives') {
+            fieldsToValidate = form.getValues().pillars.flatMap((_, pIndex) =>
+                form.getValues().pillars[pIndex].objectives.map((_, oIndex) => `pillars.${pIndex}.objectives.${oIndex}.statement`)
+            );
+        } else if (currentTabInfo.value === 'initiatives') {
+            fieldsToValidate = form.getValues().pillars.flatMap((_, pIndex) =>
+                form.getValues().pillars[pIndex].objectives.flatMap((_, oIndex) =>
+                    form.getValues().pillars[pIndex].objectives[oIndex].initiatives.map((_, iIndex) => `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.title`)
+                )
+            );
+        } else if (currentTabInfo.value === 'activities') {
+            form.getValues().pillars.forEach((pillar, pIndex) => {
+                pillar.objectives.forEach((objective, oIndex) => {
+                    objective.initiatives.forEach((initiative, iIndex) => {
+                        initiative.activities.forEach((activity, aIndex) => {
+                            const base = `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}`;
+                            fieldsToValidate.push(`${base}.title`, `${base}.weight`, `${base}.startDate`, `${base}.endDate`, `${base}.department`, `${base}.responsible`);
                         });
-                        result = await form.trigger(fieldsToValidate as any);
-                }
-        
+                    });
+                });
+            });
+        }
+
+        const result = fieldsToValidate.length === 0 ? true : await form.trigger(fieldsToValidate as any);
+
         if (result && currentTabIndex < TABS.length - 1) {
             setHighestCompletedStep(Math.max(highestCompletedStep, currentTabIndex + 1));
             setCurrentTab(TABS[currentTabIndex + 1].value);
         } else if (!result) {
-            let errorMsg = "Please fill out all required fields before proceeding.";
+            const firstInvalidField = fieldsToValidate.find((f) => form.getFieldState(f as any, form.formState).error);
+            const fieldError = firstInvalidField ? form.getFieldState(firstInvalidField as any, form.formState).error : undefined;
+            const scrolled = firstInvalidField ? focusFieldByPath(firstInvalidField) : false;
+
             toast({
-                title: "Validation Error",
-                description: errorMsg,
+                title: "Can't continue yet",
+                description: firstInvalidField
+                    ? `${describeFieldPath(firstInvalidField)}: ${fieldError?.message ?? 'this field needs attention'}.${scrolled ? '' : ' Expand that section above to fix it.'}`
+                    : "Please fill out all required fields before proceeding.",
                 variant: "destructive",
             });
         }
@@ -389,7 +401,7 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
                                                 </CardContent>
                                             </Card>
                                         ))}
-                                        <Button type="button" variant="outline" onClick={() => appendPillar({ id: generateId('P'), title: `Pillar ${pillarFields.length + 1}`, description: "", objectives: [{ id: generateId('O'), statement: "New Objective", initiatives: [{ id: generateId('I'), title: "New Initiative", owner: users[0]?.id || "", collaborators: [], activities: [{ id: generateId('A'), title: "New Activity", weight: 100, startDate: getToday(), endDate: getOneMonthFromToday(), department: 'Sales', responsible: users[0]?.id || "" }] }] }] })}>
+                                        <Button type="button" variant="outline" onClick={() => appendPillar({ id: generateId('P'), title: `Pillar ${pillarFields.length + 1}`, description: "", objectives: [{ id: generateId('O'), statement: "New Objective", initiatives: [{ id: generateId('I'), title: "New Initiative", owner: users[0]?.id || "", collaborators: [], activities: [{ id: generateId('A'), title: "New Activity", weight: 0, startDate: getToday(), endDate: getOneMonthFromToday(), department: 'Sales', responsible: users[0]?.id || "" }] }] }] })}>
                                             <PlusCircle className="mr-2 h-4 w-4" /> Add Pillar
                                         </Button>
                                     </div>
@@ -414,7 +426,8 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
                                 </TabsContent>
 
                                 <TabsContent value="activities" className="space-y-6">
-                                    <StepHeader title="Step 5: Define Activities" description="An Activity is a specific task required to complete an Initiative." />
+                                    <StepHeader title="Step 5: Define Activities" description="An Activity is a specific task required to complete an Initiative. Every activity shares one 100% weight pool across the whole plan." />
+                                    <PlanWeightSummary pillars={form.watch('pillars')} />
                                     <Accordion type="multiple" defaultValue={pillarFields.map((p) => p.id || '')}>
                                         {pillarFields.map((pillar, pIndex) => (
                                             <PillarActivityAccordion key={pillar.id} pIndex={pIndex} form={form} users={users} departments={departments} userOptions={userOptions} />
@@ -455,6 +468,18 @@ function StepHeader({ title, description }: { title: string, description: string
 
 const calculateObjectiveWeight = (initiatives: any[] = []) => initiatives.reduce((total, initiative) => total + calculateInitiativeWeight(initiative.activities || []), 0);
 const calculatePillarWeight = (objectives: any[] = []) => objectives.reduce((total, objective) => total + calculateObjectiveWeight(objective.initiatives || []), 0);
+/** Sum of every activity's weight across the whole plan — the one pool that must total 100%. */
+const calculatePlanWeight = (pillars: any[] = []) => pillars.reduce((total, pillar) => total + calculatePillarWeight(pillar.objectives || []), 0);
+
+function PlanWeightSummary({ pillars, id }: { pillars: any[]; id?: string }) {
+    const total = calculatePlanWeight(pillars);
+    const isBalanced = Math.abs(total - 100) < 0.01;
+    return (
+        <p id={id} className={`text-sm font-semibold ${isBalanced ? 'text-green-600' : 'text-destructive'}`}>
+            Total plan weight: {total.toFixed(1)}% {!isBalanced && '(must total 100% across the whole plan before publishing)'}
+        </p>
+    );
+}
 
 function PillarObjectiveAccordion({ pIndex, form, users, departments }: { pIndex: number; form: any, users: {id: string, name: string}[], departments: string[] }) {
     const { control, watch } = form;
@@ -491,7 +516,7 @@ function PillarObjectiveAccordion({ pIndex, form, users, departments }: { pIndex
                         </CardContent>
                     </Card>
                  ))}
-                 <Button type="button" variant="outline" size="sm" onClick={() => appendObjective({ id: generateId('O'), statement: `Objective ${pIndex + 1}.${objectiveFields.length + 1}`, initiatives: [{ id: generateId('I'), title: "New Initiative", owner: users[0]?.id || "", collaborators: [], activities: [{ id: generateId('A'), title: "New Activity", weight: 100, startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] || 'Sales', responsible: users[0]?.id || "" }] }] })}>
+                 <Button type="button" variant="outline" size="sm" onClick={() => appendObjective({ id: generateId('O'), statement: `Objective ${pIndex + 1}.${objectiveFields.length + 1}`, initiatives: [{ id: generateId('I'), title: "New Initiative", owner: users[0]?.id || "", collaborators: [], activities: [{ id: generateId('A'), title: "New Activity", weight: 0, startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] || 'Sales', responsible: users[0]?.id || "" }] }] })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Objective
                 </Button>
             </AccordionContent>
@@ -609,7 +634,7 @@ function ObjectiveInitiativeAccordion({ pIndex, oIndex, form, peopleOptions, use
                         </Card>
                      )
                 })}
-                <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ id: generateId('I'), title: `Initiative ${pIndex+1}.${oIndex+1}.${initiativeFields.length+1}`, description: "", owner: users[0]?.id || "", collaborators: [], isContinuous: false, milestones: [], activities: [{ id: generateId('A'), title: "New Activity", weight: 100, startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] || 'Sales', responsible: users[0]?.id || "" }] })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ id: generateId('I'), title: `Initiative ${pIndex+1}.${oIndex+1}.${initiativeFields.length+1}`, description: "", owner: users[0]?.id || "", collaborators: [], isContinuous: false, milestones: [], activities: [{ id: generateId('A'), title: "New Activity", weight: 0, startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] || 'Sales', responsible: users[0]?.id || "" }] })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Initiative
                 </Button>
             </AccordionContent>
@@ -827,10 +852,9 @@ function InitiativeActivityAccordion({ pIndex, oIndex, iIndex, form, users, depa
                     </Button>
                     {(() => {
                         const total = calculateInitiativeWeight(initiative.activities || []);
-                        const isBalanced = Math.abs(total - 100) < 0.01;
                         return (
-                            <p className={`text-sm font-medium ${isBalanced ? 'text-green-600' : 'text-destructive'}`}>
-                                Total weight: {total.toFixed(1)}% {!isBalanced && '(must total 100%)'}
+                            <p className="text-sm font-medium text-muted-foreground">
+                                Subtotal: {total.toFixed(1)}% of whole plan
                             </p>
                         );
                     })()}
@@ -850,26 +874,26 @@ function ReviewSection({ form }: { form: any }) {
     return (
         <div className="space-y-4">
             <h3 className="text-xl font-bold">{plan.name} ({plan.startYear}-{plan.endYear}) v{plan.version}</h3>
+            <PlanWeightSummary pillars={plan.pillars} id="plan-weight-summary-review" />
             {plan.pillars.map((pillar: any, pIndex: number) => {
                 const pillarWeight = calculatePillarWeight(pillar.objectives);
                 return (
                     <div key={pIndex} className="p-4 border rounded-lg space-y-3 bg-muted/20">
-                        <h4 className="font-bold text-lg">{pillar.title} (Total Weight: {pillarWeight})</h4>
+                        <h4 className="font-bold text-lg">{pillar.title} (Weight: {pillarWeight.toFixed(1)}% of plan)</h4>
                         {pillar.objectives.map((objective: any, oIndex: number) => {
                              const objectiveWeight = calculateObjectiveWeight(objective.initiatives);
                              return (
                                 <div key={oIndex} className="p-3 border rounded-md space-y-2 bg-background/50 ml-4">
-                                    <h5 className="font-semibold">{objective.statement} (Total Weight: {objectiveWeight})</h5>
+                                    <h5 className="font-semibold">{objective.statement} (Weight: {objectiveWeight.toFixed(1)}% of plan)</h5>
                                     {objective.initiatives.map((initiative: any, iIndex: number) => {
                                         const initiativeWeight = calculateInitiativeWeight(initiative.activities);
-                                        const isBalanced = Math.abs(initiativeWeight - 100) < 0.01;
                                         return (
                                              <div key={iIndex} className="p-2 border rounded-md space-y-2 bg-muted/20 ml-4">
-                                                 <h6 className={`font-medium ${isBalanced ? '' : 'text-destructive'}`}>{initiative.title} (Total Weight: {initiativeWeight.toFixed(1)}%{!isBalanced && ' — must total 100%'})</h6>
+                                                 <h6 className="font-medium">{initiative.title} (Weight: {initiativeWeight.toFixed(1)}% of plan)</h6>
                                                  <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
                                                     {initiative.activities.map((activity: any, aIndex: number) => (
                                                         <li key={aIndex}>
-                                                           <span className="font-semibold text-foreground">Activity:</span> {activity.title} (Weight: {activity.weight})
+                                                           <span className="font-semibold text-foreground">Activity:</span> {activity.title} (Weight: {activity.weight}%)
                                                         </li>
                                                     ))}
                                                  </ul>
