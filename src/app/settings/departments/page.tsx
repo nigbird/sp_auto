@@ -3,13 +3,13 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Building2, PlusCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, Building2, Check, Pencil, PlusCircle, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { getDepartments, createDepartment, deleteDepartment } from "@/actions/departments";
+import { getDepartments, createDepartment, updateDepartment, deleteDepartment } from "@/actions/departments";
 
 interface DepartmentRow {
   id: string;
@@ -19,6 +19,8 @@ interface DepartmentRow {
 export default function DepartmentsPage() {
   const [departments, setDepartments] = useState<DepartmentRow[]>([]);
   const [newName, setNewName] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
   const { toast } = useToast();
 
   const refresh = () => {
@@ -39,6 +41,32 @@ export default function DepartmentsPage() {
     } catch (error) {
       toast({
         title: "Could Not Add Department",
+        description: error instanceof Error ? error.message : "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const startEdit = (department: DepartmentRow) => {
+    setEditingId(department.id);
+    setEditingName(department.name);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditingName("");
+  };
+
+  const handleUpdate = async (id: string) => {
+    if (!editingName.trim()) return;
+    try {
+      await updateDepartment(id, editingName);
+      cancelEdit();
+      refresh();
+      toast({ title: "Department Updated" });
+    } catch (error) {
+      toast({
+        title: "Could Not Update Department",
         description: error instanceof Error ? error.message : "An unexpected error occurred.",
         variant: "destructive",
       });
@@ -100,7 +128,7 @@ export default function DepartmentsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead className="text-center w-[100px]">Actions</TableHead>
+                <TableHead className="text-center w-[140px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -114,11 +142,42 @@ export default function DepartmentsPage() {
               )}
               {departments.map((department) => (
                 <TableRow key={department.id}>
-                  <TableCell className="font-medium">{department.name}</TableCell>
+                  <TableCell className="font-medium">
+                    {editingId === department.id ? (
+                      <Input
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleUpdate(department.id);
+                          if (e.key === "Escape") cancelEdit();
+                        }}
+                        autoFocus
+                        className="max-w-xs"
+                      />
+                    ) : (
+                      department.name
+                    )}
+                  </TableCell>
                   <TableCell className="text-center">
-                    <Button size="icon" variant="ghost" onClick={() => handleDelete(department.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    {editingId === department.id ? (
+                      <>
+                        <Button size="icon" variant="ghost" onClick={() => handleUpdate(department.id)}>
+                          <Check className="h-4 w-4 text-green-600" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={cancelEdit}>
+                          <X className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button size="icon" variant="ghost" onClick={() => startEdit(department)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => handleDelete(department.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

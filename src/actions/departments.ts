@@ -21,6 +21,17 @@ export async function createDepartment(name: string) {
   return newDepartment;
 }
 
+export async function updateDepartment(id: string, name: string) {
+  await requireUser();
+
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Department name is required.");
+
+  const updatedDepartment = await prisma.department.update({ where: { id }, data: { name: trimmed } });
+  revalidatePath('/settings/departments');
+  return updatedDepartment;
+}
+
 export async function deleteDepartment(id: string) {
   await requireUser();
 
