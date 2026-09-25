@@ -1,5 +1,6 @@
 'use server'
 
+import { publicUserSelect } from '@/lib/user-select';
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma';
 import { hasPermission, requirePermission } from '@/lib/auth/permissions-server';
@@ -86,7 +87,7 @@ async function syncPlannedProgressFromBreakdown(activityId: string) {
 
 /** An activity with what the breakdown form and approval list need to show. */
 const breakdownInclude = {
-    responsible: true,
+    responsible: { select: publicUserSelect },
     monthlyTargets: { orderBy: { month: 'asc' as const } },
     initiative: { include: { objective: { include: { pillar: true } } } },
     strategicPlan: { select: { id: true, name: true, status: true } },
@@ -354,9 +355,9 @@ export async function getInitiativesForPlanRequests() {
     return prisma.initiative.findMany({
         where: { objective: { pillar: { strategicPlan: { status: 'PUBLISHED' } } } },
         include: {
-            owner: true,
+            owner: { select: publicUserSelect },
             objective: { include: { pillar: true } },
-            activities: { include: { responsible: true } },
+            activities: { include: { responsible: { select: publicUserSelect } } },
         },
         orderBy: { title: 'asc' },
     });

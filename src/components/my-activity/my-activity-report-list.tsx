@@ -237,15 +237,16 @@ function ReportCard({ entry, onChanged }: { entry: PeriodReportEntry; onChanged:
   );
 }
 
-/** My Activity → Reports: every period report requested from the current user, newest period first. */
-export function MyActivityReportList() {
-  const [entries, setEntries] = React.useState<PeriodReportEntry[] | null>(null);
+/** Reporting → My Reports: every period report requested from the current user, newest period first. */
+export function MyActivityReportList({ initialEntries }: { initialEntries?: PeriodReportEntry[] }) {
+  // Server-rendered pages pass the first load in; the list only fetches itself to refresh after a submit.
+  const [entries, setEntries] = React.useState<PeriodReportEntry[] | null>(initialEntries ?? null);
 
   const load = React.useCallback(async () => {
     setEntries(await getMyPeriodReports());
   }, []);
 
-  React.useEffect(() => { load(); }, [load]);
+  React.useEffect(() => { if (!initialEntries) load(); }, [initialEntries, load]);
 
   if (entries == null) {
     return <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading reports…</p>;

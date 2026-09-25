@@ -1,5 +1,6 @@
 'use server'
 
+import { publicUserSelect } from '@/lib/user-select';
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma';
@@ -43,19 +44,21 @@ function buildKpiData(kpi: KpiInput) {
     };
 }
 
-export async function getActivities(strategicPlanId?: string, approvedOnly?: boolean): Promise<Activity[]> {
+export async function getActivities(strategicPlanId?: string, approvedOnly?: boolean, responsibleId?: string): Promise<Activity[]> {
     await requireUser();
 
     const activities = await prisma.activity.findMany({
         where: {
             strategicPlanId: strategicPlanId,
+            ...(responsibleId ? { responsibleId } : {}),
             ...(approvedOnly ? { approvalStatus: 'APPROVED' as const } : {}),
         },
         include: {
-            responsible: true,
+            responsible: { select: publicUserSelect },
             kpis: true,
             reportingPeriod: true,
             deliverables: true,
+            monthlyTargets: { orderBy: { month: 'asc' } },
         },
         orderBy: {
             endDate: 'asc'
@@ -184,7 +187,7 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
     if (deliverables !== undefined) {
         // Reconcile by title rather than delete-and-recreate, so an edit to
         // the activity doesn't wipe out isDelivered/deliveredDate on rows
-        // that staff have already checked off from My Activity.
+        // that staff have already checked off from My Plan.
         const existingDeliverables = await prisma.deliverable.findMany({ where: { activityId } });
         const incomingTitles = deliverables.map(t => t.trim()).filter(Boolean);
         const existingTitles = new Set(existingDeliverables.map(d => d.title));

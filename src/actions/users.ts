@@ -1,6 +1,7 @@
 
 'use server'
 
+import { publicUserSelect } from '@/lib/user-select';
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma';
 import type { User } from '@/lib/types';
@@ -9,7 +10,7 @@ import { requirePermission } from '@/lib/auth/permissions-server';
 
 export async function getUsers(): Promise<User[]> {
     await requireUser();
-    const users = await prisma.user.findMany({ include: { role: true } });
+    const users = await prisma.user.findMany({ select: { ...publicUserSelect, role: { select: { name: true } } } });
     return users.map((u) => ({ ...u, role: u.role.name, roleId: u.roleId })) as unknown as User[];
 }
 
@@ -23,7 +24,8 @@ export async function createUser(data: { name: string, email: string, roleId: st
             avatar: `https://picsum.photos/seed/${Math.random()}/100`, // random placeholder
             status: 'ACTIVE',
             createdAt: new Date(),
-        }
+        },
+        select: publicUserSelect,
     });
     revalidatePath('/users');
     return newUser;
@@ -35,6 +37,7 @@ export async function updateUser(email: string, data: { name?: string; status?: 
     const updatedUser = await prisma.user.update({
         where: { email },
         data: updateData,
+        select: publicUserSelect,
     });
     revalidatePath('/users');
     return updatedUser;

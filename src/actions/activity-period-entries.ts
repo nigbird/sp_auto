@@ -43,7 +43,7 @@ async function getCurrentSubmittableEntry(activityId: string) {
     }
     const activity = await prisma.activity.findUnique({ where: { id: activityId }, select: { planSubmissionStatus: true } });
     if (activity?.planSubmissionStatus !== 'APPROVED') {
-        throw new Error("This activity's monthly breakdown hasn't been approved yet — submit it from My Activity and get it approved before reporting progress.");
+        throw new Error("This activity's monthly breakdown hasn't been approved yet — submit it from My Plan → Monthly Breakdown and get it approved before reporting progress.");
     }
     return openEntry;
 }

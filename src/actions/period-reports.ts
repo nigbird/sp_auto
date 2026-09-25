@@ -1,5 +1,6 @@
 'use server'
 
+import { publicUserSelect } from '@/lib/user-select';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/auth/permissions-server';
@@ -127,14 +128,14 @@ const reportEntryInclude = {
     reportingPeriod: true,
     activity: {
         include: {
-            responsible: true,
+            responsible: { select: publicUserSelect },
             monthlyTargets: { orderBy: { month: 'asc' as const } },
             initiative: { include: { objective: { include: { pillar: true } } } },
         },
     },
 };
 
-/** Report rows the current user has to fill in (or has filled in) — My Activity → Reports. */
+/** Report rows the current user has to fill in (or has filled in) — Reporting → My Reports. */
 export async function getMyPeriodReports() {
     const user = await requireUser();
     const entries = await prisma.activityPeriodEntry.findMany({

@@ -27,7 +27,7 @@ export function SendBreakdownRequestsButton({ planId, sendableCount, ownerCount 
         toast({ title: "Couldn't send requests", description: result.message, variant: "destructive" });
         return;
       }
-      toast({ title: "Breakdown requests sent", description: `${result.sent} ${result.sent === 1 ? 'activity was' : 'activities were'} sent to their owners. They'll see the request under My Activity → Monthly Breakdown.` });
+      toast({ title: "Breakdown requests sent", description: `${result.sent} ${result.sent === 1 ? 'activity was' : 'activities were'} sent to their owners. They'll see the request under My Plan → Monthly Breakdown.` });
       setIsOpen(false);
       router.refresh();
     } finally {

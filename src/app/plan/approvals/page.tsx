@@ -10,11 +10,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Rule } from "@/lib/types";
 
 export default async function PlanApprovalsPage() {
-  const [activities, userList, rules, plans, pendingPlans, initiatives] = await Promise.all([
-    getActivities(),
+  const plans = await listStrategicPlans();
+  const publishedPlan = plans.find(p => p.status === 'PUBLISHED') ?? plans[0] ?? null;
+
+  const [activities, userList, rules, strategicPlan, pendingPlans, initiatives] = await Promise.all([
+    getActivities(publishedPlan?.id),
     getUsers(),
     getRules(),
-    listStrategicPlans(),
+    publishedPlan ? getStrategicPlanById(publishedPlan.id) : null,
     getPendingActivityPlans(),
     getInitiativesForPlanRequests(),
   ]);
@@ -22,9 +25,6 @@ export default async function PlanApprovalsPage() {
   const users = userList.map(u => ({ id: u.id, name: u.name }));
   const rulesTyped: Rule[] = rules;
   const statuses = rulesTyped.map(rule => rule.status);
-
-  const publishedPlan = plans.find(p => p.status === 'PUBLISHED') ?? plans[0] ?? null;
-  const strategicPlan = publishedPlan ? await getStrategicPlanById(publishedPlan.id) : null;
 
   return (
     <div className="flex-1 space-y-6">

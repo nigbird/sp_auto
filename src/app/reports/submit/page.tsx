@@ -1,6 +1,9 @@
-import { MyActivityReportList } from "@/components/my-activity/my-activity-report-list";
+import { getMyPeriodReports } from "@/actions/period-reports";
+import { MyActivityReportList, type PeriodReportEntry } from "@/components/my-activity/my-activity-report-list";
 
-export default function MyReportsPage() {
+export default async function MyReportsPage() {
+  const entries = await getMyPeriodReports();
+
   return (
     <div className="flex-1 space-y-6">
       <div className="space-y-2">
@@ -9,7 +12,7 @@ export default function MyReportsPage() {
           Report actual progress on your activities for each open reporting period.
         </p>
       </div>
-      <MyActivityReportList />
+      <MyActivityReportList initialEntries={entries as PeriodReportEntry[]} />
     </div>
   );
 }

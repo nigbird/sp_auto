@@ -1,5 +1,6 @@
 'use server'
 
+import { publicUserSelect } from '@/lib/user-select';
 import { prisma } from '@/lib/prisma';
 import type { Activity, Pillar, StrategicPlan, User, ReportingPeriod } from '@/lib/types';
 import { getStrategicPlanById } from './strategic-plan';
@@ -30,11 +31,11 @@ export async function getReportData(approvedOnly?: boolean): Promise<ReportData>
                 include: {
                     initiatives: {
                         include: {
-                            owner: true,
+                            owner: { select: publicUserSelect },
                             activities: {
                                 where: approvedOnly ? { approvalStatus: 'APPROVED' } : undefined,
                                 include: {
-                                    responsible: true,
+                                    responsible: { select: publicUserSelect },
                                     kpis: true,
                                     deliverables: true,
                                 }

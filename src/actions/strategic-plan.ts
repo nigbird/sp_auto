@@ -1,6 +1,7 @@
 
 'use server';
 
+import { publicUserSelect } from '@/lib/user-select';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import type { StrategicPlan as StrategicPlanType } from '@/lib/types';
@@ -132,11 +133,11 @@ export async function getStrategicPlanById(id: string) {
                             initiatives: {
                                 orderBy: { createdAt: 'asc' },
                                 include: {
-                                    owner: true,
+                                    owner: { select: publicUserSelect },
                                     activities: {
                                         orderBy: { createdAt: 'asc' },
                                         include: {
-                                            responsible: true,
+                                            responsible: { select: publicUserSelect },
                                             monthlyTargets: { orderBy: { month: 'asc' } },
                                         }
                                     },
