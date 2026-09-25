@@ -20,11 +20,18 @@ export interface InitiativeForPlanRequest {
   }[];
 }
 
+const REQUEST_LABEL: Record<InitiativeForPlanRequest['activities'][number]['planRequestStatus'], string> = {
+  NOT_SENT: 'not sent',
+  SENT: 'sent',
+  ACCEPTED: 'sent',
+  DECLINED: 'declined',
+};
+
 function statusCounts(activities: InitiativeForPlanRequest['activities']) {
   return {
     notSent: activities.filter(a => a.planRequestStatus === 'NOT_SENT').length,
-    sent: activities.filter(a => a.planRequestStatus === 'SENT').length,
-    accepted: activities.filter(a => a.planRequestStatus === 'ACCEPTED').length,
+    // ACCEPTED is left over from when owners had to accept a request; it means the same as SENT now.
+    sent: activities.filter(a => a.planRequestStatus === 'SENT' || a.planRequestStatus === 'ACCEPTED').length,
     declined: activities.filter(a => a.planRequestStatus === 'DECLINED').length,
   };
 }
@@ -83,13 +90,12 @@ export function SendPlanRequestsList({ initiatives: initialInitiatives }: { init
             <CardContent>
               <div className="flex flex-wrap gap-2">
                 {counts.notSent > 0 && <Badge variant="outline">{counts.notSent} Not Sent</Badge>}
-                {counts.sent > 0 && <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-500/10">{counts.sent} Awaiting Accept</Badge>}
-                {counts.accepted > 0 && <Badge variant="outline" className="border-green-500 text-green-600 bg-green-500/10">{counts.accepted} Accepted</Badge>}
+                {counts.sent > 0 && <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-500/10">{counts.sent} Sent</Badge>}
                 {counts.declined > 0 && <Badge variant="destructive">{counts.declined} Declined</Badge>}
               </div>
               <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
                 {initiative.activities.map((a) => (
-                  <li key={a.id}>{a.title} — {a.responsible?.name ?? "Unassigned"} ({a.planRequestStatus.replace('_', ' ').toLowerCase()})</li>
+                  <li key={a.id}>{a.title} — {a.responsible?.name ?? "Unassigned"} ({REQUEST_LABEL[a.planRequestStatus]})</li>
                 ))}
               </ul>
             </CardContent>

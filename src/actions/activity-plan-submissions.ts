@@ -108,11 +108,16 @@ export interface BreakdownSubmission {
     entries: BreakdownEntry[];
 }
 
+/** A sent request is open for the owner to fill in straight away; ACCEPTED is the same state from before requests stopped needing acceptance. */
+function isRequestOpen(status: string) {
+    return status === 'SENT' || status === 'ACCEPTED';
+}
+
 /** Checks that `user` may fill in the breakdown for `activity` right now. */
 function checkCanEditBreakdown(activity: { responsibleId: string; planRequestStatus: string; planSubmissionStatus: string | null; strategicPlan: { status: string } | null }, userId: string): string | null {
     if (activity.responsibleId !== userId) return "Only the person responsible for this activity can fill in its monthly breakdown.";
     if (activity.strategicPlan?.status !== 'PUBLISHED') return "This activity's strategic plan isn't published, so its breakdown can't be filled in yet.";
-    if (activity.planRequestStatus !== 'ACCEPTED') return "Accept the monthly breakdown request for this activity first.";
+    if (!isRequestOpen(activity.planRequestStatus)) return "A monthly breakdown hasn't been requested for this activity yet.";
     if (activity.planSubmissionStatus === 'PENDING') return "This breakdown is already waiting for approval. You can change it if an approver returns it.";
     if (activity.planSubmissionStatus === 'APPROVED') return "This breakdown has already been approved and can no longer be changed.";
     return null;
@@ -205,7 +210,7 @@ export async function proposeActivityWithBreakdown(siblingActivityId: string, in
     if (!sibling) return fail("The activity you're adding to no longer exists.");
     if (sibling.responsibleId !== user.id) return fail("You can only add activities next to ones you are responsible for.");
     if (sibling.strategicPlan?.status !== 'PUBLISHED') return fail("This strategic plan isn't published, so activities can't be added to it yet.");
-    if (sibling.planRequestStatus !== 'ACCEPTED') return fail("Accept the monthly breakdown request first.");
+    if (!isRequestOpen(sibling.planRequestStatus)) return fail("A monthly breakdown hasn't been requested for this activity yet.");
 
     const formErrors: string[] = [];
     const title = (input.title ?? '').trim();
@@ -359,8 +364,8 @@ export async function getInitiativesForPlanRequests() {
 
 /**
  * Marks the given activities' breakdown requests as SENT to each activity's
- * responsible person and notifies them. Already-sent or accepted activities
- * are left alone; declined ones are re-sent.
+ * responsible person and notifies them. Already-sent activities are left
+ * alone; ones declined under the old accept/decline flow are re-sent.
  */
 async function sendRequests(where: { initiativeId?: string; strategicPlanId?: string }, senderId: string): Promise<number> {
     const activities = await prisma.activity.findMany({
@@ -385,7 +390,7 @@ async function sendRequests(where: { initiativeId?: string; strategicPlanId?: st
     await prisma.notification.createMany({
         data: Array.from(countByUser.entries()).map(([userId, count]) => ({
             type: 'PLAN_REQUEST_SENT',
-            message: `You've been asked to fill in the monthly breakdown for ${count} ${count === 1 ? 'activity' : 'activities'}. Open My Activity to start.`,
+            message: `You've been asked to fill in the monthly breakdown for ${count} ${count === 1 ? 'activity' : 'activities'}. Open My Plan → Monthly Breakdown to start.`,
             date: now,
             read: false,
             userId,
@@ -410,7 +415,7 @@ export async function sendPlanRequestsForInitiative(initiativeId: string): Promi
         return fail("Publish this initiative's strategic plan before sending breakdown requests.");
     }
     const sent = await sendRequests({ initiativeId }, sender.id);
-    if (sent === 0) return fail("Every activity in this initiative already has a request sent or accepted.");
+    if (sent === 0) return fail("Every activity in this initiative already has a breakdown request.");
     return { success: true, sent };
 }
 
@@ -421,64 +426,7 @@ export async function sendPlanRequestsForPlan(planId: string): Promise<Breakdown
     if (!plan) return fail("This plan no longer exists.");
     if (plan.status !== 'PUBLISHED') return fail("Publish the plan before sending breakdown requests.");
     const sent = await sendRequests({ strategicPlanId: planId }, sender.id);
-    if (sent === 0) return fail("Every activity in this plan already has a request sent or accepted.");
+    if (sent === 0) return fail("Every activity in this plan already has a breakdown request.");
     return { success: true, sent };
 }
 
-export async function acceptPlanRequest(activityId: string): Promise<BreakdownActionResult> {
-    const user = await requirePermission('my-activity:update');
-
-    const activity = await prisma.activity.findUnique({ where: { id: activityId } });
-    if (!activity) return fail("This activity no longer exists.");
-    if (activity.responsibleId !== user.id) return fail("Only the person responsible for this activity can accept its request.");
-    if (activity.planRequestStatus !== 'SENT') return fail("There's no open request to accept for this activity.");
-
-    await prisma.activity.update({
-        where: { id: activityId },
-        data: {
-            planRequestStatus: 'ACCEPTED',
-            planRequestRespondedAt: new Date(),
-            planRequestDeclineReason: null,
-        },
-    });
-
-    revalidatePath('/plan');
-    return { success: true };
-}
-
-export async function declinePlanRequest(activityId: string, reason: string): Promise<BreakdownActionResult> {
-    const user = await requirePermission('my-activity:update');
-
-    const trimmed = (reason ?? '').trim();
-    if (!trimmed) return fail("Please give a reason for declining.");
-
-    const existing = await prisma.activity.findUnique({ where: { id: activityId } });
-    if (!existing) return fail("This activity no longer exists.");
-    if (existing.responsibleId !== user.id) return fail("Only the person responsible for this activity can decline its request.");
-    if (existing.planRequestStatus !== 'SENT') return fail("There's no open request to decline for this activity.");
-
-    const activity = await prisma.activity.update({
-        where: { id: activityId },
-        data: {
-            planRequestStatus: 'DECLINED',
-            planRequestRespondedAt: new Date(),
-            planRequestDeclineReason: trimmed,
-        },
-    });
-
-    if (activity.planRequestSentById) {
-        await prisma.notification.create({
-            data: {
-                type: 'PLAN_REQUEST_DECLINED',
-                message: `"${activity.title}" — the breakdown request was declined: ${trimmed}`,
-                date: new Date(),
-                read: false,
-                userId: activity.planRequestSentById,
-                activityId: activity.id,
-            },
-        });
-    }
-
-    revalidateBreakdownPages();
-    return { success: true };
-}

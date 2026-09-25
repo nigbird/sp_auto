@@ -84,8 +84,7 @@ function BreakdownBadge({ activity }: { activity: Activity }) {
     if (activity.planSubmissionStatus === 'APPROVED') return <Badge variant="outline" className="border-green-500 text-green-600 bg-green-500/10">Breakdown approved</Badge>;
     if (activity.planSubmissionStatus === 'PENDING') return <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-500/10">Breakdown pending approval</Badge>;
     if (activity.planSubmissionStatus === 'DECLINED') return <Badge variant="destructive">Breakdown returned</Badge>;
-    if (activity.planRequestStatus === 'SENT') return <Badge variant="outline">Breakdown requested</Badge>;
-    if (activity.planRequestStatus === 'ACCEPTED') return <Badge variant="outline">Owner filling in breakdown</Badge>;
+    if (activity.planRequestStatus === 'SENT' || activity.planRequestStatus === 'ACCEPTED') return <Badge variant="outline">Breakdown requested</Badge>;
     if (activity.planRequestStatus === 'DECLINED') return <Badge variant="destructive">Request declined</Badge>;
     return null;
 }

@@ -3,7 +3,7 @@
 import * as React from "react"
 import type { Activity, StrategicPlan } from "@/lib/types";
 import { format } from "date-fns";
-import { ChevronDown, ChevronUp, Check, ShieldQuestion, ShieldX, List, Mail, PlusCircle, Loader2, AlertCircle } from "lucide-react";
+import { ChevronDown, ChevronUp, Check, ShieldQuestion, ShieldX, List, PlusCircle, Loader2, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
 import { Badge } from "../ui/badge";
@@ -13,20 +13,19 @@ import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
-import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../ui/alert-dialog";
-import { getActivityBreakdown, submitActivityBreakdown, acceptPlanRequest, declinePlanRequest, proposeActivityWithBreakdown, type BreakdownActionResult } from "@/actions/activity-plan-submissions";
+import { getActivityBreakdown, submitActivityBreakdown, proposeActivityWithBreakdown, type BreakdownActionResult } from "@/actions/activity-plan-submissions";
 import { useToast } from "@/hooks/use-toast";
 import { monthKey, monthsBetween, type TargetType } from "@/lib/monthly-breakdown";
 import { BreakdownEditor, BreakdownStrip, breakdownDraftFrom, draftEntries, emptyBreakdownDraft, validateDraft, type BreakdownDraft } from "./breakdown-editor";
 
 type BreakdownActivity = Activity & { monthlyTargets?: { month: string; value: number }[] };
 
+/** A sent request can be filled in straight away (ACCEPTED means the same, left over from when requests had to be accepted first). */
+const isRequestOpen = (activity: Activity) => activity.planRequestStatus === 'SENT' || activity.planRequestStatus === 'ACCEPTED';
+
 const BreakdownStatusBadge = ({ activity }: { activity: Activity }) => {
-  if (activity.planRequestStatus === 'SENT') {
-    return <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-500/10"><Mail className="h-3 w-3 mr-1" />Request received</Badge>;
-  }
   if (activity.planRequestStatus === 'DECLINED') {
-    return <Badge variant="destructive" title={activity.planRequestDeclineReason ?? undefined}><ShieldX className="h-3 w-3 mr-1" />You declined the request</Badge>;
+    return <Badge variant="destructive" title={activity.planRequestDeclineReason ?? undefined}><ShieldX className="h-3 w-3 mr-1" />Request declined</Badge>;
   }
   switch (activity.planSubmissionStatus) {
     case 'APPROVED':
@@ -53,26 +52,23 @@ function useActionFeedback() {
 }
 
 function PlanCard({ activity, initiativeTitle, onChanged }: { activity: Activity; initiativeTitle?: string; onChanged: () => Promise<void> | void }) {
-  const [isOpen, setIsOpen] = React.useState(activity.planRequestStatus === 'SENT' || (activity.planRequestStatus === 'ACCEPTED' && (activity.planSubmissionStatus == null || activity.planSubmissionStatus === 'DECLINED')));
+  const [isOpen, setIsOpen] = React.useState(isRequestOpen(activity) && (activity.planSubmissionStatus == null || activity.planSubmissionStatus === 'DECLINED'));
   const [details, setDetails] = React.useState<BreakdownActivity | null>(null);
   const [draft, setDraft] = React.useState<BreakdownDraft>(emptyBreakdownDraft());
   const [showErrors, setShowErrors] = React.useState(false);
   const [serverErrors, setServerErrors] = React.useState<string[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
   const [isBusy, setIsBusy] = React.useState(false);
-  const [isDeclineRequestOpen, setIsDeclineRequestOpen] = React.useState(false);
-  const [requestDeclineReason, setRequestDeclineReason] = React.useState("");
-  const [declineReasonError, setDeclineReasonError] = React.useState<string | null>(null);
   const [isProposeOpen, setIsProposeOpen] = React.useState(false);
   const report = useActionFeedback();
 
-  const isAccepted = activity.planRequestStatus === 'ACCEPTED';
-  const isEditable = isAccepted && (activity.planSubmissionStatus == null || activity.planSubmissionStatus === 'DECLINED');
+  const requestOpen = isRequestOpen(activity);
+  const isEditable = requestOpen && (activity.planSubmissionStatus == null || activity.planSubmissionStatus === 'DECLINED');
 
   // Load the saved breakdown when the card opens, and again whenever the
   // activity's status changes underneath it (after a submit/approval).
   React.useEffect(() => {
-    if (!isOpen || !isAccepted) return;
+    if (!isOpen || !requestOpen) return;
     let cancelled = false;
     setIsLoading(true);
     getActivityBreakdown(activity.id).then((result) => {
@@ -82,7 +78,7 @@ function PlanCard({ activity, initiativeTitle, onChanged }: { activity: Activity
       setIsLoading(false);
     });
     return () => { cancelled = true; };
-  }, [isOpen, isAccepted, activity.id, activity.planSubmissionStatus]);
+  }, [isOpen, requestOpen, activity.id, activity.planSubmissionStatus]);
 
   const handleSubmit = async () => {
     setShowErrors(true);
@@ -101,37 +97,6 @@ function PlanCard({ activity, initiativeTitle, onChanged }: { activity: Activity
       if (!result.success) setServerErrors(result.formErrors ?? [result.message]);
       if (report(result, { title: "Breakdown submitted", description: `"${activity.title}" was sent for approval.` })) {
         setShowErrors(false);
-        await onChanged();
-      }
-    } finally {
-      setIsBusy(false);
-    }
-  };
-
-  const handleAcceptRequest = async () => {
-    setIsBusy(true);
-    try {
-      const result = await acceptPlanRequest(activity.id);
-      if (report(result, { title: "Request accepted", description: `You can now fill in the monthly breakdown for "${activity.title}".` })) {
-        setIsOpen(true);
-        await onChanged();
-      }
-    } finally {
-      setIsBusy(false);
-    }
-  };
-
-  const handleDeclineRequest = async () => {
-    if (requestDeclineReason.trim() === "") {
-      setDeclineReasonError("Please give a reason for declining.");
-      return;
-    }
-    setIsBusy(true);
-    try {
-      const result = await declinePlanRequest(activity.id, requestDeclineReason);
-      if (report(result, { title: "Request declined", description: `The breakdown request for "${activity.title}" was declined.` })) {
-        setIsDeclineRequestOpen(false);
-        setRequestDeclineReason("");
         await onChanged();
       }
     } finally {
@@ -167,34 +132,22 @@ function PlanCard({ activity, initiativeTitle, onChanged }: { activity: Activity
         </CardHeader>
         <CollapsibleContent>
           <CardContent className="space-y-4 pt-0">
-            {activity.planRequestStatus === 'SENT' && (
-              <div className="space-y-3 rounded-lg border border-blue-500/50 p-4">
-                <p className="text-sm font-medium">
-                  You've been asked to fill in this activity's monthly breakdown. Accept to start, or decline if this activity shouldn't be yours.
-                </p>
-                <div className="flex justify-end gap-2">
-                  <Button variant="destructive" disabled={isBusy} onClick={() => { setDeclineReasonError(null); setIsDeclineRequestOpen(true); }}>Decline</Button>
-                  <Button className="bg-green-600 hover:bg-green-700" disabled={isBusy} onClick={handleAcceptRequest}>Accept</Button>
-                </div>
-              </div>
-            )}
-
             {activity.planRequestStatus === 'DECLINED' && (
               <p className="text-sm text-muted-foreground">
-                You declined this request{activity.planRequestDeclineReason ? `: "${activity.planRequestDeclineReason}"` : ''}. Ask an approver to resend it if that was a mistake.
+                This request was declined earlier{activity.planRequestDeclineReason ? `: "${activity.planRequestDeclineReason}"` : ''}. Ask an approver to resend it.
               </p>
             )}
 
-            {isAccepted && isLoading && <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading breakdown…</p>}
+            {requestOpen && isLoading && <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading breakdown…</p>}
 
-            {isAccepted && !isLoading && activity.planSubmissionStatus === 'DECLINED' && activity.planDeclineReason && (
+            {requestOpen && !isLoading && activity.planSubmissionStatus === 'DECLINED' && activity.planDeclineReason && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription><span className="font-semibold">Returned by approver:</span> {activity.planDeclineReason}</AlertDescription>
               </Alert>
             )}
 
-            {isAccepted && !isLoading && isEditable && (
+            {requestOpen && !isLoading && isEditable && (
               <>
                 <BreakdownEditor
                   draft={draft}
@@ -216,7 +169,7 @@ function PlanCard({ activity, initiativeTitle, onChanged }: { activity: Activity
               </>
             )}
 
-            {isAccepted && !isLoading && !isEditable && details && details.targetType && details.annualTarget != null && (
+            {requestOpen && !isLoading && !isEditable && details && details.targetType && details.annualTarget != null && (
               <div className="space-y-3">
                 <p className="text-sm">
                   <span className="font-medium">Annual target:</span> {details.annualTarget}{details.targetType === 'PERCENT' ? '%' : ''} ({details.targetType === 'PERCENT' ? 'percent' : 'number'})
@@ -232,30 +185,6 @@ function PlanCard({ activity, initiativeTitle, onChanged }: { activity: Activity
           </CardContent>
         </CollapsibleContent>
       </Collapsible>
-
-      <AlertDialog open={isDeclineRequestOpen} onOpenChange={setIsDeclineRequestOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Decline this request</AlertDialogTitle>
-            <AlertDialogDescription>
-              Let the approver know why — e.g. this activity should be planned by someone else.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="py-2 space-y-1">
-            <Textarea
-              placeholder="Type your reason here..."
-              value={requestDeclineReason}
-              onChange={(e) => { setRequestDeclineReason(e.target.value); setDeclineReasonError(null); }}
-            />
-            {declineReasonError && <p className="text-sm font-medium text-destructive">{declineReasonError}</p>}
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            {/* A plain button, not AlertDialogAction, so the dialog stays open when the reason is missing. */}
-            <Button variant="destructive" onClick={handleDeclineRequest} disabled={isBusy}>Confirm decline</Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <ProposeActivityDialog
         open={isProposeOpen}
@@ -373,7 +302,7 @@ function ProposeActivityDialog({ open, onOpenChange, sibling, initiativeTitle, o
 /**
  * The owner's side of the monthly breakdown: every activity they're
  * responsible for that has had a breakdown request sent, grouped by where it
- * stands, with accept/decline and the breakdown form inline.
+ * stands, with the breakdown form inline.
  */
 export function MyActivityPlanList({ activities, plan, onChanged }: { activities: Activity[]; plan?: StrategicPlan | null; onChanged: () => Promise<void> | void }) {
   const initiativeTitles = React.useMemo(() => {
@@ -384,7 +313,7 @@ export function MyActivityPlanList({ activities, plan, onChanged }: { activities
 
   const actionable = activities.filter(a => a.planRequestStatus !== 'NOT_SENT');
   const waitingCount = activities.length - actionable.length;
-  const needsAction = actionable.filter(a => a.planRequestStatus === 'SENT' || (a.planRequestStatus === 'ACCEPTED' && (a.planSubmissionStatus == null || a.planSubmissionStatus === 'DECLINED')));
+  const needsAction = actionable.filter(a => isRequestOpen(a) && (a.planSubmissionStatus == null || a.planSubmissionStatus === 'DECLINED'));
 
   if (activities.length === 0) {
     return (

@@ -8,7 +8,7 @@ import { MyActivityTaskList } from "@/components/my-activity/my-activity-task-li
 import { MyActivityPlanList } from "@/components/my-activity/my-activity-plan-list";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { getActivities, createActivity, updateActivity } from "@/actions/activities";
+import { getActivities, updateActivity } from "@/actions/activities";
 import { submitPeriodUpdate, approvePeriodEntry, declinePeriodEntry } from "@/actions/activity-period-entries";
 import { getRules } from "@/actions/rules";
 import { getUsers } from "@/actions/users";
@@ -17,10 +17,8 @@ import type { SessionUser } from "@/lib/auth/session";
 import { listStrategicPlans, getStrategicPlanById } from "@/actions/strategic-plan";
 import { getReportingPeriods } from "@/actions/reporting-periods";
 import type { ReportingPeriod } from "@/lib/types";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PlusCircle } from "lucide-react";
 import { ActivityForm } from "@/components/dashboard/activity-form";
 import type { StatusRule } from "@/lib/utils";
 
@@ -206,6 +204,7 @@ export default function MyPlanPage() {
         return;
     }
 
+    // New activities are added from the Monthly Breakdown tab ("Add another activity"); this dialog only edits and resubmits declined ones.
     if (editingActivity) {
       await updateActivity(editingActivity.id, { ...values, approvalStatus: 'PENDING' });
       const updatedActivity = {
@@ -219,21 +218,8 @@ export default function MyPlanPage() {
       setAllActivitiesForPlan(prev => prev.map(act => act.id === editingActivity.id ? updatedActivity : act));
       toast({ title: "Activity Resubmitted", description: "The activity has been resubmitted for approval." });
 
-    } else {
-        const newActivityData = { ...values, responsible: responsibleUser.id, strategicPlanId: selectedPlanId, userId: currentUser.id };
-        const newActivity = await createActivity(newActivityData);
-        const fullNewActivity = { 
-            ...newActivity, 
-            kpis: [], 
-            updates: [], 
-            responsible: responsibleUser,
-            startDate: new Date(newActivity.startDate),
-            endDate: new Date(newActivity.endDate),
-        };
-        setAllActivitiesForPlan(prev => [fullNewActivity, ...prev]);
-        toast({ title: "Activity Created", description: "The new activity has been successfully created and is pending approval." });
     }
-   
+
     setIsCreateFormOpen(false);
     setEditingActivity(null);
   };
@@ -301,15 +287,9 @@ export default function MyPlanPage() {
                 if (!isOpen) setEditingActivity(null);
                 setIsCreateFormOpen(isOpen);
             }}>
-              <DialogTrigger asChild>
-                  <Button disabled={!selectedPlanId}>
-                      <PlusCircle className="mr-2 h-4 w-4" />
-                      Create Activity
-                  </Button>
-              </DialogTrigger>
               <DialogContent className="sm:max-w-3xl">
                   <DialogHeader>
-                      <DialogTitle>{editingActivity ? 'Edit Activity' : 'Create New Activity'}</DialogTitle>
+                      <DialogTitle>Edit Activity</DialogTitle>
                   </DialogHeader>
                   <ActivityForm
                       onSubmit={handleFormSubmit}
