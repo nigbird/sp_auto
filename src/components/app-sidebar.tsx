@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard,
-  ListTodo,
   BarChart3,
   Settings,
   CircleHelp,
@@ -53,16 +52,6 @@ export function AppSidebar() {
             >
               <LayoutDashboard />
               Dashboard
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              href="/activities"
-              isActive={pathname === "/activities"}
-              tooltip="Activities"
-            >
-              <ListTodo />
-              Activities
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>

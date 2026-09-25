@@ -218,7 +218,6 @@ export async function approvePeriodEntry(activityId: string) {
         },
     });
 
-    revalidatePath('/activities');
     revalidatePath('/my-activity');
 }
 
@@ -261,6 +260,5 @@ export async function declinePeriodEntry(activityId: string, reason: string) {
         },
     });
 
-    revalidatePath('/activities');
     revalidatePath('/my-activity');
 }

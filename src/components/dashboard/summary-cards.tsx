@@ -11,7 +11,7 @@ export function SummaryCards({ activities }: { activities: Activity[] }) {
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Link href="/activities">
+      <Link href="/approvals">
         <Card className="hover:bg-muted/50 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Activities</CardTitle>
@@ -22,7 +22,7 @@ export function SummaryCards({ activities }: { activities: Activity[] }) {
           </CardContent>
         </Card>
       </Link>
-      <Link href="/activities?status=On+Track">
+      <Link href="/approvals">
         <Card className="hover:bg-muted/50 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">On Track</CardTitle>
@@ -33,7 +33,7 @@ export function SummaryCards({ activities }: { activities: Activity[] }) {
           </CardContent>
         </Card>
       </Link>
-      <Link href="/activities?status=Completed+As+Per+Target">
+      <Link href="/approvals">
         <Card className="hover:bg-muted/50 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Completed</CardTitle>
@@ -44,7 +44,7 @@ export function SummaryCards({ activities }: { activities: Activity[] }) {
           </CardContent>
         </Card>
       </Link>
-      <Link href="/activities?status=Delayed">
+      <Link href="/approvals">
         <Card className="hover:bg-muted/50 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Delayed</CardTitle>

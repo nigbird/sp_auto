@@ -48,7 +48,6 @@ export async function uploadEvidence(activityId: string, formData: FormData): Pr
   });
 
   revalidatePath('/my-activity');
-  revalidatePath('/activities');
   return evidence;
 }
 
@@ -74,5 +73,4 @@ export async function deleteEvidence(id: string): Promise<void> {
 
   await prisma.evidence.delete({ where: { id } });
   revalidatePath('/my-activity');
-  revalidatePath('/activities');
 }

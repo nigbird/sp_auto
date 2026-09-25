@@ -28,7 +28,6 @@ export async function createDeliverable(activityId: string, title: string, descr
     },
   });
   revalidatePath('/my-activity');
-  revalidatePath('/activities');
   return deliverable;
 }
 
@@ -43,7 +42,6 @@ export async function toggleDeliverableDelivered(id: string, delivered: boolean)
     },
   });
   revalidatePath('/my-activity');
-  revalidatePath('/activities');
   return deliverable;
 }
 
@@ -52,5 +50,4 @@ export async function deleteDeliverable(id: string) {
 
   await prisma.deliverable.delete({ where: { id } });
   revalidatePath('/my-activity');
-  revalidatePath('/activities');
 }
