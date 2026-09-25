@@ -4,7 +4,8 @@ import type { ReportFiltersState } from '@/app/reports/page';
 import type { StrategicPlan, User, Pillar, Activity, ReportingPeriod } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileDown, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import { ExportMenu } from '@/components/export-menu';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 
@@ -36,6 +37,7 @@ export function ReportFilters({ plans, users, periods, filters, onFiltersChange,
               "Objective": objective.statement,
               "Initiative": initiative.title,
               "Activity": activity.title,
+              "Deliverable": activity.deliverable ?? '',
               "Department": activity.department,
               "Responsible": (activity.responsible as User)?.name || 'N/A',
               "Reporting Period": period?.name || 'N/A',
@@ -45,6 +47,8 @@ export function ReportFilters({ plans, users, periods, filters, onFiltersChange,
               "Status": activity.status,
               "Progress (%)": activity.progress,
               "Weight (%)": activity.weight,
+              "Target": activity.annualTarget != null ? (activity.targetType === 'PERCENT' ? `${activity.annualTarget}%` : activity.annualTarget) : '',
+              "Monthly Breakdown": activity.planSubmissionStatus === 'APPROVED' ? 'Approved' : activity.planSubmissionStatus === 'PENDING' ? 'Pending approval' : activity.planSubmissionStatus === 'DECLINED' ? 'Returned' : 'Not submitted',
               "Approval Status": activity.approvalStatus,
             };
           })
@@ -55,7 +59,8 @@ export function ReportFilters({ plans, users, periods, filters, onFiltersChange,
     const worksheet = XLSX.utils.json_to_sheet(flatData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
-    XLSX.writeFile(workbook, "strategic_report.xlsx");
+    worksheet['!cols'] = Object.keys(flatData[0] ?? {}).map(k => ({ wch: ['Activity', 'Deliverable', 'Objective', 'Initiative'].includes(k) ? 40 : 16 }));
+    XLSX.writeFile(workbook, `strategic_report_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
   }
 
   const handleExportPdf = async () => {
@@ -84,7 +89,7 @@ export function ReportFilters({ plans, users, periods, filters, onFiltersChange,
         body: tableData,
     });
     
-    doc.save('strategic_report.pdf');
+    doc.save(`strategic_report_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
   }
 
   const resetFilters = () => {
@@ -148,10 +153,19 @@ export function ReportFilters({ plans, users, periods, filters, onFiltersChange,
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={handleExportExcel}><FileDown className="mr-2 h-4 w-4" /> Export Excel</Button>
-        <Button variant="outline" size="sm" onClick={handleExportPdf}>
-            <FileDown className="mr-2 h-4 w-4" /> Export PDF
-        </Button>
+        <ExportMenu options={[
+          { kind: 'excel', label: 'Report table (Excel)', description: 'The activities listed below, with the current filters.', onSelect: handleExportExcel },
+          { kind: 'pdf', label: 'Report table (PDF)', description: 'A printable list of the filtered activities.', onSelect: handleExportPdf },
+          {
+            kind: 'excel',
+            label: 'Full plan & period report (Excel)',
+            description: filters.reportingPeriodId
+              ? 'The whole plan in the cascaded-initiatives layout, with this period’s report columns and formulas.'
+              : 'The whole plan in the cascaded-initiatives layout, with the latest requested period’s report.',
+            href: filters.planId ? `/api/export/plan/${filters.planId}${filters.reportingPeriodId ? `?period=${filters.reportingPeriodId}` : ''}` : undefined,
+            disabled: !filters.planId,
+          },
+        ]} />
       </div>
     </div>
   );

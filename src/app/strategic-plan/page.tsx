@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { listStrategicPlans } from '@/actions/strategic-plan';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { PlusCircle } from 'lucide-react';
+import { FileSpreadsheet, PlusCircle } from 'lucide-react';
 import {
   Table,
   TableBody,

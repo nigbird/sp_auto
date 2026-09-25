@@ -2,9 +2,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import { format } from "date-fns";
-import { ArrowLeft, CalendarRange, PlusCircle, Trash2, Edit, Save, X, Lock, LockOpen } from "lucide-react";
+import { CalendarRange, PlusCircle, Trash2, Edit, Save, X, Lock, LockOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -134,13 +133,8 @@ export default function ReportingPeriodsPage() {
     <div className="flex-1 space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button asChild variant="outline" size="icon">
-            <Link href="/settings">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Reporting Periods</h1>
+            <h2 className="text-xl font-semibold tracking-tight">Reporting Periods</h2>
             <p className="text-muted-foreground">
               Define the reporting calendar and cut-off dates for a strategic plan.
             </p>

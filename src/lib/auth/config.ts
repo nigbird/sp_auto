@@ -27,5 +27,5 @@ export function getTrustedOrigin(): string | null {
 }
 
 // Role -> permission lookup is DB-backed (RolePermission table) so an admin
-// editing permissions via /settings/role-management takes effect immediately —
+// editing permissions via /users/roles takes effect immediately —
 // see getPermissionsForRole in src/lib/auth/permissions.ts.

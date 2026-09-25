@@ -312,7 +312,8 @@ export function parseStrategicPlanWorkbook(data: ArrayBuffer | Buffer, requested
           && monthly.every(m => m.value <= annualTarget * 1.5);
         aggregation = looksLikeLevels ? 'RECURRING' : 'CUMULATIVE';
       }
-      direction = planCol && new RegExp(`^${planCol}\\d+\\/`).test(achievementFormula) ? 'LOWER_IS_BETTER' : 'HIGHER_IS_BETTER';
+      // Plan ÷ Actual anywhere in the formula (=AG32/AH32, or wrapped in an IF) means lower is better.
+      direction = planCol && new RegExp(`\\b${planCol}\\d+\\s*\\/`).test(achievementFormula) ? 'LOWER_IS_BETTER' : 'HIGHER_IS_BETTER';
     }
 
     let breakdownProblem: string | null = null;

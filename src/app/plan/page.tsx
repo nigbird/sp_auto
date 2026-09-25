@@ -6,7 +6,6 @@ import type { Activity, ActivityStatus, PendingUpdate, Rule, StrategicPlan, Pill
 import { MyActivitySummaryCards } from "@/components/my-activity/my-activity-summary-cards";
 import { MyActivityTaskList } from "@/components/my-activity/my-activity-task-list";
 import { MyActivityPlanList } from "@/components/my-activity/my-activity-plan-list";
-import { MyActivityReportList } from "@/components/my-activity/my-activity-report-list";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { getActivities, createActivity, updateActivity } from "@/actions/activities";
@@ -27,7 +26,7 @@ import type { StatusRule } from "@/lib/utils";
 
 type FilterType = "Overdue" | "Not Started" | "On Track" | "Completed As Per Target" | "All";
 
-export default function MyActivityPage() {
+export default function MyPlanPage() {
   const [allActivitiesForPlan, setAllActivitiesForPlan] = useState<Activity[]>([]);
   const [myActivities, setMyActivities] = useState<Activity[]>([]);
   const [filteredActivities, setFilteredActivities] = useState<Activity[]>([]);
@@ -282,9 +281,9 @@ export default function MyActivityPage() {
     <div className="flex-1 space-y-6">
       <div className="flex items-center justify-between">
         <div className="space-y-2">
-            <h1 className="text-3xl font-bold tracking-tight">My Activity</h1>
+            <h1 className="text-3xl font-bold tracking-tight">My Plan</h1>
             <p className="text-muted-foreground">
-            Your personal dashboard for managing all assigned tasks and tracking performance.
+            The activities you are responsible for, their progress, and their monthly breakdown.
             </p>
         </div>
         <div className="flex items-center gap-4">
@@ -326,9 +325,8 @@ export default function MyActivityPage() {
       </div>
       <Tabs defaultValue="tasks">
         <TabsList>
-          <TabsTrigger value="tasks">My Tasks</TabsTrigger>
+          <TabsTrigger value="tasks">My Activities</TabsTrigger>
           <TabsTrigger value="plan">Monthly Breakdown</TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
         <TabsContent value="tasks" className="space-y-6">
           <MyActivitySummaryCards
@@ -354,9 +352,6 @@ export default function MyActivityPage() {
         </TabsContent>
         <TabsContent value="plan">
           <MyActivityPlanList activities={activitiesIAmResponsibleFor} plan={selectedPlan} onChanged={refreshActivities} />
-        </TabsContent>
-        <TabsContent value="reports">
-          <MyActivityReportList />
         </TabsContent>
       </Tabs>
     </div>

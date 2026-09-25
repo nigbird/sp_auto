@@ -1,6 +1,6 @@
 /**
  * The permission taxonomy already designed into the (previously mocked)
- * role-management UI (src/app/settings/role-management/create/page.tsx) —
+ * role-management UI (src/components/settings/role-form.tsx) —
  * adopted as-is rather than inventing a new one, since it's more specific
  * than anything built during the auth pass and already has a UI shaped
  * around it.

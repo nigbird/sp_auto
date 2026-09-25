@@ -2,8 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
-import { ArrowLeft, Building2, Check, Pencil, PlusCircle, Trash2, X } from "lucide-react";
+import { Building2, Check, Pencil, PlusCircle, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -91,13 +90,8 @@ export default function DepartmentsPage() {
     <div className="flex-1 space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button asChild variant="outline" size="icon">
-            <Link href="/settings">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Departments</h1>
+            <h2 className="text-xl font-semibold tracking-tight">Departments</h2>
             <p className="text-muted-foreground">
               Manage the approved department list. Activities can only be assigned to a department on this list.
             </p>

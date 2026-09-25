@@ -12,6 +12,17 @@ type PlanObjective = PlanPillar['objectives'][number];
 type PlanInitiative = PlanObjective['initiatives'][number];
 type PlanActivity = PlanInitiative['activities'][number];
 
+/**
+ * The plan is shown in createdAt order, but rows written in one nested create
+ * share a timestamp and would come back in any order. Every new row takes the
+ * next strictly-increasing stamp instead, so the order the user entered is kept.
+ */
+let lastStamp = 0;
+function nextCreatedAt(): Date {
+    lastStamp = Math.max(Date.now(), lastStamp + 1);
+    return new Date(lastStamp);
+}
+
 function initiativeData(i: PlanInitiative) {
     return {
         title: i.title.trim(),
@@ -37,6 +48,7 @@ function activityData(a: PlanActivity) {
 
 function newActivityData(a: PlanActivity, planId: string) {
     return {
+        createdAt: nextCreatedAt(),
         ...activityData(a),
         status: 'Not Started',
         progress: 0,
@@ -47,6 +59,7 @@ function newActivityData(a: PlanActivity, planId: string) {
 
 function newInitiativeData(i: PlanInitiative, planId: string) {
     return {
+        createdAt: nextCreatedAt(),
         ...initiativeData(i),
         activities: { create: i.activities.map(a => newActivityData(a, planId)) },
     };
@@ -54,6 +67,7 @@ function newInitiativeData(i: PlanInitiative, planId: string) {
 
 function newObjectiveData(o: PlanObjective, planId: string) {
     return {
+        createdAt: nextCreatedAt(),
         statement: o.statement.trim(),
         initiatives: { create: o.initiatives.map(i => newInitiativeData(i, planId)) },
     };
@@ -61,6 +75,7 @@ function newObjectiveData(o: PlanObjective, planId: string) {
 
 export function newPillarData(p: PlanPillar, planId: string) {
     return {
+        createdAt: nextCreatedAt(),
         title: p.title.trim(),
         description: p.description ?? '',
         strategicPlanId: planId,

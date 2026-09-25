@@ -88,7 +88,7 @@ export function UserForm({ user, onSubmit, onCancel }: UserFormProps) {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input placeholder="user@example.com" {...field} disabled />
+                <Input type="email" placeholder="user@example.com" {...field} disabled={!!user} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -120,7 +120,7 @@ export function UserForm({ user, onSubmit, onCancel }: UserFormProps) {
             <Button type="button" variant="outline" onClick={onCancel}>
                 Cancel
             </Button>
-            <Button type="submit">Save Changes</Button>
+            <Button type="submit">{user ? "Save Changes" : "Register User"}</Button>
         </div>
       </form>
     </Form>

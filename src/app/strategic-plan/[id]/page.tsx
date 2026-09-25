@@ -16,6 +16,7 @@ import { SendBreakdownRequestsButton } from "@/components/strategic-plan/send-br
 import { MonthlyBreakdownTable } from "@/components/strategic-plan/monthly-breakdown-table";
 import { PerformanceReportTable, type PerformanceEntry, type PerformancePeriod } from "@/components/strategic-plan/performance-report-table";
 import { getPlanPerformance } from "@/actions/period-reports";
+import { ExportMenu } from "@/components/export-menu";
 
 function HierarchyView({ pillars, userNames }: { pillars: Pillar[]; userNames: Map<string, string> }) {
     return (
@@ -148,6 +149,7 @@ export default async function StrategicPlanDetailPage({ params, searchParams }: 
     const sendableOwnerCount = new Set(sendable.map(a => (a.responsible as { id?: string })?.id)).size;
     const approvedCount = activities.filter(a => a.planSubmissionStatus === 'APPROVED').length;
     const isPublished = plan.status === 'PUBLISHED';
+    const selectedPeriod = performance.selected as { id: string; name: string } | null;
 
     return (
         <div className="flex-1 space-y-6">
@@ -164,6 +166,27 @@ export default async function StrategicPlanDetailPage({ params, searchParams }: 
                     </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                    <ExportMenu options={[
+                        {
+                            kind: "excel",
+                            label: selectedPeriod ? `Plan & ${selectedPeriod.name} report (Excel)` : "Plan (Excel)",
+                            description: "Cascaded-initiatives layout with monthly targets and live report formulas. Can be imported again.",
+                            href: `/api/export/plan/${plan.id}${selectedPeriod ? `?period=${selectedPeriod.id}` : "?period=none"}`,
+                        },
+                        {
+                            kind: "pdf",
+                            label: selectedPeriod ? `${selectedPeriod.name} performance report (PDF)` : "Performance report (PDF)",
+                            description: selectedPeriod ? "Totals, pillar/objective/initiative results and every activity's report." : "Send a report request first — there is no period to report on yet.",
+                            href: selectedPeriod ? `/api/export/plan/${plan.id}?period=${selectedPeriod.id}&format=pdf` : undefined,
+                            disabled: !selectedPeriod,
+                        },
+                        {
+                            kind: "excel",
+                            label: "Plan only (Excel)",
+                            description: "Structure, weights and monthly targets without report values.",
+                            href: `/api/export/plan/${plan.id}?period=none`,
+                        },
+                    ]} />
                     {isPublished && <SendBreakdownRequestsButton planId={plan.id} sendableCount={sendable.length} ownerCount={sendableOwnerCount} />}
                     <Button asChild variant="outline">
                         <Link href={`/strategic-plan/edit/${plan.id}`}>

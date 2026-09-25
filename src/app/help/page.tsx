@@ -26,7 +26,7 @@ export default function HelpPage() {
                 <AccordionItem value="item-1">
                   <AccordionTrigger>How do I create a new activity?</AccordionTrigger>
                   <AccordionContent>
-                    You can create a new activity by navigating to the "Activities" page and clicking the "Create Activity" button. This will open a form where you can enter the details of the activity.
+                    Go to Planning → "My Plan" and click the "Create Activity" button. This will open a form where you can enter the details of the activity.
                   </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="item-2">
@@ -38,13 +38,13 @@ export default function HelpPage() {
                 <AccordionItem value="item-3">
                   <AccordionTrigger>Can I export reports?</AccordionTrigger>
                   <AccordionContent>
-                    Yes, on the "Reports" page, you will find options to export the full hierarchical report to both Excel and PDF formats.
+                    Yes, on Reporting → "Performance Reports" you will find options to export the full hierarchical report to both Excel and PDF formats.
                   </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="item-4">
-                  <AccordionTrigger>How do I filter the activity table?</AccordionTrigger>
+                  <AccordionTrigger>Where do I submit and approve progress reports?</AccordionTrigger>
                   <AccordionContent>
-                    On the "Activities" page, you can use the search bar to filter activities by title. More advanced filtering options for status and department are also available above the table.
+                    Activity owners submit their period reports under Reporting → "My Reports". Approvers review them under Reporting → "Report Approvals". New activities and monthly breakdowns are approved under Planning → "Plan Approvals".
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>

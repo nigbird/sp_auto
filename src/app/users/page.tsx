@@ -1,8 +1,6 @@
-
 "use client";
 
-import Link from "next/link";
-import { ArrowLeft, MoreHorizontal, PlusCircle, Trash2 } from "lucide-react";
+import { MoreHorizontal, UserPlus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -40,16 +38,17 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
-import { getUsers, updateUser, deleteUser } from "@/actions/users";
+import { getUsers, createUser, updateUser, deleteUser } from "@/actions/users";
 import { getRoles } from "@/actions/roles";
 import type { User } from "@/lib/types";
 import { format } from "date-fns";
 import { UserForm, UserFormValues } from "@/components/settings/user-form";
 import { useToast } from "@/hooks/use-toast";
 
-export default function UserManagementPage() {
+export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -84,6 +83,25 @@ export default function UserManagementPage() {
     setIsDeleteDialogOpen(true);
   };
 
+  const handleRegisterUser = async (values: UserFormValues) => {
+    try {
+      await createUser({ name: values.name, email: values.email, roleId: values.roleId });
+    } catch (error) {
+      toast({
+        title: "Could Not Register User",
+        description: error instanceof Error ? error.message : "An unexpected error occurred.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setUsers(await getUsers());
+    setIsRegisterDialogOpen(false);
+    toast({
+      title: "User Registered",
+      description: `${values.name} has been successfully registered.`,
+    });
+  };
+
   const handleUpdateUser = async (values: UserFormValues) => {
     if (!selectedUser) return;
     const roles = await getRoles();
@@ -115,31 +133,18 @@ export default function UserManagementPage() {
 
 
   return (
-    <div className="flex-1 space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-            <Button asChild variant="outline" size="icon">
-            <Link href="/settings">
-                <ArrowLeft className="h-4 w-4" />
-            </Link>
-            </Button>
-            <div>
-            <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
-            <p className="text-muted-foreground">Manage user accounts and roles.</p>
-            </div>
-        </div>
-         <Button asChild>
-              <Link href="/settings/user-registration">
-                <PlusCircle className="mr-2 h-4 w-4" /> Register New User
-              </Link>
-        </Button>
-      </div>
+    <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle>Existing Users</CardTitle>
-          <CardDescription>
-            View, edit, or remove users from the system.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+          <div className="space-y-1.5">
+            <CardTitle>Users</CardTitle>
+            <CardDescription>
+              Register new users, and edit, deactivate or remove existing ones.
+            </CardDescription>
+          </div>
+          <Button onClick={() => setIsRegisterDialogOpen(true)}>
+            <UserPlus className="mr-2 h-4 w-4" /> Register User
+          </Button>
         </CardHeader>
         <CardContent>
            <Table>
@@ -211,6 +216,25 @@ export default function UserManagementPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Register User Dialog */}
+      <Dialog open={isRegisterDialogOpen} onOpenChange={setIsRegisterDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Register User</DialogTitle>
+            <DialogDescription>
+              Create a new user account and assign its role.
+            </DialogDescription>
+          </DialogHeader>
+          {isRegisterDialogOpen && (
+            <UserForm
+              user={null}
+              onSubmit={handleRegisterUser}
+              onCancel={() => setIsRegisterDialogOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

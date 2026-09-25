@@ -1,13 +1,15 @@
-
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
-import Link from "next/link";
+import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import type { LucideIcon } from "lucide-react";
 import {
   Sidebar,
   SidebarHeader,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
@@ -17,18 +19,69 @@ import {
   BarChart3,
   Settings,
   CircleHelp,
-  LogOut,
   UserCheck,
   Network,
-  Gavel,
-  CalendarRange,
-  Building2,
   ClipboardCheck,
+  FileText,
+  FileCheck2,
+  Users,
 } from "lucide-react";
 import { Logo } from "./icons";
+import { getCurrentUserAction } from "@/actions/auth";
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  /** Hidden unless the user holds at least one of these (UI hint only — pages/actions enforce access themselves). */
+  anyOf?: string[];
+  /** Match only the exact path, not sub-paths (for items whose sub-paths are other menu items). */
+  exact?: boolean;
+};
+
+const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
+  {
+    items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard, exact: true }],
+  },
+  {
+    label: "Planning",
+    items: [
+      { href: "/strategic-plan", label: "Strategic Plans", icon: Network },
+      { href: "/plan", label: "My Plan", icon: UserCheck, exact: true },
+      { href: "/plan/approvals", label: "Plan Approvals", icon: ClipboardCheck },
+    ],
+  },
+  {
+    label: "Reporting",
+    items: [
+      { href: "/reports/submit", label: "My Reports", icon: FileText },
+      { href: "/reports/approvals", label: "Report Approvals", icon: FileCheck2 },
+      { href: "/reports", label: "Performance Reports", icon: BarChart3, exact: true },
+    ],
+  },
+  {
+    label: "Administration",
+    items: [
+      { href: "/users", label: "Users & Roles", icon: Users, anyOf: ["settings:users:manage", "settings:roles:manage"] },
+      { href: "/settings", label: "Settings", icon: Settings, anyOf: ["settings:view"] },
+    ],
+  },
+];
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const [permissions, setPermissions] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    getCurrentUserAction().then((user) => setPermissions(user?.permissions ?? []));
+  }, []);
+
+  const isActive = (item: NavItem) =>
+    item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+  // Permission-gated items stay hidden until permissions have loaded, so they don't flash in and out.
+  const canSee = (item: NavItem) =>
+    !item.anyOf || (permissions !== null && item.anyOf.some((p) => permissions.includes(p)));
 
   return (
     <Sidebar>
@@ -42,99 +95,26 @@ export function AppSidebar() {
           </div>
         </div>
       </SidebarHeader>
-      <SidebarContent className="flex-1 p-2">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              href="/"
-              isActive={pathname === "/"}
-              tooltip="Dashboard"
-            >
-              <LayoutDashboard />
-              Dashboard
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              href="/my-activity"
-              isActive={pathname === "/my-activity"}
-              tooltip="My Activity"
-            >
-              <UserCheck />
-              My Activity
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              href="/approvals"
-              isActive={pathname === "/approvals"}
-              tooltip="Approvals"
-            >
-              <ClipboardCheck />
-              Approvals
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              href="/reports"
-              isActive={pathname === "/reports"}
-              tooltip="Reports"
-            >
-              <BarChart3 />
-              Reports
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              href="/strategic-plan"
-              isActive={pathname.startsWith("/strategic-plan")}
-              tooltip="Strategic Plan"
-            >
-              <Network />
-              Strategic Plan
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              href="/settings/rules"
-              isActive={pathname.startsWith("/settings/rules")}
-              tooltip="Rules"
-            >
-              <Gavel />
-              Rules
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              href="/settings/reporting-periods"
-              isActive={pathname.startsWith("/settings/reporting-periods")}
-              tooltip="Reporting Periods"
-            >
-              <CalendarRange />
-              Reporting Periods
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              href="/settings/departments"
-              isActive={pathname.startsWith("/settings/departments")}
-              tooltip="Departments"
-            >
-              <Building2 />
-              Departments
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              href="/settings"
-              isActive={pathname.startsWith("/settings") && !pathname.startsWith("/settings/rules") && !pathname.startsWith("/settings/reporting-periods") && !pathname.startsWith("/settings/departments")}
-              tooltip="Settings"
-            >
-              <Settings />
-              Settings
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+      <SidebarContent className="flex-1">
+        {NAV_GROUPS.map((group, i) => {
+          const items = group.items.filter(canSee);
+          if (items.length === 0) return null;
+          return (
+            <SidebarGroup key={group.label ?? i}>
+              {group.label && <SidebarGroupLabel>{group.label}</SidebarGroupLabel>}
+              <SidebarMenu>
+                {items.map((item) => (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton href={item.href} isActive={isActive(item)} tooltip={item.label}>
+                      <item.icon />
+                      {item.label}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroup>
+          );
+        })}
       </SidebarContent>
       <SidebarFooter className="p-2">
         <SidebarMenu>

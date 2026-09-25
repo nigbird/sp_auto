@@ -10,6 +10,7 @@ import { getStrategicPlanById } from "@/actions/strategic-plan";
 import { Loader2 } from "lucide-react";
 import { ReportSummaryCards } from "../reports/summary-cards";
 import { generateReportSummary } from "@/lib/utils";
+import { ExportMenu } from "@/components/export-menu";
 
 type DashboardClientLayoutProps = {
     initialPillars: Pillar[];
@@ -96,8 +97,41 @@ export function DashboardClientLayout({ initialPillars, initialActivities, allPl
         return generateReportSummary(currentPillars);
     }, [currentPillars]);
 
+    const exportInput = () => {
+        const planName = allPlans.find(p => p.id === selectedPlanId)?.name ?? 'Plan';
+        const activities = selectedUnit === "All"
+            ? currentActivities
+            : currentActivities.filter(a => unitType === 'department' ? a.department === selectedUnit : (a.responsible as { name?: string })?.name === selectedUnit);
+        return { planName, unitLabel: selectedUnit, pillars: filteredReportData, activities };
+    };
+
     return (
         <div className="space-y-6">
+            <div className="flex justify-end">
+                <ExportMenu options={[
+                    {
+                        kind: "excel",
+                        label: "Dashboard (Excel)",
+                        description: "Summary, pillar performance, status by department and activities — as currently filtered.",
+                        onSelect: async () => (await import("@/lib/dashboard-export")).exportDashboardExcel(exportInput()),
+                        disabled: !selectedPlanId || isLoading,
+                    },
+                    {
+                        kind: "pdf",
+                        label: "Dashboard (PDF)",
+                        description: "The same content as a printable report.",
+                        onSelect: async () => (await import("@/lib/dashboard-export")).exportDashboardPdf(exportInput()),
+                        disabled: !selectedPlanId || isLoading,
+                    },
+                    {
+                        kind: "excel",
+                        label: "Full plan & latest report (Excel)",
+                        description: "The plan in the cascaded-initiatives layout with the report columns.",
+                        href: selectedPlanId ? `/api/export/plan/${selectedPlanId}` : undefined,
+                        disabled: !selectedPlanId,
+                    },
+                ]} />
+            </div>
             <ReportSummaryCards summary={summary} />
             <DepartmentalDashboard 
                 activities={currentActivities}

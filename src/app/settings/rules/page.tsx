@@ -2,8 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
-import { ArrowLeft, Gavel, PlusCircle, Trash2, Edit, Save, X } from "lucide-react";
+import { Gavel, PlusCircle, Trash2, Edit, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -116,13 +115,8 @@ export default function RulesPage() {
     <div className="flex-1 space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-            <Button asChild variant="outline" size="icon">
-            <Link href="/settings">
-                <ArrowLeft className="h-4 w-4" />
-            </Link>
-            </Button>
             <div>
-            <h1 className="text-3xl font-bold tracking-tight">Performance Rules</h1>
+            <h2 className="text-xl font-semibold tracking-tight">Performance Rules</h2>
             <p className="text-muted-foreground">
                 Define the criteria for how activity performance statuses are calculated.
             </p>
