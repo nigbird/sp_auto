@@ -5,10 +5,10 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma';
 import type { Activity } from '@/lib/types';
 import { calculateActivityStatus, type StatusRule } from '@/lib/utils';
-import { isPeriodClosedForSubmissions } from '@/lib/reporting-period';
 import type { ApprovalStatus, User } from '@prisma/client';
 import { requireUser } from '@/lib/auth/session';
 import { requirePermission, hasPermission } from '@/lib/auth/permissions-server';
+import { ensurePeriodEntriesForActivity } from '@/actions/activity-plan-submissions';
 
 /** The live, admin-configurable status thresholds from Settings > Rules. */
 async function getStatusRules(): Promise<StatusRule[]> {
@@ -110,6 +110,8 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
         }
     });
 
+    await ensurePeriodEntriesForActivity(newActivity.id);
+
     if (data.responsible !== creator.id) {
         await prisma.notification.create({
             data: {
@@ -167,6 +169,10 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
         data: activityData
     });
 
+    if (data.startDate || data.endDate) {
+        await ensurePeriodEntriesForActivity(activityId);
+    }
+
     if (kpi !== undefined) {
         const existingKpi = await prisma.kpi.findFirst({ where: { activityId } });
         if (existingKpi) {
@@ -200,168 +206,7 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
     return updatedActivity;
 }
 
-export async function submitActivityUpdate(activityId: string, progress: number, comment: string, userId?: string, completionDate?: string, delayExplanation?: string, recommendedAction?: string) {
-    // The submitting user is always the authenticated caller, not the passed userId.
-    const user = await requirePermission('my-activity:update');
-
-    const activity = await prisma.activity.findUnique({ where: { id: activityId }, include: { reportingPeriod: true } });
-    if (!activity) throw new Error("Activity not found");
-
-    if (isPeriodClosedForSubmissions(activity.reportingPeriod)) {
-        const period = activity.reportingPeriod!;
-        const reason = period.status === 'CLOSED'
-            ? 'has been closed by an administrator'
-            : `passed its cut-off date (${period.cutOffDate.toLocaleDateString()})`;
-        throw new Error(`Cannot submit an update: the reporting period "${period.name}" ${reason}.`);
-    }
-
-    if (progress >= 100) {
-        if (!completionDate) {
-            throw new Error("Completing this activity requires a completion date.");
-        }
-        const evidenceCount = await prisma.evidence.count({ where: { activityId } });
-        if (evidenceCount === 0) {
-            throw new Error("Completing this activity requires at least one piece of supporting evidence to be attached first.");
-        }
-        const undeliveredDeliverables = await prisma.deliverable.findMany({
-            where: { activityId, isDelivered: false },
-            select: { title: true },
-        });
-        if (undeliveredDeliverables.length > 0) {
-            throw new Error(`Completing this activity requires all deliverables to be marked delivered first: ${undeliveredDeliverables.map(d => `"${d.title}"`).join(', ')}.`);
-        }
-    }
-
-    const statusRules = await getStatusRules();
-    const projectedStatus = calculateActivityStatus({ ...activity, progress }, statusRules);
-    if (projectedStatus === 'Delayed' || projectedStatus === 'Overdue') {
-        if (!delayExplanation?.trim() || !recommendedAction?.trim()) {
-            throw new Error("Reporting underperformance requires both an explanation and a recommended action.");
-        }
-    }
-
-    const pendingUpdate = {
-        user: user.name,
-        date: new Date(),
-        comment,
-        progress,
-        completionDate: completionDate || undefined,
-        delayExplanation: delayExplanation || undefined,
-        recommendedAction: recommendedAction || undefined,
-    };
-
-    const updateData: any = {
-        pendingUpdate: JSON.stringify(pendingUpdate),
-        approvalStatus: 'PENDING'
-    };
-
-    // If this is the first update, transition the status from "Not Started"
-    if (activity.status === 'Not Started' && progress > 0) {
-        const newStatus = projectedStatus;
-        if (newStatus !== 'Not Started') {
-            updateData.status = newStatus;
-        }
-    }
-
-    await prisma.activity.update({
-        where: { id: activityId },
-        data: updateData
-    });
-
-    revalidatePath('/my-activity');
-}
-
-export async function approveActivityUpdate(activityId: string) {
-    await requirePermission('activities:edit');
-
-    const activity = await prisma.activity.findUnique({ where: { id: activityId }});
-    if (!activity) return;
-
-    let updateData: any = {};
-
-    if (activity.pendingUpdate) {
-        const pendingUpdate = JSON.parse(activity.pendingUpdate as string);
-        const rules = await getStatusRules();
-        const newStatus = calculateActivityStatus({ ...activity, progress: pendingUpdate.progress, endDate: new Date(activity.endDate) }, rules);
-        
-        updateData = {
-            progress: pendingUpdate.progress,
-            status: newStatus,
-            pendingUpdate: null,
-            approvalStatus: 'APPROVED',
-            declineReason: null,
-            updatedAt: new Date(),
-            ...(pendingUpdate.completionDate ? { completionDate: new Date(pendingUpdate.completionDate) } : {}),
-            ...(pendingUpdate.delayExplanation ? { delayExplanation: pendingUpdate.delayExplanation } : {}),
-            ...(pendingUpdate.recommendedAction ? { recommendedAction: pendingUpdate.recommendedAction } : {}),
-        };
-    } else {
-        // This is for approving a newly created activity that has no pending update yet.
-        updateData = {
-             approvalStatus: 'APPROVED',
-             declineReason: null,
-        }
-    }
-    
-    await prisma.activity.update({
-        where: { id: activityId },
-        data: updateData
-    });
-
-    await prisma.notification.create({
-        data: {
-            type: 'UPDATE_APPROVED',
-            message: `Your update for "${activity.title}" was approved.`,
-            date: new Date(),
-            read: false,
-            userId: activity.responsibleId,
-            activityId: activity.id,
-        },
-    });
-
-    revalidatePath('/activities');
-    revalidatePath('/my-activity');
-}
-
-export async function declineActivityUpdate(activityId: string, reason: string) {
-    await requirePermission('activities:edit');
-
-    const activity = await prisma.activity.findUnique({ where: { id: activityId }});
-    if (!activity) return;
-
-    // If there is a pendingUpdate, it's a progress update being declined.
-    // We clear the pending update and set approvalStatus to 'DECLINED'.
-    if (activity.pendingUpdate) {
-         await prisma.activity.update({
-            where: { id: activityId },
-            data: {
-                pendingUpdate: null,
-                approvalStatus: 'DECLINED',
-                declineReason: reason, 
-            }
-        });
-    } else {
-        // If there's no pending update, it's a new activity creation being declined.
-        await prisma.activity.update({
-            where: { id: activityId },
-            data: {
-                approvalStatus: 'DECLINED',
-                declineReason: reason
-            }
-        });
-    }
-
-    await prisma.notification.create({
-        data: {
-            type: 'UPDATE_DECLINED',
-            message: `Your update for "${activity.title}" was returned: ${reason}`,
-            date: new Date(),
-            read: false,
-            userId: activity.responsibleId,
-            activityId: activity.id,
-        },
-    });
-
-    revalidatePath('/activities');
-    revalidatePath('/my-activity');
-}
+// Progress-update submission/approval/decline moved to
+// src/actions/activity-period-entries.ts (submitPeriodUpdate/approvePeriodEntry/
+// declinePeriodEntry), which track plan-vs-actual per ReportingPeriod instead
+// of a single flat progress value.

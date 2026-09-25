@@ -20,7 +20,7 @@ export function calculateWeightedProgress(items: { weight: number; progress: num
 
 
 function sumActivityWeights(activities: Activity[]): number {
-    return activities.reduce((sum, activity) => sum + activity.weight, 0);
+    return activities.reduce((sum, activity) => sum + (activity.countsTowardWeight === false ? 0 : activity.weight), 0);
 }
 
 export const getInitiativeWeight = (initiative: Initiative): number => {
@@ -39,9 +39,9 @@ export const getPillarWeight = (pillar: Pillar): number => {
     }, 0);
 }
 
-/** Sums raw activity weights from wizard form data (weight may still be a string before zod coercion), as opposed to getInitiativeWeight which operates on a fully-typed Initiative. */
-export function calculateInitiativeWeight(activities: { weight: number | string }[] = []): number {
-    return activities.reduce((total, activity) => total + (Number(activity.weight) || 0), 0);
+/** Sums raw activity weights from wizard form data (weight may still be a string before zod coercion), as opposed to getInitiativeWeight which operates on a fully-typed Initiative. Activities linked as a duplicate (countsTowardWeight: false) are excluded, matching the Excel's "No Duplicate" weight column. */
+export function calculateInitiativeWeight(activities: { weight: number | string; countsTowardWeight?: boolean }[] = []): number {
+    return activities.reduce((total, activity) => total + (activity.countsTowardWeight === false ? 0 : (Number(activity.weight) || 0)), 0);
 }
 
 const WEIGHT_RECONCILIATION_TOLERANCE = 0.01;
@@ -60,7 +60,7 @@ export interface WeightReconciliationResult {
  * before anything is written to the DB.
  */
 export function validateWeightReconciliation(
-    pillars: { title?: string; objectives: { statement?: string; initiatives: { title?: string; activities: { weight: number | string }[] }[] }[] }[]
+    pillars: { title?: string; objectives: { statement?: string; initiatives: { title?: string; activities: { weight: number | string; countsTowardWeight?: boolean }[] }[] }[] }[]
 ): WeightReconciliationResult {
     let total = 0;
     for (const pillar of pillars) {
@@ -217,12 +217,12 @@ export function calculateDelayDays(activity: { progress: number; endDate: Date }
   return Math.floor((now.getTime() - activity.endDate.getTime()) / msPerDay);
 }
 
-function sumWeights(items: { weight: number }[]): number {
-    return items.reduce((sum, item) => sum + item.weight, 0);
+function sumWeights(items: { weight: number; countsTowardWeight?: boolean }[]): number {
+    return items.reduce((sum, item) => sum + (item.countsTowardWeight === false ? 0 : item.weight), 0);
 }
 
-function sumActual(items: { weight: number, progress: number }[]): number {
-    return items.reduce((sum, item) => sum + (item.progress / 100 * item.weight), 0);
+function sumActual(items: { weight: number, progress: number, countsTowardWeight?: boolean }[]): number {
+    return items.reduce((sum, item) => sum + (item.countsTowardWeight === false ? 0 : (item.progress / 100 * item.weight)), 0);
 }
 
 /** This pillar's share of the whole plan's 100-point weight pool (its "quota"). */

@@ -50,7 +50,8 @@ import {
 } from "@/components/ui/table";
 import type { Activity, User, StrategicPlan } from "@/lib/types";
 import { StatusBadge } from "../status-badge";
-import { approveActivityUpdate, declineActivityUpdate, updateActivity, createActivity } from "@/actions/activities";
+import { updateActivity, createActivity } from "@/actions/activities";
+import { approvePeriodEntry, declinePeriodEntry } from "@/actions/activity-period-entries";
 import { getActivities } from "@/actions/activities";
 import { getCurrentUserAction } from "@/actions/auth";
 import { Progress } from "../ui/progress";
@@ -140,7 +141,7 @@ export function ActivityTable({ activities: initialActivities, users, statuses, 
   }
   
   const handleApprove = (activityId: string) => {
-    approveActivityUpdate(activityId).then(async () => {
+    approvePeriodEntry(activityId).then(async () => {
       const updatedActivities = await getActivities();
       setData(updatedActivities);
       toast({ title: "Activity Approved", description: "The activity has been approved." });
@@ -161,7 +162,7 @@ export function ActivityTable({ activities: initialActivities, users, statuses, 
         return;
     }
     const activityId = viewingActivity.id;
-    declineActivityUpdate(activityId, declineReason).then(async () => {
+    declinePeriodEntry(activityId, declineReason).then(async () => {
       const updatedActivities = await getActivities();
       setData(updatedActivities);
       toast({ title: "Activity Declined", description: "The activity has been declined.", variant: "destructive" });

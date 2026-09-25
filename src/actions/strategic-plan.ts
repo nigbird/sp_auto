@@ -4,84 +4,108 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import type { StrategicPlan as StrategicPlanType } from '@/lib/types';
-import { z } from 'zod';
 import { redirect } from 'next/navigation';
-import { getUsers } from './users';
 import { requireUser } from '@/lib/auth/session';
 import { requirePermission } from '@/lib/auth/permissions-server';
 import { validateWeightReconciliation } from '@/lib/utils';
+import { planFormSchema, zodIssuesToPlanIssues, type PlanFormValues, type PlanIssue } from '@/lib/plan-schema';
+import { newPillarData, syncPlanTree } from '@/lib/plan-sync';
 
-const activitySchema = z.object({
-  id: z.string().optional(),
-  title: z.string().min(1, "Title is required"),
-  weight: z.coerce.number().min(0, "Weight must be positive"),
-  startDate: z.string().min(1, "Start date is required"),
-  endDate: z.string().min(1, "End date is required"),
-  department: z.string().min(1, "Department is required"),
-  responsible: z.string().min(1, "Responsible person is required"),
-  description: z.string().optional(),
-}).refine((data) => new Date(data.endDate) > new Date(data.startDate), {
-  message: "End date must be after start date",
-  path: ["endDate"],
-});
+type PlanPillar = PlanFormValues['pillars'][number];
+type PlanInitiative = PlanPillar['objectives'][number]['initiatives'][number];
+type PlanActivity = PlanInitiative['activities'][number];
 
-const milestoneSchema = z.object({
-  id: z.string().optional(),
-  title: z.string().min(1, "Title is required"),
-  targetDate: z.string().min(1, "Target date is required"),
-  isAchieved: z.boolean().optional(),
-});
-
-const initiativeSchema = z.object({
-  id: z.string().optional(),
-  title: z.string().min(1, "Title is required"),
-  description: z.string().optional(),
-  owner: z.string().min(1, "Owner is required"),
-  collaborators: z.array(z.string()).optional(),
-  isContinuous: z.boolean().optional(),
-  milestones: z.array(milestoneSchema).optional(),
-  activities: z.array(activitySchema).min(1, "At least one activity is required."),
-});
-
-const objectiveSchema = z.object({
-  id: z.string().optional(),
-  statement: z.string().min(1, "Objective Statement is required"),
-  initiatives: z.array(initiativeSchema).min(1, "At least one initiative is required."),
-});
-
-const pillarSchema = z.object({
-  id: z.string().optional(),
-  title: z.string().min(1, "Pillar Title is required"),
-  description: z.string().optional(),
-  objectives: z.array(objectiveSchema).min(1, "At least one objective is required."),
-});
-
-const planSchema = z.object({
-  name: z.string().min(1, "Plan Name is required"),
-  startYear: z.coerce.number().min(2000),
-  endYear: z.coerce.number().min(2000),
-  version: z.string().min(1, "Version is required"),
-  pillars: z.array(pillarSchema), // Simplified for server action
-});
-
-/** Rejects any activity department not in the master list, per the operational rule. */
-async function findUnmappedDepartments(pillars: any[]): Promise<string[]> {
-    const validDepartments = new Set((await prisma.department.findMany({ select: { name: true } })).map(d => d.name));
-    const issues: string[] = [];
-    for (const p of pillars) {
-        for (const o of p.objectives ?? []) {
-            for (const i of o.initiatives ?? []) {
-                for (const a of i.activities ?? []) {
-                    if (a.department && !validDepartments.has(a.department)) {
-                        issues.push(`Activity "${a.title}" references department "${a.department}", which is not in the approved department list.`);
-                    }
-                }
-            }
-        }
-    }
-    return issues;
+/**
+ * What the create/update actions hand back when they can't save. Returned
+ * rather than thrown: Next.js replaces thrown server-action messages with a
+ * generic one in production, so a thrown error would hide the actual reason.
+ */
+export interface SavePlanFailure {
+    success: false;
+    message: string;
+    issues: PlanIssue[];
 }
 
+function failure(message: string, issues: PlanIssue[] = []): SavePlanFailure {
+    return { success: false, message, issues };
+}
+
+function forEachActivity(pillars: PlanPillar[], fn: (a: PlanActivity, path: string) => void) {
+    pillars.forEach((p, pi) => p.objectives.forEach((o, oi) => o.initiatives.forEach((i, ii) => i.activities.forEach((a, ai) =>
+        fn(a, `pillars.${pi}.objectives.${oi}.initiatives.${ii}.activities.${ai}`)
+    ))));
+}
+
+function forEachInitiative(pillars: PlanPillar[], fn: (i: PlanInitiative, path: string) => void) {
+    pillars.forEach((p, pi) => p.objectives.forEach((o, oi) => o.initiatives.forEach((i, ii) =>
+        fn(i, `pillars.${pi}.objectives.${oi}.initiatives.${ii}`)
+    )));
+}
+
+/**
+ * Parses and checks a submitted plan: the shared schema first, then the
+ * things only the server can know (departments and people that actually
+ * exist), then — for publishing — the 100% weight rule.
+ */
+async function validatePlanSubmission(formData: FormData): Promise<{ ok: true; data: PlanFormValues; status: 'DRAFT' | 'PUBLISHED' } | { ok: false; result: SavePlanFailure }> {
+    const status = formData.get('status') === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT';
+
+    let pillars: unknown;
+    try {
+        pillars = JSON.parse(String(formData.get('pillars') ?? '[]'));
+    } catch {
+        return { ok: false, result: failure('The plan data could not be read. Please reload the page and try again.') };
+    }
+
+    const parsed = planFormSchema.safeParse({
+        name: formData.get('name'),
+        startYear: formData.get('startYear'),
+        endYear: formData.get('endYear'),
+        version: formData.get('version'),
+        pillars,
+    });
+    if (!parsed.success) {
+        const issues = zodIssuesToPlanIssues(parsed.error);
+        return { ok: false, result: failure(`The plan has ${issues.length} problem${issues.length === 1 ? '' : 's'} to fix.`, issues) };
+    }
+    const data = parsed.data;
+    const issues: PlanIssue[] = [];
+
+    const validDepartments = new Set((await prisma.department.findMany({ select: { name: true } })).map(d => d.name));
+    const userIds = new Set((await prisma.user.findMany({ select: { id: true } })).map(u => u.id));
+
+    forEachActivity(data.pillars, (a, path) => {
+        if (!validDepartments.has(a.department)) {
+            issues.push({ path: `${path}.department`, message: `"${a.department}" is not in the department list. Pick a department from the list.` });
+        }
+        if (!userIds.has(a.responsible)) {
+            issues.push({ path: `${path}.responsible`, message: 'The selected responsible person no longer exists. Pick someone else.' });
+        }
+    });
+    forEachInitiative(data.pillars, (i, path) => {
+        if (i.owners.some(id => !userIds.has(id))) {
+            issues.push({ path: `${path}.owners`, message: 'One of the selected owners no longer exists. Remove them and pick again.' });
+        }
+        if (new Set(i.owners).size !== i.owners.length) {
+            issues.push({ path: `${path}.owners`, message: 'The same person is selected as owner more than once.' });
+        }
+    });
+
+    if (issues.length > 0) {
+        return { ok: false, result: failure(`The plan has ${issues.length} problem${issues.length === 1 ? '' : 's'} to fix.`, issues) };
+    }
+
+    if (status === 'PUBLISHED') {
+        const reconciliation = validateWeightReconciliation(data.pillars);
+        if (!reconciliation.valid) {
+            return { ok: false, result: failure(`Cannot publish: ${reconciliation.issues.join(' ')}`, reconciliation.issues.map(message => ({ path: '_weight', message }))) };
+        }
+    }
+
+    return { ok: true, data, status };
+}
+
+const TRANSACTION_OPTIONS = { timeout: 60_000, maxWait: 10_000 };
 
 export async function listStrategicPlans() {
     await requireUser();
@@ -113,6 +137,7 @@ export async function getStrategicPlanById(id: string) {
                                         orderBy: { createdAt: 'asc' },
                                         include: {
                                             responsible: true,
+                                            monthlyTargets: { orderBy: { month: 'asc' } },
                                         }
                                     },
                                     milestones: {
@@ -130,242 +155,61 @@ export async function getStrategicPlanById(id: string) {
     if (!plan) {
         return null;
     }
-    
+
     // Convert dates to string to avoid serialization issues
     const plainPlan = JSON.parse(JSON.stringify(plan));
     return plainPlan as StrategicPlanType;
 }
 
-export async function createStrategicPlan(formData: FormData) {
+export async function createStrategicPlan(formData: FormData): Promise<SavePlanFailure | void> {
     await requirePermission('strategic-plan:edit');
 
-    console.log('Received data for plan creation:', Object.fromEntries(formData));
-
-    const data = Object.fromEntries(formData);
-    const pillars = JSON.parse(data.pillars as string);
-    const status = data.status as 'DRAFT' | 'PUBLISHED';
-
-    const validatedFields = planSchema.safeParse({
-        name: data.name,
-        startYear: data.startYear,
-        endYear: data.endYear,
-        version: data.version,
-        pillars: pillars,
-    });
-    
-    if (!validatedFields.success) {
-        console.error("Zod validation failed:", validatedFields.error.flatten());
-        throw new Error("Invalid form data.");
-    }
-    
-    const { name, startYear, endYear, version } = validatedFields.data;
-
-    const departmentIssues = await findUnmappedDepartments(pillars);
-    if (departmentIssues.length > 0) {
-        throw new Error(departmentIssues.join(' '));
-    }
-
-    if (status === 'PUBLISHED') {
-        const reconciliation = validateWeightReconciliation(pillars);
-        if (!reconciliation.valid) {
-            throw new Error(`Cannot publish: ${reconciliation.issues.join(' ')}`);
-        }
-    }
+    const validation = await validatePlanSubmission(formData);
+    if (!validation.ok) return validation.result;
+    const { data, status } = validation;
 
     try {
-        const newPlan = await prisma.strategicPlan.create({
-            data: {
-                name,
-                startYear,
-                endYear,
-                version,
-                status
-            }
-        });
-
-        for (const p of pillars) {
-            await prisma.pillar.create({
-                data: {
-                    title: p.title,
-                    description: p.description,
-                    strategicPlanId: newPlan.id,
-                    objectives: {
-                        create: p.objectives.map((o: any) => ({
-                            statement: o.statement,
-                            initiatives: {
-                                create: o.initiatives.map((i: any) => ({
-                                    title: i.title,
-                                    description: i.description,
-                                    ownerId: i.owner,
-                                    collaborators: i.collaborators,
-                                    isContinuous: !!i.isContinuous,
-                                    activities: {
-                                        create: i.activities.map((a: any) => {
-                                            if (!a.responsible) {
-                                                throw new Error(`Responsible user ID is missing for activity: '${a.title}'.`);
-                                            }
-                                            return {
-                                                title: a.title,
-                                                description: a.description || '',
-                                                department: a.department,
-                                                responsibleId: a.responsible,
-                                                startDate: new Date(a.startDate),
-                                                endDate: new Date(a.endDate),
-                                                status: 'Not Started',
-                                                weight: Number(a.weight),
-                                                progress: 0,
-                                                approvalStatus: 'APPROVED',
-                                                strategicPlanId: newPlan.id,
-                                            }
-                                        }),
-                                    },
-                                    milestones: i.isContinuous && i.milestones?.length ? {
-                                        create: i.milestones.map((m: any) => ({
-                                            title: m.title,
-                                            targetDate: new Date(m.targetDate),
-                                            isAchieved: !!m.isAchieved,
-                                        })),
-                                    } : undefined,
-                                })),
-                            },
-                        })),
-                    },
-                }
+        await prisma.$transaction(async (tx) => {
+            const plan = await tx.strategicPlan.create({
+                data: { name: data.name.trim(), startYear: data.startYear, endYear: data.endYear, version: data.version.trim(), status },
             });
-        }
+            for (const p of data.pillars) {
+                await tx.pillar.create({ data: newPillarData(p, plan.id) });
+            }
+        }, TRANSACTION_OPTIONS);
     } catch (error) {
         console.error("Error during strategic plan creation:", error);
-        // Re-throwing the original error is often more informative
-        throw error;
+        return failure("The plan couldn't be saved because of a server error. Nothing was saved — please try again.");
     }
-
 
     revalidatePath('/strategic-plan');
     redirect('/strategic-plan');
 }
 
 
-export async function updateStrategicPlan(id: string, formData: FormData) {
+export async function updateStrategicPlan(id: string, formData: FormData): Promise<SavePlanFailure | void> {
     await requirePermission('strategic-plan:edit');
 
-    const data = Object.fromEntries(formData);
-    const pillars = JSON.parse(data.pillars as string);
-    const status = data.status as 'DRAFT' | 'PUBLISHED';
+    const existingPlan = await prisma.strategicPlan.findUnique({ where: { id }, select: { id: true } });
+    if (!existingPlan) return failure("This plan no longer exists. It may have been deleted.");
 
-    const validatedFields = planSchema.safeParse({
-        name: data.name,
-        startYear: data.startYear,
-        endYear: data.endYear,
-        version: data.version,
-        pillars: pillars,
-    });
-
-    if (!validatedFields.success) {
-        return {
-            success: false,
-            errors: validatedFields.error.flatten().fieldErrors,
-        };
-    }
-    
-    const { name, startYear, endYear, version } = validatedFields.data;
-
-    const departmentIssues = await findUnmappedDepartments(pillars);
-    if (departmentIssues.length > 0) {
-        return {
-            success: false,
-            errors: { _form: departmentIssues },
-        };
-    }
-
-    if (status === 'PUBLISHED') {
-        const reconciliation = validateWeightReconciliation(pillars);
-        if (!reconciliation.valid) {
-            return {
-                success: false,
-                errors: { _form: reconciliation.issues },
-            };
-        }
-    }
+    const validation = await validatePlanSubmission(formData);
+    if (!validation.ok) return validation.result;
+    const { data, status } = validation;
 
     try {
-        const users = await getUsers();
-        
-        // In a real scenario, you'd do a deep comparison and update/create/delete
-        // nested entities. For simplicity, we'll delete and re-create pillars.
-        await prisma.pillar.deleteMany({ where: { strategicPlanId: id }});
-
-        await prisma.strategicPlan.update({
-            where: { id },
-            data: {
-                name,
-                startYear,
-                endYear,
-                version,
-                status,
-                pillars: {
-                    create: pillars.map((p: any) => ({
-                        title: p.title,
-                        description: p.description,
-                        objectives: {
-                            create: p.objectives.map((o: any) => ({
-                                statement: o.statement,
-                                initiatives: {
-                                    create: o.initiatives.map((i: any) => ({
-                                        title: i.title,
-                                        description: i.description,
-                                        ownerId: i.owner,
-                                        collaborators: i.collaborators,
-                                        isContinuous: !!i.isContinuous,
-                                        activities: {
-                                            create: i.activities.map((a: any) => {
-                                                const responsibleUser = users.find(u => u.name === a.responsible);
-                                                let responsibleId = a.responsible;
-                                                
-                                                if (responsibleUser) {
-                                                    responsibleId = responsibleUser.id;
-                                                } else if (!users.find(u => u.id === a.responsible)) {
-                                                     throw new Error(`User not found in database: '${a.responsible}'. Please ensure the name is correct.`);
-                                                }
-
-                                                return {
-                                                    title: a.title,
-                                                    description: a.description || '',
-                                                    department: a.department,
-                                                    responsibleId: responsibleId,
-                                                    startDate: new Date(a.startDate),
-                                                    endDate: new Date(a.endDate),
-                                                    status: a.status || 'Not Started',
-                                                    weight: Number(a.weight),
-                                                    progress: Number(a.progress) || 0,
-                                                    approvalStatus: a.approvalStatus || 'APPROVED',
-                                                    strategicPlanId: id,
-                                                }
-                                            }),
-                                        },
-                                        milestones: i.isContinuous && i.milestones?.length ? {
-                                            create: i.milestones.map((m: any) => ({
-                                                title: m.title,
-                                                targetDate: new Date(m.targetDate),
-                                                isAchieved: !!m.isAchieved,
-                                            })),
-                                        } : undefined,
-                                    })),
-                                },
-                            })),
-                        },
-                    })),
-                },
-            },
-        });
+        await prisma.$transaction(async (tx) => {
+            await tx.strategicPlan.update({
+                where: { id },
+                data: { name: data.name.trim(), startYear: data.startYear, endYear: data.endYear, version: data.version.trim(), status },
+            });
+            await syncPlanTree(tx, id, data.pillars);
+        }, TRANSACTION_OPTIONS);
     } catch (error) {
         console.error("Error during strategic plan update:", error);
-        return {
-            success: false,
-            // A more specific error could be returned, but for now this is a safe fallback.
-            errors: { _form: ["An unexpected error occurred while updating the plan."] }
-        }
+        return failure("The plan couldn't be saved because of a server error. Your changes were not applied — please try again.");
     }
-    
+
     revalidatePath('/strategic-plan');
     revalidatePath(`/strategic-plan/${id}`);
     redirect(`/strategic-plan/${id}`);

@@ -24,6 +24,7 @@ import {
   Gavel,
   CalendarRange,
   Building2,
+  ClipboardCheck,
 } from "lucide-react";
 import { Logo } from "./icons";
 
@@ -72,6 +73,16 @@ export function AppSidebar() {
             >
               <UserCheck />
               My Activity
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              href="/approvals"
+              isActive={pathname === "/approvals"}
+              tooltip="Approvals"
+            >
+              <ClipboardCheck />
+              Approvals
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>

@@ -45,14 +45,14 @@ html {
     --chart-4: 0 70% 60%;
     --chart-5: 200 50% 50%;
     --radius: 0.5rem;
-    --sidebar-background: 25 65% 29%;
-    --sidebar-foreground: 25 10% 90%;
-    --sidebar-primary: 0 0% 100%;
-    --sidebar-primary-foreground: 25 65% 29%;
-    --sidebar-accent: 25 65% 35%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 25 65% 32%;
-    --sidebar-ring: 45 96% 54%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222.2 47% 20%;
+    --sidebar-primary: 35 72% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 35 72% 96%;
+    --sidebar-accent-foreground: 35 72% 40%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-ring: 35 72% 55%;
   }
   .dark {
     --background: 222.2 84% 4.9%;

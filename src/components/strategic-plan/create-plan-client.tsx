@@ -1,21 +1,19 @@
-
 "use client";
 
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import Link from "next/link";
-import { ArrowLeft, Trash2, PlusCircle } from "lucide-react";
+import { ArrowLeft, Trash2, PlusCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect, type MultiSelectOption } from "@/components/ui/multi-select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Stepper } from "@/components/ui/stepper";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
@@ -25,74 +23,27 @@ import { createStrategicPlan } from "@/actions/strategic-plan";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { format } from "date-fns";
 import { calculateInitiativeWeight } from "@/lib/utils";
-import { describeFieldPath, extractQuoted, focusFieldByPath, scrollToAndHighlight, scrollToListItemContaining } from "@/lib/form-focus";
+import { planFormSchema, sectionOfPath, formatPlanIssue, type PlanFormValues, type PlanIssue, type PlanSection } from "@/lib/plan-schema";
+import { applyIssuesToForm, collectPlanIssues, focusIssue, IssueSummary, ListIssue, PlanFormIssuesProvider, useAutoOpenAccordion } from "./plan-form-issues";
 
-const activitySchema = z.object({
-  id: z.string().optional(),
-  title: z.string().min(1, "Title is required"),
-  weight: z.coerce.number().positive("Weight must be greater than 0"),
-  startDate: z.string().min(1, "Start date is required"),
-  endDate: z.string().min(1, "End date is required"),
-  department: z.string().min(1, "Department is required"),
-  responsible: z.string().min(1, "Responsible person is required"),
-  description: z.string().optional(),
-}).refine((data) => new Date(data.endDate) > new Date(data.startDate), {
-  message: "End date must be after start date",
-  path: ["endDate"],
-});
+type FormValues = PlanFormValues;
+type Person = { id: string; name: string };
 
-const milestoneSchema = z.object({
-  id: z.string().optional(),
-  title: z.string().min(1, "Title is required"),
-  targetDate: z.string().min(1, "Target date is required"),
-  isAchieved: z.boolean().optional(),
-});
-
-const initiativeSchema = z.object({
-  id: z.string().optional(),
-  title: z.string().min(1, "Title is required"),
-  description: z.string().optional(),
-  owner: z.string().min(1, "Owner is required"),
-  collaborators: z.array(z.string()).optional(),
-  isContinuous: z.boolean().optional(),
-  milestones: z.array(milestoneSchema).optional(),
-  activities: z.array(activitySchema).min(1, "At least one activity is required."),
-});
-
-const objectiveSchema = z.object({
-  id: z.string().optional(),
-  statement: z.string().min(1, "Objective Statement is required"),
-  initiatives: z.array(initiativeSchema).min(1, "At least one initiative is required."),
-});
-
-const pillarSchema = z.object({
-  id: z.string().optional(),
-  title: z.string().min(1, "Pillar Title is required"),
-  description: z.string().optional(),
-  objectives: z.array(objectiveSchema).min(1, "At least one objective is required."),
-});
-
-const formSchema = z.object({
-  name: z.string().min(1, "Plan Name is required"),
-  startYear: z.coerce.number().min(2000),
-  endYear: z.coerce.number().min(2000),
-  version: z.string().min(1, "Version is required"),
-  pillars: z.array(pillarSchema).min(1, "At least one pillar is required"),
-}).refine(data => data.endYear >= data.startYear, {
-    message: "End year must be greater than or equal to start year",
-    path: ["endYear"],
-});
-
-type FormValues = z.infer<typeof formSchema>;
-
-const TABS = [
-    { value: "plan-info", title: "Plan Info", fields: ['name', 'startYear', 'endYear', 'version'] as const },
-    { value: "pillars", title: "Pillar", fields: ['pillars'] as const },
-    { value: "objectives", title: "Objective", fields: ['pillars'] as const },
-    { value: "initiatives", title: "Initiative", fields: ['pillars'] as const },
-    { value: "activities", title: "Activities", fields: ['pillars'] as const },
-    { value: "review", title: "Review & Save", fields: [] as const }
+const TABS: { value: string; title: string; section: PlanSection | 'review' }[] = [
+    { value: "plan-info", title: "Plan Info", section: 'plan-info' },
+    { value: "pillars", title: "Pillar", section: 'pillars' },
+    { value: "objectives", title: "Objective", section: 'objectives' },
+    { value: "initiatives", title: "Initiative", section: 'initiatives' },
+    { value: "activities", title: "Activities", section: 'activities' },
+    { value: "review", title: "Review & Save", section: 'review' },
 ];
+
+/** The wizard step where an issue can be fixed. */
+function stepIndexOfIssue(issue: PlanIssue): number {
+    if (issue.path.startsWith('_')) return TABS.length - 1;
+    const section = sectionOfPath(issue.path);
+    return TABS.findIndex(t => t.section === section);
+}
 
 function generateId(prefix: string) {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -105,8 +56,21 @@ const getOneMonthFromToday = () => {
     return format(d, 'yyyy-MM-dd');
 }
 
+function newActivity(users: Person[], departments: string[], title = "", weight = 0) {
+    return { id: generateId('A'), title, weight, description: '', deliverable: '', startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] ?? '', responsible: users[0]?.id ?? '' };
+}
+function newInitiative(users: Person[], departments: string[], title = "") {
+    return { id: generateId('I'), title, description: "", owners: users[0]?.id ? [users[0].id] : [], collaborators: [], activities: [newActivity(users, departments)] };
+}
+function newObjective(users: Person[], departments: string[], statement = "") {
+    return { id: generateId('O'), statement, initiatives: [newInitiative(users, departments)] };
+}
+function newPillar(users: Person[], departments: string[], title = "") {
+    return { id: generateId('P'), title, description: "", objectives: [newObjective(users, departments)] };
+}
+
 type CreatePlanClientProps = {
-    users: { id: string; name: string; }[];
+    users: Person[];
     departments: string[];
 }
 
@@ -114,44 +78,34 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
     const { toast } = useToast();
     const [currentTab, setCurrentTab] = useState(TABS[0].value);
     const [highestCompletedStep, setHighestCompletedStep] = useState(0);
+    const [showIssues, setShowIssues] = useState(false);
+    const [serverIssues, setServerIssues] = useState<PlanIssue[]>([]);
+    const [expandSignal, setExpandSignal] = useState(0);
+    const [isSaving, setIsSaving] = useState(false);
 
     const userOptions = useMemo(() => users.map(u => ({ value: u.id, label: u.name })), [users]);
-    const peopleOptions: MultiSelectOption[] = userOptions;
 
     const form = useForm<FormValues>({
-        resolver: zodResolver(formSchema),
+        resolver: zodResolver(planFormSchema),
         defaultValues: {
             name: "Corporate Strategic Plan",
             startYear: new Date().getFullYear(),
             endYear: new Date().getFullYear() + 4,
             version: "1.0",
             pillars: [
-                { 
-                    id: generateId('P'),
-                    title: "Pillar 1", 
-                    description: "", 
-                    objectives: [
-                        { 
-                            id: generateId('O'),
-                            statement: "Objective 1.1", 
-                            initiatives: [
-                                {
-                                    id: generateId('I'),
-                                    title: "Initiative 1.1.1",
-                                    description: "",
-                                    owner: users[0]?.id || "",
-                                    collaborators: [],
-                                    activities: [
-                                        { id: generateId('A'), title: "Activity 1.1.1.1", weight: 100, description: '', startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] || 'Sales', responsible: users[0]?.id || "" },
-                                    ]
-                                }
-                            ]
-                        }
-                    ]
-                }
-            ]
+                {
+                    ...newPillar(users, departments, "Pillar 1"),
+                    objectives: [{
+                        ...newObjective(users, departments, "Objective 1.1"),
+                        initiatives: [{
+                            ...newInitiative(users, departments, "Initiative 1.1.1"),
+                            activities: [newActivity(users, departments, "Activity 1.1.1.1", 100)],
+                        }],
+                    }],
+                },
+            ],
         },
-        mode: "onBlur"
+        mode: "onBlur",
     });
 
     const { fields: pillarFields, append: appendPillar, remove: removePillar } = useFieldArray({
@@ -159,10 +113,55 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
         name: "pillars"
     });
 
-    const handleFormSubmit = async (status: 'DRAFT' | 'PUBLISHED') => {
-        const formData = new FormData();
-        const formValues = form.getValues();
+    const values = form.watch();
+    const currentIndex = TABS.findIndex(t => t.value === currentTab);
 
+    // Once a Next/Save attempt has failed, keep the list current as the user
+    // fixes things, so it empties out instead of showing stale problems.
+    const liveIssues = useMemo(() => {
+        if (!showIssues) return [];
+        const schemaIssues = collectPlanIssues(values);
+        const stillRelevantServerIssues = serverIssues.filter(si => !schemaIssues.some(i => i.path === si.path) && !si.path.startsWith('_'));
+        return [...schemaIssues, ...stillRelevantServerIssues];
+    }, [showIssues, values, serverIssues]);
+
+    const issuesForThisStep = currentTab === 'review'
+        ? liveIssues
+        : liveIssues.filter(issue => stepIndexOfIssue(issue) <= currentIndex);
+
+    const goToIssue = (issue: PlanIssue) => {
+        const stepIndex = stepIndexOfIssue(issue);
+        if (stepIndex >= 0) setCurrentTab(TABS[stepIndex].value);
+        setExpandSignal(s => s + 1);
+        setTimeout(() => focusIssue(issue), 150);
+    };
+
+    const reportIssues = (issues: PlanIssue[], title: string) => {
+        setShowIssues(true);
+        applyIssuesToForm(form, issues);
+        const first = [...issues].sort((a, b) => stepIndexOfIssue(a) - stepIndexOfIssue(b))[0];
+        toast({
+            title,
+            description: issues.length === 1
+                ? formatPlanIssue(first)
+                : `${formatPlanIssue(first)} (and ${issues.length - 1} more — see the list on the page).`,
+            variant: "destructive",
+        });
+        goToIssue(first);
+    };
+
+    const handleFormSubmit = async (status: 'DRAFT' | 'PUBLISHED') => {
+        const formValues = form.getValues();
+        const issues = collectPlanIssues(formValues);
+        if (status === 'PUBLISHED' && Math.abs(calculatePlanWeight(formValues.pillars) - 100) > 0.01) {
+            issues.push({ path: '_weight', message: `Activity weights add up to ${calculatePlanWeight(formValues.pillars).toFixed(1)}% — they must total 100% to publish. You can still save it as a draft.` });
+        }
+        if (issues.length > 0) {
+            reportIssues(issues, status === 'DRAFT' ? "Can't save the draft yet" : "Can't publish yet");
+            return;
+        }
+
+        const formData = new FormData();
         formData.append('name', formValues.name);
         formData.append('startYear', String(formValues.startYear));
         formData.append('endYear', String(formValues.endYear));
@@ -170,137 +169,90 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
         formData.append('pillars', JSON.stringify(formValues.pillars));
         formData.append('status', status);
 
-        toast({
-            title: status === 'DRAFT' ? "Saving Draft..." : "Publishing Plan...",
-            description: "Please wait.",
-        });
-
+        setIsSaving(true);
         try {
-            await createStrategicPlan(formData);
-        } catch (error) {
-            // createStrategicPlan redirects on success, which Next.js implements by throwing
-            // a special error. unstable_rethrow lets that pass through so navigation still
-            // happens; only genuine failures reach the toast below.
-            unstable_rethrow(error);
-            const message = error instanceof Error ? error.message : "An unexpected error occurred.";
-            toast({
-                title: status === 'DRAFT' ? "Could Not Save Draft" : "Could Not Publish Plan",
-                description: message,
-                variant: "destructive",
-            });
-
-            // Jump to Review & Save and highlight whatever the server flagged, so the
-            // problem is in front of the user rather than just named in a toast.
-            if (/weight/i.test(message)) {
-                setCurrentTab('review');
-                setTimeout(() => scrollToAndHighlight(document.getElementById('plan-weight-summary-review')), 100);
-            } else if (/department/i.test(message)) {
-                const activityTitle = extractQuoted(message);
-                setCurrentTab('review');
-                if (activityTitle) {
-                    setTimeout(() => scrollToListItemContaining(document.body, activityTitle), 100);
+            const result = await createStrategicPlan(formData);
+            if (result && result.success === false) {
+                setServerIssues(result.issues);
+                if (result.issues.length > 0) {
+                    reportIssues(result.issues, status === 'DRAFT' ? "Could not save the draft" : "Could not publish the plan");
+                } else {
+                    toast({ title: status === 'DRAFT' ? "Could not save the draft" : "Could not publish the plan", description: result.message, variant: "destructive" });
                 }
             }
-        }
-    };
-
-    const handleNext = async () => {
-        const currentTabIndex = TABS.findIndex(t => t.value === currentTab);
-        const currentTabInfo = TABS[currentTabIndex];
-
-        let fieldsToValidate: string[] = [];
-        if (currentTabInfo.value === 'plan-info') {
-            fieldsToValidate = ['name', 'startYear', 'endYear', 'version'];
-        } else if (currentTabInfo.value === 'pillars') {
-            fieldsToValidate = form.getValues().pillars.map((_, index) => `pillars.${index}.title`);
-        } else if (currentTabInfo.value === 'objectives') {
-            fieldsToValidate = form.getValues().pillars.flatMap((_, pIndex) =>
-                form.getValues().pillars[pIndex].objectives.map((_, oIndex) => `pillars.${pIndex}.objectives.${oIndex}.statement`)
-            );
-        } else if (currentTabInfo.value === 'initiatives') {
-            fieldsToValidate = form.getValues().pillars.flatMap((_, pIndex) =>
-                form.getValues().pillars[pIndex].objectives.flatMap((_, oIndex) =>
-                    form.getValues().pillars[pIndex].objectives[oIndex].initiatives.map((_, iIndex) => `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.title`)
-                )
-            );
-        } else if (currentTabInfo.value === 'activities') {
-            form.getValues().pillars.forEach((pillar, pIndex) => {
-                pillar.objectives.forEach((objective, oIndex) => {
-                    objective.initiatives.forEach((initiative, iIndex) => {
-                        initiative.activities.forEach((activity, aIndex) => {
-                            const base = `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}`;
-                            fieldsToValidate.push(`${base}.title`, `${base}.weight`, `${base}.startDate`, `${base}.endDate`, `${base}.department`, `${base}.responsible`);
-                        });
-                    });
-                });
-            });
-        }
-
-        const result = fieldsToValidate.length === 0 ? true : await form.trigger(fieldsToValidate as any);
-
-        if (result && currentTabIndex < TABS.length - 1) {
-            setHighestCompletedStep(Math.max(highestCompletedStep, currentTabIndex + 1));
-            setCurrentTab(TABS[currentTabIndex + 1].value);
-        } else if (!result) {
-            const firstInvalidField = fieldsToValidate.find((f) => form.getFieldState(f as any, form.formState).error);
-            const fieldError = firstInvalidField ? form.getFieldState(firstInvalidField as any, form.formState).error : undefined;
-            const scrolled = firstInvalidField ? focusFieldByPath(firstInvalidField) : false;
-
+        } catch (error) {
+            // createStrategicPlan redirects on success, which Next.js implements by
+            // throwing — let that through; anything else is a real failure.
+            unstable_rethrow(error);
             toast({
-                title: "Can't continue yet",
-                description: firstInvalidField
-                    ? `${describeFieldPath(firstInvalidField)}: ${fieldError?.message ?? 'this field needs attention'}.${scrolled ? '' : ' Expand that section above to fix it.'}`
-                    : "Please fill out all required fields before proceeding.",
+                title: status === 'DRAFT' ? "Could not save the draft" : "Could not publish the plan",
+                description: error instanceof Error ? error.message : "An unexpected error occurred. Please try again.",
                 variant: "destructive",
             });
-        }
-    };
-    
-    const handleBack = () => {
-        const currentTabIndex = TABS.findIndex(t => t.value === currentTab);
-        if (currentTabIndex > 0) {
-            setCurrentTab(TABS[currentTabIndex - 1].value);
+        } finally {
+            setIsSaving(false);
         }
     };
 
-    const isStepCompleted = (index: number) => index < highestCompletedStep;
+    const handleNext = () => {
+        const blocking = collectPlanIssues(form.getValues()).filter(issue => stepIndexOfIssue(issue) <= currentIndex);
+        if (blocking.length > 0) {
+            reportIssues(blocking, "Can't continue yet");
+            return;
+        }
+        form.clearErrors();
+        setShowIssues(false);
+        setServerIssues([]);
+        if (currentIndex < TABS.length - 1) {
+            setHighestCompletedStep(Math.max(highestCompletedStep, currentIndex + 1));
+            setCurrentTab(TABS[currentIndex + 1].value);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
+    const handleBack = () => {
+        if (currentIndex > 0) setCurrentTab(TABS[currentIndex - 1].value);
+    };
 
     return (
         <Form {...form}>
+            <PlanFormIssuesProvider issues={liveIssues} expandSignal={expandSignal}>
             <form onSubmit={e => e.preventDefault()} className="flex-1 space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                         <Button asChild variant="outline" size="icon">
-                        <Link href="/strategic-plan">
-                            <ArrowLeft className="h-4 w-4" />
-                        </Link>
+                            <Link href="/strategic-plan">
+                                <ArrowLeft className="h-4 w-4" />
+                            </Link>
                         </Button>
                         <div>
                             <h1 className="text-3xl font-bold tracking-tight">Create Strategic Plan</h1>
                             <p className="text-muted-foreground">Follow the steps to create a new strategic plan for your organization.</p>
                         </div>
                     </div>
-                     <div className="flex gap-2">
-                        <Button variant="outline" type="button" onClick={() => handleFormSubmit('DRAFT')}>Save Draft</Button>
-                        <Button type="button" onClick={() => handleFormSubmit('PUBLISHED')}>Publish Plan</Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" type="button" disabled={isSaving} onClick={() => handleFormSubmit('DRAFT')}>Save Draft</Button>
+                        <Button type="button" disabled={isSaving} onClick={() => handleFormSubmit('PUBLISHED')}>
+                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Publish Plan
+                        </Button>
                     </div>
                 </div>
                 <Card>
                     <CardContent className="p-6">
-                        <Stepper 
+                        <Stepper
                             steps={TABS.map((tab, index) => ({
                                 title: tab.title,
-                                isCompleted: isStepCompleted(index) || highestCompletedStep > index,
+                                isCompleted: index < highestCompletedStep,
                                 isCurrent: currentTab === tab.value
                             }))}
                             onStepClick={(index) => {
-                                if (isStepCompleted(index) || index === highestCompletedStep) {
-                                    setCurrentTab(TABS[index].value);
-                                }
+                                if (index <= highestCompletedStep) setCurrentTab(TABS[index].value);
                             }}
                         />
 
-                        <div className="mt-8">
+                        <div className="mt-8 space-y-6">
+                            <IssueSummary issues={issuesForThisStep} onSelect={goToIssue} />
+
                             <Tabs value={currentTab} onValueChange={setCurrentTab}>
                                 <TabsContent value="plan-info" className="space-y-6">
                                     <StepHeader title="Step 1: Define Plan Information" description="Set the basic details for your new strategic plan." />
@@ -308,58 +260,50 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
                                         control={form.control}
                                         name="name"
                                         render={({ field }) => (
-                                        <FormItem>
-                                            <Label>Plan Name</Label>
-                                            <FormControl>
-                                                <Input {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
+                                            <FormItem>
+                                                <Label>Plan Name</Label>
+                                                <FormControl><Input {...field} /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
                                         )}
                                     />
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                            <FormField
+                                        <FormField
                                             control={form.control}
                                             name="startYear"
                                             render={({ field }) => (
-                                            <FormItem>
-                                                <Label>Start Year</Label>
-                                                <FormControl>
-                                                    <Input type="number" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
+                                                <FormItem>
+                                                    <Label>Start Year</Label>
+                                                    <FormControl><Input type="number" {...field} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
                                             )}
                                         />
                                         <FormField
                                             control={form.control}
                                             name="endYear"
                                             render={({ field }) => (
-                                            <FormItem>
-                                                <Label>End Year</Label>
-                                                <FormControl>
-                                                    <Input type="number" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
+                                                <FormItem>
+                                                    <Label>End Year</Label>
+                                                    <FormControl><Input type="number" {...field} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
                                             )}
                                         />
                                         <FormField
                                             control={form.control}
                                             name="version"
                                             render={({ field }) => (
-                                            <FormItem>
-                                                <Label>Version</Label>
-                                                <FormControl>
-                                                    <Input {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
+                                                <FormItem>
+                                                    <Label>Version</Label>
+                                                    <FormControl><Input {...field} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
                                             )}
                                         />
                                     </div>
                                 </TabsContent>
-                                
+
                                 <TabsContent value="pillars" className="space-y-6">
                                     <StepHeader title="Step 2: Define Pillars" description="A Pillar is a high-level strategic focus area for the organization." />
                                     <div className="space-y-4">
@@ -367,7 +311,7 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
                                             <Card key={pillar.id}>
                                                 <CardHeader className="flex flex-row items-center justify-between">
                                                     <CardTitle>Pillar {index + 1}</CardTitle>
-                                                    <Button variant="destructive" size="icon" onClick={() => removePillar(index)}>
+                                                    <Button type="button" variant="destructive" size="icon" aria-label={`Remove pillar ${index + 1}`} onClick={() => removePillar(index)}>
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 </CardHeader>
@@ -378,9 +322,7 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
                                                         render={({ field }) => (
                                                             <FormItem>
                                                                 <Label>Pillar Title</Label>
-                                                                <FormControl>
-                                                                    <Input {...field} />
-                                                                </FormControl>
+                                                                <FormControl><Input {...field} placeholder="e.g., Sustainable Growth" /></FormControl>
                                                                 <FormMessage />
                                                             </FormItem>
                                                         )}
@@ -391,9 +333,7 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
                                                         render={({ field }) => (
                                                             <FormItem>
                                                                 <Label>Pillar Description</Label>
-                                                                <FormControl>
-                                                                    <Textarea {...field} />
-                                                                </FormControl>
+                                                                <FormControl><Textarea {...field} value={field.value ?? ''} /></FormControl>
                                                                 <FormMessage />
                                                             </FormItem>
                                                         )}
@@ -401,58 +341,63 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
                                                 </CardContent>
                                             </Card>
                                         ))}
-                                        <Button type="button" variant="outline" onClick={() => appendPillar({ id: generateId('P'), title: `Pillar ${pillarFields.length + 1}`, description: "", objectives: [{ id: generateId('O'), statement: "New Objective", initiatives: [{ id: generateId('I'), title: "New Initiative", owner: users[0]?.id || "", collaborators: [], activities: [{ id: generateId('A'), title: "New Activity", weight: 0, startDate: getToday(), endDate: getOneMonthFromToday(), department: 'Sales', responsible: users[0]?.id || "" }] }] }] })}>
+                                        <ListIssue path="pillars" />
+                                        <Button type="button" variant="outline" onClick={() => appendPillar(newPillar(users, departments, `Pillar ${pillarFields.length + 1}`))}>
                                             <PlusCircle className="mr-2 h-4 w-4" /> Add Pillar
                                         </Button>
                                     </div>
                                 </TabsContent>
 
                                 <TabsContent value="objectives" className="space-y-6">
-                                        <StepHeader title="Step 3: Define Objectives" description="An Objective is a specific, measurable goal that supports a Pillar." />
-                                    <Accordion type="multiple" defaultValue={pillarFields.map((p) => p.id || '')}>
-                                        {pillarFields.map((pillar, pIndex) => (
-                                            <PillarObjectiveAccordion key={pillar.id} pIndex={pIndex} form={form} users={users} departments={departments} />
-                                        ))}
-                                    </Accordion>
+                                    <StepHeader title="Step 3: Define Objectives" description="An Objective is a specific, measurable goal that supports a Pillar." />
+                                    <PillarSections form={form} render={(pIndex) => (
+                                        <ObjectiveList pIndex={pIndex} form={form} users={users} departments={departments} />
+                                    )} />
                                 </TabsContent>
 
                                 <TabsContent value="initiatives" className="space-y-6">
                                     <StepHeader title="Step 4: Define Initiatives" description="An Initiative is a specific project or program designed to achieve an Objective." />
-                                    <Accordion type="multiple" defaultValue={pillarFields.map((p) => p.id || '')}>
-                                        {pillarFields.map((pillar, pIndex) => (
-                                            <PillarInitiativeAccordion key={pillar.id} pIndex={pIndex} form={form} users={users} departments={departments} peopleOptions={peopleOptions} />
-                                        ))}
-                                    </Accordion>
+                                    <PillarSections form={form} render={(pIndex) => (
+                                        <ObjectiveSections form={form} pIndex={pIndex} render={(oIndex) => (
+                                            <InitiativeList pIndex={pIndex} oIndex={oIndex} form={form} users={users} departments={departments} peopleOptions={userOptions} />
+                                        )} />
+                                    )} />
                                 </TabsContent>
 
                                 <TabsContent value="activities" className="space-y-6">
                                     <StepHeader title="Step 5: Define Activities" description="An Activity is a specific task required to complete an Initiative. Every activity shares one 100% weight pool across the whole plan." />
-                                    <PlanWeightSummary pillars={form.watch('pillars')} />
-                                    <Accordion type="multiple" defaultValue={pillarFields.map((p) => p.id || '')}>
-                                        {pillarFields.map((pillar, pIndex) => (
-                                            <PillarActivityAccordion key={pillar.id} pIndex={pIndex} form={form} users={users} departments={departments} userOptions={userOptions} />
-                                        ))}
-                                    </Accordion>
+                                    {departments.length === 0 && (
+                                        <Alert variant="destructive"><AlertDescription>No departments exist yet. Add departments on the Departments page before assigning activities.</AlertDescription></Alert>
+                                    )}
+                                    <PlanWeightSummary pillars={values.pillars} />
+                                    <PillarSections form={form} render={(pIndex) => (
+                                        <ObjectiveSections form={form} pIndex={pIndex} render={(oIndex) => (
+                                            <InitiativeSections form={form} pIndex={pIndex} oIndex={oIndex} render={(iIndex) => (
+                                                <ActivityTable pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} form={form} users={users} departments={departments} userOptions={userOptions} />
+                                            )} />
+                                        )} />
+                                    )} />
                                 </TabsContent>
 
                                 <TabsContent value="review" className="space-y-6">
-                                        <StepHeader title="Step 6: Review & Save" description="Review the complete strategic plan hierarchy before publishing." />
-                                    <ReviewSection form={form} />
+                                    <StepHeader title="Step 6: Review & Save" description="Review the complete strategic plan hierarchy before publishing." />
+                                    <ReviewSection values={values} users={users} />
                                 </TabsContent>
                             </Tabs>
 
-                            <div className="flex justify-between mt-8">
-                                <Button variant="outline" type="button" onClick={handleBack} disabled={currentTab === TABS[0].value}>Back</Button>
-                                {currentTab !== TABS[TABS.length - 1].value ? (
+                            <div className="flex justify-between">
+                                <Button variant="outline" type="button" onClick={handleBack} disabled={currentIndex === 0}>Back</Button>
+                                {currentIndex < TABS.length - 1 ? (
                                     <Button type="button" onClick={handleNext}>Next</Button>
                                 ) : (
-                                    <Button type="button" onClick={() => handleFormSubmit('PUBLISHED')}>Publish Plan</Button>
+                                    <Button type="button" disabled={isSaving} onClick={() => handleFormSubmit('PUBLISHED')}>Publish Plan</Button>
                                 )}
                             </div>
                         </div>
                     </CardContent>
                 </Card>
             </form>
+            </PlanFormIssuesProvider>
         </Form>
     );
 }
@@ -471,350 +416,266 @@ const calculatePillarWeight = (objectives: any[] = []) => objectives.reduce((tot
 /** Sum of every activity's weight across the whole plan — the one pool that must total 100%. */
 const calculatePlanWeight = (pillars: any[] = []) => pillars.reduce((total, pillar) => total + calculatePillarWeight(pillar.objectives || []), 0);
 
-function PlanWeightSummary({ pillars, id }: { pillars: any[]; id?: string }) {
+function PlanWeightSummary({ pillars }: { pillars: any[] }) {
     const total = calculatePlanWeight(pillars);
     const isBalanced = Math.abs(total - 100) < 0.01;
     return (
-        <p id={id} className={`text-sm font-semibold ${isBalanced ? 'text-green-600' : 'text-destructive'}`}>
+        <p data-weight-summary className={`text-sm font-semibold ${isBalanced ? 'text-green-600' : 'text-destructive'}`}>
             Total plan weight: {total.toFixed(1)}% {!isBalanced && '(must total 100% across the whole plan before publishing)'}
         </p>
     );
 }
 
-function PillarObjectiveAccordion({ pIndex, form, users, departments }: { pIndex: number; form: any, users: {id: string, name: string}[], departments: string[] }) {
-    const { control, watch } = form;
+type PlanForm = UseFormReturn<FormValues>;
+
+/** One collapsible section per pillar; `render` fills in what goes inside. */
+function PillarSections({ form, render }: { form: PlanForm; render: (pIndex: number) => React.ReactNode }) {
+    const pillars = form.watch('pillars') ?? [];
+    const accordion = useAutoOpenAccordion(pillars.map(p => p.id!));
+    if (pillars.length === 0) {
+        return <p className="text-sm text-muted-foreground">There are no pillars yet. Go back to the Pillar step to add one.</p>;
+    }
+    return (
+        <Accordion type="multiple" {...accordion}>
+            {pillars.map((pillar, pIndex) => (
+                <AccordionItem key={pillar.id} value={pillar.id!}>
+                    <AccordionTrigger className="text-xl font-semibold">{pillar.title || `Pillar ${pIndex + 1}`}</AccordionTrigger>
+                    <AccordionContent className="pl-4 border-l ml-4 space-y-4">{render(pIndex)}</AccordionContent>
+                </AccordionItem>
+            ))}
+        </Accordion>
+    );
+}
+
+function ObjectiveSections({ form, pIndex, render }: { form: PlanForm; pIndex: number; render: (oIndex: number) => React.ReactNode }) {
+    const objectives = form.watch(`pillars.${pIndex}.objectives`) ?? [];
+    const accordion = useAutoOpenAccordion(objectives.map(o => o.id!));
+    if (objectives.length === 0) {
+        return <ListIssueOr path={`pillars.${pIndex}.objectives`} text="This pillar has no objectives. Go back to the Objective step to add one." />;
+    }
+    return (
+        <Accordion type="multiple" className="space-y-4" {...accordion}>
+            {objectives.map((objective, oIndex) => (
+                <AccordionItem key={objective.id} value={objective.id!}>
+                    <AccordionTrigger className="font-semibold text-lg">{objective.statement || `Objective ${pIndex + 1}.${oIndex + 1}`}</AccordionTrigger>
+                    <AccordionContent className="pl-4 border-l ml-4 space-y-4">{render(oIndex)}</AccordionContent>
+                </AccordionItem>
+            ))}
+        </Accordion>
+    );
+}
+
+function InitiativeSections({ form, pIndex, oIndex, render }: { form: PlanForm; pIndex: number; oIndex: number; render: (iIndex: number) => React.ReactNode }) {
+    const initiatives = form.watch(`pillars.${pIndex}.objectives.${oIndex}.initiatives`) ?? [];
+    const accordion = useAutoOpenAccordion(initiatives.map(i => i.id!));
+    if (initiatives.length === 0) {
+        return <ListIssueOr path={`pillars.${pIndex}.objectives.${oIndex}.initiatives`} text="This objective has no initiatives. Go back to the Initiative step to add one." />;
+    }
+    return (
+        <Accordion type="multiple" className="space-y-4" {...accordion}>
+            {initiatives.map((initiative, iIndex) => (
+                <AccordionItem key={initiative.id} value={initiative.id!}>
+                    <AccordionTrigger className="font-medium text-base">{initiative.title || `Initiative ${pIndex + 1}.${oIndex + 1}.${iIndex + 1}`}</AccordionTrigger>
+                    <AccordionContent className="pl-4 border-l ml-4 space-y-4">{render(iIndex)}</AccordionContent>
+                </AccordionItem>
+            ))}
+        </Accordion>
+    );
+}
+
+/** An empty list in a later step: show its validation message if there is one, else a hint. */
+function ListIssueOr({ path, text }: { path: string; text: string }) {
+    return (
+        <div className="space-y-1">
+            <ListIssue path={path} />
+            <p className="text-sm text-muted-foreground">{text}</p>
+        </div>
+    );
+}
+
+function ObjectiveList({ pIndex, form, users, departments }: { pIndex: number; form: PlanForm; users: Person[]; departments: string[] }) {
+    const { control } = form;
     const { fields: objectiveFields, append: appendObjective, remove: removeObjective } = useFieldArray({ control, name: `pillars.${pIndex}.objectives` });
-    const pillarTitle = watch(`pillars.${pIndex}.title`);
-    const pillarId = watch(`pillars.${pIndex}.id`);
 
     return (
-        <AccordionItem value={pillarId} key={pillarId}>
-            <AccordionTrigger className="text-xl font-semibold">{pillarTitle}</AccordionTrigger>
-            <AccordionContent className="pl-4 border-l ml-4 space-y-4">
-                 {objectiveFields.map((objective, oIndex) => (
-                    <Card key={objective.id}>
-                        <CardHeader className="flex-row items-center justify-between">
-                            <CardTitle>Objective {pIndex + 1}.{oIndex + 1}</CardTitle>
-                             <Button variant="destructive" size="icon" onClick={() => removeObjective(oIndex)}>
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                             <FormField
+        <>
+            {objectiveFields.map((objective, oIndex) => (
+                <Card key={objective.id}>
+                    <CardHeader className="flex-row items-center justify-between">
+                        <CardTitle>Objective {pIndex + 1}.{oIndex + 1}</CardTitle>
+                        <Button type="button" variant="destructive" size="icon" aria-label={`Remove objective ${pIndex + 1}.${oIndex + 1}`} onClick={() => removeObjective(oIndex)}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <FormField
+                            control={control}
+                            name={`pillars.${pIndex}.objectives.${oIndex}.statement`}
+                            render={({ field }) => (
+                                <FormItem>
+                                    <Label>Objective Statement</Label>
+                                    <FormControl><Textarea {...field} placeholder="e.g., Increase Market Share" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </CardContent>
+                </Card>
+            ))}
+            <ListIssue path={`pillars.${pIndex}.objectives`} />
+            <Button type="button" variant="outline" size="sm" onClick={() => appendObjective(newObjective(users, departments, `Objective ${pIndex + 1}.${objectiveFields.length + 1}`))}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Objective
+            </Button>
+        </>
+    )
+}
+
+function InitiativeList({ pIndex, oIndex, form, peopleOptions, users, departments }: { pIndex: number; oIndex: number; form: PlanForm; peopleOptions: MultiSelectOption[]; users: Person[]; departments: string[] }) {
+    const { control } = form;
+    const base = `pillars.${pIndex}.objectives.${oIndex}.initiatives` as const;
+    const { fields: initiativeFields, append: appendInitiative, remove: removeInitiative } = useFieldArray({ control, name: base });
+
+    return (
+        <>
+            {initiativeFields.map((initiative, iIndex) => (
+                <Card key={initiative.id}>
+                    <CardHeader className="flex-row items-center justify-between">
+                        <CardTitle>Initiative {pIndex + 1}.{oIndex + 1}.{iIndex + 1}</CardTitle>
+                        <Button type="button" variant="destructive" size="icon" aria-label={`Remove initiative ${pIndex + 1}.${oIndex + 1}.${iIndex + 1}`} onClick={() => removeInitiative(iIndex)}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <FormField
+                            control={control}
+                            name={`${base}.${iIndex}.title`}
+                            render={({ field }) => (
+                                <FormItem>
+                                    <Label>Initiative Title</Label>
+                                    <FormControl><Input {...field} placeholder="Initiative Title" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={control}
+                            name={`${base}.${iIndex}.description`}
+                            render={({ field }) => (
+                                <FormItem>
+                                    <Label>Initiative Description</Label>
+                                    <FormControl><Textarea {...field} value={field.value ?? ''} placeholder="Initiative Description" rows={2} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
                                 control={control}
-                                name={`pillars.${pIndex}.objectives.${oIndex}.statement`}
+                                name={`${base}.${iIndex}.owners`}
                                 render={({ field }) => (
-                                    <FormItem>
-                                        <Label>Objective Statement</Label>
+                                    <FormItem data-field-path={field.name} tabIndex={-1}>
+                                        <Label>Lead/Owner</Label>
                                         <FormControl>
-                                            <Textarea {...field} placeholder="e.g., Increase Market Share" />
+                                            <MultiSelect options={peopleOptions} selected={field.value ?? []} onChange={field.onChange} placeholder="Select..." />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
-                        </CardContent>
-                    </Card>
-                 ))}
-                 <Button type="button" variant="outline" size="sm" onClick={() => appendObjective({ id: generateId('O'), statement: `Objective ${pIndex + 1}.${objectiveFields.length + 1}`, initiatives: [{ id: generateId('I'), title: "New Initiative", owner: users[0]?.id || "", collaborators: [], activities: [{ id: generateId('A'), title: "New Activity", weight: 0, startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] || 'Sales', responsible: users[0]?.id || "" }] }] })}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add Objective
-                </Button>
-            </AccordionContent>
-        </AccordionItem>
-    )
-}
-
-function PillarInitiativeAccordion({ pIndex, form, peopleOptions, users, departments }: { pIndex: number; form: any, peopleOptions: MultiSelectOption[], users: {id: string, name: string}[], departments: string[] }) {
-    const { watch } = form;
-    const pillarTitle = watch(`pillars.${pIndex}.title`);
-    const objectives = watch(`pillars.${pIndex}.objectives`);
-    const pillarId = watch(`pillars.${pIndex}.id`);
-    
-    return (
-        <AccordionItem value={pillarId} key={pillarId}>
-            <AccordionTrigger className="text-xl font-semibold">{pillarTitle}</AccordionTrigger>
-            <AccordionContent className="pl-4 border-l ml-4 space-y-4">
-                <Accordion type="multiple" className="space-y-4" defaultValue={objectives.map((o: any) => o.id)}>
-                    {objectives.map((_objective: any, oIndex: number) => (
-                       <ObjectiveInitiativeAccordion key={_objective.id} pIndex={pIndex} oIndex={oIndex} form={form} peopleOptions={peopleOptions} users={users} departments={departments} />
-                    ))}
-                </Accordion>
-            </AccordionContent>
-        </AccordionItem>
-    )
-}
-
-function ObjectiveInitiativeAccordion({ pIndex, oIndex, form, peopleOptions, users, departments }: { pIndex: number; oIndex: number; form: any, peopleOptions: MultiSelectOption[], users: {id: string, name: string}[], departments: string[] }) {
-    const { control, watch } = form;
-    const { fields: initiativeFields, append: appendInitiative, remove: removeInitiative } = useFieldArray({ control, name: `pillars.${pIndex}.objectives.${oIndex}.initiatives` });
-    const objective = watch(`pillars.${pIndex}.objectives.${oIndex}`);
-
-    return (
-        <AccordionItem value={objective.id} key={objective.id}>
-            <AccordionTrigger className="font-semibold text-lg">{objective.statement}</AccordionTrigger>
-            <AccordionContent className="pl-4 border-l ml-4 space-y-4">
-                {initiativeFields.map((initiative, iIndex) => {
-                     return (
-                         <Card key={initiative.id}>
-                            <CardHeader className="flex-row items-center justify-between">
-                                <CardTitle>Initiative {pIndex + 1}.{oIndex + 1}.{iIndex + 1}</CardTitle>
-                                 <Button variant="destructive" size="icon" onClick={() => removeInitiative(iIndex)}>
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <FormField
-                                    control={control}
-                                    name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.title`}
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <Label>Initiative Title</Label>
-                                            <FormControl>
-                                                <Input {...field} placeholder="Initiative Title" />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={control}
-                                    name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.description`}
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <Label>Initiative Description</Label>
-                                            <FormControl>
-                                                <Textarea {...field} placeholder="Initiative Description" rows={2}/>
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <FormField
-                                        control={control}
-                                        name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.owner`}
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <Label>Lead/Owner</Label>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Select..." />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        {users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                                                    </SelectContent>
-                                                </Select>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={control}
-                                        name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.collaborators`}
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <Label>Collaborators</Label>
-                                                <FormControl>
-                                                    <MultiSelect
-                                                        options={peopleOptions}
-                                                        selected={field.value ?? []}
-                                                        onChange={field.onChange}
-                                                        placeholder="Select..."
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-                                <MilestonesEditor pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} control={control} watch={form.watch} />
-                            </CardContent>
-                        </Card>
-                     )
-                })}
-                <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative({ id: generateId('I'), title: `Initiative ${pIndex+1}.${oIndex+1}.${initiativeFields.length+1}`, description: "", owner: users[0]?.id || "", collaborators: [], isContinuous: false, milestones: [], activities: [{ id: generateId('A'), title: "New Activity", weight: 0, startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] || 'Sales', responsible: users[0]?.id || "" }] })}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add Initiative
-                </Button>
-            </AccordionContent>
-        </AccordionItem>
+                            <FormField
+                                control={control}
+                                name={`${base}.${iIndex}.collaborators`}
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <Label>Collaborators</Label>
+                                        <FormControl>
+                                            <MultiSelect options={peopleOptions} selected={field.value ?? []} onChange={field.onChange} placeholder="Select..." />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
+            ))}
+            <ListIssue path={base} />
+            <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative(newInitiative(users, departments, `Initiative ${pIndex + 1}.${oIndex + 1}.${initiativeFields.length + 1}`))}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Initiative
+            </Button>
+        </>
     );
 }
 
-function MilestonesEditor({ pIndex, oIndex, iIndex, control, watch }: { pIndex: number; oIndex: number; iIndex: number; control: any; watch: any }) {
-    const basePath = `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}`;
-    const { fields: milestoneFields, append: appendMilestone, remove: removeMilestone } = useFieldArray({ control, name: `${basePath}.milestones` });
-    const isContinuous = watch(`${basePath}.isContinuous`);
-
-    return (
-        <div className="space-y-3 rounded-lg border p-4">
-            <FormField
-                control={control}
-                name={`${basePath}.isContinuous`}
-                render={({ field }) => (
-                    <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                        <FormControl>
-                            <Checkbox checked={field.value ?? false} onCheckedChange={field.onChange} />
-                        </FormControl>
-                        <Label className="!mt-0">Continuous Initiative (ongoing, tracked with milestones instead of an end date)</Label>
-                    </FormItem>
-                )}
-            />
-            {isContinuous && (
-                <div className="space-y-2">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Milestone Title</TableHead>
-                                <TableHead>Target Date</TableHead>
-                                <TableHead>Achieved</TableHead>
-                                <TableHead>Action</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {milestoneFields.map((milestone, mIndex) => (
-                                <TableRow key={milestone.id}>
-                                    <TableCell className="min-w-[180px]">
-                                        <FormField control={control} name={`${basePath}.milestones.${mIndex}.title`} render={({ field }) => (
-                                            <FormItem>
-                                                <Input {...field} placeholder="Milestone Title" />
-                                                <FormMessage />
-                                            </FormItem>
-                                        )} />
-                                    </TableCell>
-                                    <TableCell className="min-w-[140px]">
-                                        <FormField control={control} name={`${basePath}.milestones.${mIndex}.targetDate`} render={({ field }) => (
-                                            <FormItem>
-                                                <Input type="date" {...field} />
-                                                <FormMessage />
-                                            </FormItem>
-                                        )} />
-                                    </TableCell>
-                                    <TableCell>
-                                        <FormField control={control} name={`${basePath}.milestones.${mIndex}.isAchieved`} render={({ field }) => (
-                                            <FormItem>
-                                                <Checkbox checked={field.value ?? false} onCheckedChange={field.onChange} />
-                                            </FormItem>
-                                        )} />
-                                    </TableCell>
-                                    <TableCell>
-                                        <Button type="button" variant="ghost" size="icon" onClick={() => removeMilestone(mIndex)}>
-                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                    <Button type="button" variant="outline" size="sm" onClick={() => appendMilestone({ id: generateId('M'), title: "", targetDate: getToday(), isAchieved: false })}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Milestone
-                    </Button>
-                </div>
-            )}
-        </div>
-    );
-}
-
-function PillarActivityAccordion({ pIndex, form, users, departments, userOptions }: { pIndex: number; form: any, users: {id: string, name: string}[], departments: string[], userOptions: {value: string, label: string}[] }) {
-    const { watch } = form;
-    const pillarTitle = watch(`pillars.${pIndex}.title`);
-    const pillarId = watch(`pillars.${pIndex}.id`);
-    const objectives = watch(`pillars.${pIndex}.objectives`);
-    
-    return (
-        <AccordionItem value={pillarId} key={pillarId}>
-            <AccordionTrigger className="text-xl font-semibold">{pillarTitle}</AccordionTrigger>
-            <AccordionContent className="pl-4 border-l ml-4 space-y-4">
-                <Accordion type="multiple" className="space-y-4" defaultValue={objectives.map((o: any) => o.id)}>
-                    {objectives.map((_objective: any, oIndex: number) => (
-                       <ObjectiveActivityAccordion key={_objective.id} pIndex={pIndex} oIndex={oIndex} form={form} users={users} departments={departments} userOptions={userOptions} />
-                    ))}
-                </Accordion>
-            </AccordionContent>
-        </AccordionItem>
-    )
-}
-
-function ObjectiveActivityAccordion({ pIndex, oIndex, form, users, departments, userOptions }: { pIndex: number; oIndex: number; form: any, users: {id: string, name: string}[], departments: string[], userOptions: {value: string, label: string}[] }) {
-    const { watch } = form;
-    const objective = watch(`pillars.${pIndex}.objectives.${oIndex}`);
-    const initiatives = watch(`pillars.${pIndex}.objectives.${oIndex}.initiatives`);
-
-    return (
-        <AccordionItem value={objective.id} key={objective.id}>
-            <AccordionTrigger className="font-semibold text-lg">{objective.statement}</AccordionTrigger>
-            <AccordionContent className="pl-4 border-l ml-4 space-y-4">
-                <Accordion type="multiple" className="space-y-4" defaultValue={initiatives.map((i: any) => i.id)}>
-                    {initiatives.map((_initiative: any, iIndex: number) => (
-                        <InitiativeActivityAccordion key={_initiative.id} pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} form={form} users={users} departments={departments} userOptions={userOptions} />
-                    ))}
-                </Accordion>
-            </AccordionContent>
-        </AccordionItem>
-    );
-}
-
-function InitiativeActivityAccordion({ pIndex, oIndex, iIndex, form, users, departments, userOptions }: { pIndex: number; oIndex: number; iIndex: number; form: any, users: {id: string, name: string}[], departments: string[], userOptions: {value: string, label: string}[] }) {
+function ActivityTable({ pIndex, oIndex, iIndex, form, users, departments, userOptions }: { pIndex: number; oIndex: number; iIndex: number; form: PlanForm; users: Person[]; departments: string[]; userOptions: { value: string; label: string }[] }) {
     const { control } = form;
-    const { fields: activityFields, append: appendActivity, remove: removeActivity } = useFieldArray({ control, name: `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities` });
-    const initiative = form.watch(`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}`);
+    const base = `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities` as const;
+    const { fields: activityFields, append: appendActivity, remove: removeActivity } = useFieldArray({ control, name: base });
+    const activities = form.watch(base) ?? [];
 
     return (
-        <AccordionItem value={initiative.id} key={initiative.id}>
-            <AccordionTrigger className="font-medium text-base">{initiative.title}</AccordionTrigger>
-            <AccordionContent className="pl-4 border-l ml-4 space-y-4">
+        <>
+            <div className="overflow-x-auto">
                 <Table>
                     <TableHeader>
                         <TableRow>
                             <TableHead>Title</TableHead>
-                            <TableHead>Weight</TableHead>
+                            <TableHead>Deliverable</TableHead>
+                            <TableHead>Weight (%)</TableHead>
                             <TableHead>Start Date</TableHead>
                             <TableHead>End Date</TableHead>
                             <TableHead>Department</TableHead>
                             <TableHead>Responsible</TableHead>
-                            <TableHead>Action</TableHead>
+                            <TableHead><span className="sr-only">Remove</span></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {activityFields.map((activity, aIndex) => (
-                            <TableRow key={activity.id}>
-                                <TableCell className="min-w-[180px]">
-                                    <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.title`} render={({ field, fieldState }) => (
+                            <TableRow key={activity.id} className="align-top">
+                                <TableCell className="min-w-[200px]">
+                                    <FormField control={control} name={`${base}.${aIndex}.title`} render={({ field }) => (
                                         <FormItem>
-                                            <Input {...field} placeholder="Activity Title" />
+                                            <FormControl><Input {...field} placeholder="Activity title" /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                </TableCell>
+                                <TableCell className="min-w-[220px]">
+                                    <FormField control={control} name={`${base}.${aIndex}.deliverable`} render={({ field }) => (
+                                        <FormItem>
+                                            <FormControl><Textarea {...field} value={field.value ?? ''} rows={1} placeholder="e.g., Segmented customer report" /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
                                 </TableCell>
                                 <TableCell className="min-w-[100px]">
-                                    <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.weight`} render={({ field, fieldState }) => (
+                                    <FormField control={control} name={`${base}.${aIndex}.weight`} render={({ field }) => (
                                         <FormItem>
-                                            <Input type="number" step="0.01" {...field} placeholder="Weight" />
+                                            <FormControl><Input type="number" step="0.01" min={0} max={100} {...field} placeholder="Weight" /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
                                 </TableCell>
-                                <TableCell className="min-w-[140px]">
-                                    <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.startDate`} render={({ field, fieldState }) => (
+                                <TableCell className="min-w-[150px]">
+                                    <FormField control={control} name={`${base}.${aIndex}.startDate`} render={({ field }) => (
                                         <FormItem>
-                                            <Input type="date" {...field} />
+                                            <FormControl><Input type="date" {...field} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
                                 </TableCell>
-                                <TableCell className="min-w-[140px]">
-                                    <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.endDate`} render={({ field, fieldState }) => (
+                                <TableCell className="min-w-[150px]">
+                                    <FormField control={control} name={`${base}.${aIndex}.endDate`} render={({ field }) => (
                                         <FormItem>
-                                            <Input type="date" {...field} />
+                                            <FormControl><Input type="date" {...field} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )} />
                                 </TableCell>
-                                <TableCell className="min-w-[140px]">
-                                    <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.department`} render={({ field, fieldState }) => (
-                                        <FormItem>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <TableCell className="min-w-[150px]">
+                                    <FormField control={control} name={`${base}.${aIndex}.department`} render={({ field }) => (
+                                        <FormItem data-field-path={field.name} tabIndex={-1}>
+                                            <Select onValueChange={field.onChange} value={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
                                                 </FormControl>
@@ -824,10 +685,10 @@ function InitiativeActivityAccordion({ pIndex, oIndex, iIndex, form, users, depa
                                         </FormItem>
                                     )} />
                                 </TableCell>
-                                <TableCell className="min-w-[160px]">
-                                    <FormField control={control} name={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities.${aIndex}.responsible`} render={({ field, fieldState }) => (
-                                        <FormItem>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <TableCell className="min-w-[170px]">
+                                    <FormField control={control} name={`${base}.${aIndex}.responsible`} render={({ field }) => (
+                                        <FormItem data-field-path={field.name} tabIndex={-1}>
+                                            <Select onValueChange={field.onChange} value={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
                                                 </FormControl>
@@ -838,76 +699,63 @@ function InitiativeActivityAccordion({ pIndex, oIndex, iIndex, form, users, depa
                                     )} />
                                 </TableCell>
                                 <TableCell>
-                                    <Button variant="ghost" size="icon" onClick={() => removeActivity(aIndex)}>
-                                        <Trash2 className="h-4 w-4 text-destructive"/>
+                                    <Button type="button" variant="ghost" size="icon" aria-label="Remove activity" onClick={() => removeActivity(aIndex)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
                                     </Button>
                                 </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
                 </Table>
-                <div className="flex items-center justify-between">
-                    <Button type="button" variant="outline" size="sm" onClick={() => appendActivity({ id: generateId('A'), title: ``, weight: 0, startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] || '', responsible: users[0]?.id || '' })}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
-                    </Button>
-                    {(() => {
-                        const total = calculateInitiativeWeight(initiative.activities || []);
-                        return (
-                            <p className="text-sm font-medium text-muted-foreground">
-                                Subtotal: {total.toFixed(1)}% of whole plan
-                            </p>
-                        );
-                    })()}
-                </div>
-            </AccordionContent>
-        </AccordionItem>
+            </div>
+            <ListIssue path={base} />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => appendActivity(newActivity(users, departments))}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
+                </Button>
+                <p className="text-sm font-medium text-muted-foreground">
+                    Subtotal: {calculateInitiativeWeight(activities).toFixed(1)}% of whole plan
+                </p>
+            </div>
+        </>
     );
 }
 
-function ReviewSection({ form }: { form: any }) {
-    const plan = form.watch();
+function ReviewSection({ values, users }: { values: FormValues; users: Person[] }) {
+    const nameOf = (id: string) => users.find(u => u.id === id)?.name ?? 'Unknown';
 
-    if (!plan.pillars || plan.pillars.length === 0) {
+    if (!values.pillars || values.pillars.length === 0) {
         return <p>No data entered yet. Please fill out the previous steps.</p>;
     }
-    
+
     return (
         <div className="space-y-4">
-            <h3 className="text-xl font-bold">{plan.name} ({plan.startYear}-{plan.endYear}) v{plan.version}</h3>
-            <PlanWeightSummary pillars={plan.pillars} id="plan-weight-summary-review" />
-            {plan.pillars.map((pillar: any, pIndex: number) => {
-                const pillarWeight = calculatePillarWeight(pillar.objectives);
-                return (
-                    <div key={pIndex} className="p-4 border rounded-lg space-y-3 bg-muted/20">
-                        <h4 className="font-bold text-lg">{pillar.title} (Weight: {pillarWeight.toFixed(1)}% of plan)</h4>
-                        {pillar.objectives.map((objective: any, oIndex: number) => {
-                             const objectiveWeight = calculateObjectiveWeight(objective.initiatives);
-                             return (
-                                <div key={oIndex} className="p-3 border rounded-md space-y-2 bg-background/50 ml-4">
-                                    <h5 className="font-semibold">{objective.statement} (Weight: {objectiveWeight.toFixed(1)}% of plan)</h5>
-                                    {objective.initiatives.map((initiative: any, iIndex: number) => {
-                                        const initiativeWeight = calculateInitiativeWeight(initiative.activities);
-                                        return (
-                                             <div key={iIndex} className="p-2 border rounded-md space-y-2 bg-muted/20 ml-4">
-                                                 <h6 className="font-medium">{initiative.title} (Weight: {initiativeWeight.toFixed(1)}% of plan)</h6>
-                                                 <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
-                                                    {initiative.activities.map((activity: any, aIndex: number) => (
-                                                        <li key={aIndex}>
-                                                           <span className="font-semibold text-foreground">Activity:</span> {activity.title} (Weight: {activity.weight}%)
-                                                        </li>
-                                                    ))}
-                                                 </ul>
-                                             </div>
-                                        )
-                                    })}
+            <h3 className="text-xl font-bold">{values.name} ({values.startYear}-{values.endYear}) v{values.version}</h3>
+            <PlanWeightSummary pillars={values.pillars} />
+            {values.pillars.map((pillar, pIndex) => (
+                <div key={pillar.id ?? pIndex} className="p-4 border rounded-lg space-y-3 bg-muted/20">
+                    <h4 className="font-bold text-lg">{pillar.title} (Weight: {calculatePillarWeight(pillar.objectives).toFixed(1)}% of plan)</h4>
+                    {pillar.objectives.map((objective, oIndex) => (
+                        <div key={objective.id ?? oIndex} className="p-3 border rounded-md space-y-2 bg-background/50 ml-4">
+                            <h5 className="font-semibold">{objective.statement} (Weight: {calculateObjectiveWeight(objective.initiatives).toFixed(1)}% of plan)</h5>
+                            {objective.initiatives.map((initiative, iIndex) => (
+                                <div key={initiative.id ?? iIndex} className="p-2 border rounded-md space-y-2 bg-muted/20 ml-4">
+                                    <h6 className="font-medium">{initiative.title} (Weight: {calculateInitiativeWeight(initiative.activities).toFixed(1)}% of plan)</h6>
+                                    <p className="text-xs text-muted-foreground">Lead/Owner: {initiative.owners.map(nameOf).join(', ') || '—'}</p>
+                                    <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
+                                        {initiative.activities.map((activity, aIndex) => (
+                                            <li key={activity.id ?? aIndex}>
+                                                <span className="font-semibold text-foreground">{activity.title}</span> — {activity.weight}% · {activity.startDate} to {activity.endDate} · {nameOf(activity.responsible)}
+                                                {activity.deliverable ? <> · <span className="italic">Deliverable: {activity.deliverable}</span></> : null}
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </div>
-                            )
-                        })}
-                    </div>
-                )
-            })}
+                            ))}
+                        </div>
+                    ))}
+                </div>
+            ))}
         </div>
     )
 }
-
-    

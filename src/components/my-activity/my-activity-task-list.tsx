@@ -72,7 +72,7 @@ type TaskCardProps = {
   activity: Activity;
   currentUser: SessionUser | null;
   rules: StatusRule[];
-  onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string, completionDate?: string, delayExplanation?: string, recommendedAction?: string) => void;
+  onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string, completionDate?: string, delayExplanation?: string, recommendedAction?: string, escalationIssues?: string) => void;
   onEditDeclined: (activity: Activity) => void;
   onApprove: (activityId: string) => void;
   onDecline: (activityId: string, reason: string) => void;
@@ -92,6 +92,7 @@ function TaskCard({ activity, currentUser, rules, onUpdateActivity, onEditDeclin
   const [isUploadingEvidence, setIsUploadingEvidence] = React.useState(false);
   const [delayExplanation, setDelayExplanation] = React.useState("");
   const [recommendedAction, setRecommendedAction] = React.useState("");
+  const [escalationIssues, setEscalationIssues] = React.useState("");
   const [deliverables, setDeliverables] = React.useState(activity.deliverables ?? []);
 
   // Fix: define openProgressUpdateForm to reset and open the progress update form
@@ -184,7 +185,8 @@ function TaskCard({ activity, currentUser, rules, onUpdateActivity, onEditDeclin
             updateComment,
             isCompleting ? completionDate : undefined,
             isUnderperforming ? delayExplanation : undefined,
-            isUnderperforming ? recommendedAction : undefined
+            isUnderperforming ? recommendedAction : undefined,
+            isUnderperforming ? escalationIssues : undefined
         );
         setLastSubmitted({progress, comment: updateComment});
         setIsOpen(false);
@@ -366,6 +368,15 @@ function TaskCard({ activity, currentUser, rules, onUpdateActivity, onEditDeclin
                                         onChange={(e) => setRecommendedAction(e.target.value)}
                                     />
                                 </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor={`escalation-issues-${activity.id}`}>Issues That Need Escalation (optional)</Label>
+                                    <Textarea
+                                        id={`escalation-issues-${activity.id}`}
+                                        placeholder="Anything that needs a decision or support from leadership?"
+                                        value={escalationIssues}
+                                        onChange={(e) => setEscalationIssues(e.target.value)}
+                                    />
+                                </div>
                             </div>
                          )}
 
@@ -442,7 +453,7 @@ function TaskCard({ activity, currentUser, rules, onUpdateActivity, onEditDeclin
 }
 
 
-export function MyActivityTaskList({ title, count, activities, currentUser, rules, onUpdateActivity, onEditDeclined, onApprove, onDecline }: { title: string; count: number; activities: Activity[]; currentUser: SessionUser | null; rules: StatusRule[]; onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string, completionDate?: string, delayExplanation?: string, recommendedAction?: string) => void; onEditDeclined: (activity: Activity) => void; onApprove: (activityId: string) => void; onDecline: (activityId: string, reason: string) => void; }) {
+export function MyActivityTaskList({ title, count, activities, currentUser, rules, onUpdateActivity, onEditDeclined, onApprove, onDecline }: { title: string; count: number; activities: Activity[]; currentUser: SessionUser | null; rules: StatusRule[]; onUpdateActivity: (activityId: string, newProgress: number, newStatus: ActivityStatus, updateComment: string, completionDate?: string, delayExplanation?: string, recommendedAction?: string, escalationIssues?: string) => void; onEditDeclined: (activity: Activity) => void; onApprove: (activityId: string) => void; onDecline: (activityId: string, reason: string) => void; }) {
   
   const titleIcon: Record<string, React.ReactNode> = {
     Overdue: <AlertTriangle className="text-destructive" />,

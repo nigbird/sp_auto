@@ -43,6 +43,7 @@ export type Activity = Omit<PrismaActivity, 'responsibleId'> & {
     deliverables: Deliverable[];
     updates: ActivityUpdate[];
     reportingPeriod?: ReportingPeriod | null;
+    monthlyTargets?: ActivityMonthlyTarget[];
 };
 
 export type User = {
@@ -116,4 +117,31 @@ export type ReportingPeriod = {
   endDate: string | Date;
   cutOffDate: string | Date;
   status: 'OPEN' | 'CLOSED';
+};
+
+export type ActivityPeriodEntry = {
+  id: string;
+  activityId: string;
+  reportingPeriodId: string;
+  reportingPeriod?: ReportingPeriod;
+  plannedProgress: number;
+  actualProgress: number | null;
+  pendingActualProgress: number | null;
+  comment?: string | null;
+  reasonForVariation?: string | null;
+  wayForward?: string | null;
+  escalationIssues?: string | null;
+  approvalStatus: ApprovalStatus;
+  declineReason?: string | null;
+  submittedById?: string | null;
+  submittedAt?: string | Date | null;
+  approvedById?: string | null;
+  approvedAt?: string | Date | null;
+};
+
+export type ActivityMonthlyTarget = {
+  id: string;
+  activityId: string;
+  month: string | Date;
+  value: number;
 };

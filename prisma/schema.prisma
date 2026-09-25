@@ -70,6 +70,7 @@ model ReportingPeriod {
   status          ReportingPeriodStatus @default(OPEN)
   activities      Activity[]
   notifications   Notification[]
+  periodEntries   ActivityPeriodEntry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -107,6 +108,7 @@ model Initiative {
   owner         User       @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   ownerId       String
   collaborators String[]
+  coOwners      String[]   @default([])
   objective     Objective  @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
   objectiveId   String
   isContinuous  Boolean    @default(false)
@@ -169,9 +171,80 @@ model Activity {
   evidence        Evidence[]
   notifications   Notification[]
   deliverables    Deliverable[]
+  duplicateGroupId   String?
+  countsTowardWeight Boolean               @default(true)
+  periodEntries      ActivityPeriodEntry[]
+
+  planRequestStatus       PlanRequestStatus @default(NOT_SENT)
+  planRequestSentAt       DateTime?
+  planRequestSentById     String?
+  planRequestRespondedAt  DateTime?
+  planRequestDeclineReason String?
+
+  // Monthly breakdown filled in by the responsible person once they accept
+  // the plan request. planSubmissionStatus null = not submitted yet.
+  deliverable             String?
+  targetType              TargetType?
+  annualTarget            Float?
+  monthlyTargets          ActivityMonthlyTarget[]
+  proposedByOwner         Boolean         @default(false)
+  planSubmissionStatus    ApprovalStatus?
+  planDeclineReason       String?
+  planSubmittedById       String?
+  planSubmittedAt         DateTime?
+  planApprovedById        String?
+  planApprovedAt          DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([duplicateGroupId])
+}
+
+model ActivityPeriodEntry {
+  id                String          @id @default(cuid())
+  activity          Activity        @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  activityId        String
+  reportingPeriod   ReportingPeriod @relation(fields: [reportingPeriodId], references: [id], onDelete: Cascade)
+  reportingPeriodId String
+
+  plannedProgress       Float   @default(0)
+  actualProgress        Float?
+  pendingActualProgress Float?
+
+  comment            String?
+  reasonForVariation String?
+  wayForward         String?
+  escalationIssues   String?
+
+  approvalStatus ApprovalStatus @default(PENDING)
+  declineReason  String?
+  submittedById  String?
+  submittedAt    DateTime?
+  approvedById   String?
+  approvedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([activityId, reportingPeriodId])
+  @@index([activityId])
+  @@index([reportingPeriodId])
+}
+
+model ActivityMonthlyTarget {
+  id         String   @id @default(cuid())
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  activityId String
+  // First day of the month (UTC) this target belongs to.
+  month      DateTime
+  value      Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([activityId, month])
+  @@index([activityId])
 }
 
 model Deliverable {
@@ -334,6 +407,18 @@ enum ApprovalStatus {
 enum ReportingPeriodStatus {
     OPEN
     CLOSED
+}
+
+enum PlanRequestStatus {
+    NOT_SENT
+    SENT
+    ACCEPTED
+    DECLINED
+}
+
+enum TargetType {
+    PERCENT
+    NUMBER
 }
 
 enum KpiDirection {

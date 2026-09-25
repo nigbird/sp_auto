@@ -5,8 +5,11 @@ import { useEffect, useState, useMemo } from "react";
 import type { Activity, ActivityStatus, PendingUpdate, Rule, StrategicPlan, Pillar, Objective, Initiative, User } from "@/lib/types";
 import { MyActivitySummaryCards } from "@/components/my-activity/my-activity-summary-cards";
 import { MyActivityTaskList } from "@/components/my-activity/my-activity-task-list";
+import { MyActivityPlanList } from "@/components/my-activity/my-activity-plan-list";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { getActivities, createActivity, submitActivityUpdate, updateActivity, approveActivityUpdate, declineActivityUpdate } from "@/actions/activities";
+import { getActivities, createActivity, updateActivity } from "@/actions/activities";
+import { submitPeriodUpdate, approvePeriodEntry, declinePeriodEntry } from "@/actions/activity-period-entries";
 import { getRules } from "@/actions/rules";
 import { getUsers } from "@/actions/users";
 import { getCurrentUserAction } from "@/actions/auth";
@@ -107,6 +110,18 @@ export default function MyActivityPage() {
     }
   }, [allActivitiesForPlan, currentUser]);
   
+  // Breakdowns are filled in only by the activity's own responsible person,
+  // even for users who can view everyone's activities.
+  const activitiesIAmResponsibleFor = useMemo(
+    () => allActivitiesForPlan.filter(a => (a.responsible as { id?: string })?.id === currentUser?.id),
+    [allActivitiesForPlan, currentUser]
+  );
+
+  const refreshActivities = async () => {
+    if (!selectedPlanId) return;
+    setAllActivitiesForPlan(await getActivities(selectedPlanId));
+  };
+
   const approvedActivities = useMemo(() => myActivities.filter(a => a.approvalStatus === 'APPROVED'), [myActivities]);
   
   const overdueActivities = useMemo(() => approvedActivities.filter(a => new Date(a.endDate) < new Date() && a.status !== 'Completed As Per Target'), [approvedActivities]);
@@ -141,11 +156,12 @@ export default function MyActivityPage() {
     updateComment: string,
     completionDate?: string,
     delayExplanation?: string,
-    recommendedAction?: string
+    recommendedAction?: string,
+    escalationIssues?: string
   ) => {
     if (!currentUser) return;
     try {
-      await submitActivityUpdate(activityId, newProgress, updateComment, currentUser.id, completionDate, delayExplanation, recommendedAction);
+      await submitPeriodUpdate(activityId, newProgress, updateComment, completionDate, delayExplanation, recommendedAction, escalationIssues);
     } catch (error) {
       toast({
         title: "Submission Blocked",
@@ -232,15 +248,15 @@ export default function MyActivityPage() {
   }
 
   const handleApproveActivity = async (activityId: string) => {
-    await approveActivityUpdate(activityId);
+    await approvePeriodEntry(activityId);
     // Refetch or update state
     const activities = await getActivities(selectedPlanId!);
     setAllActivitiesForPlan(activities);
     toast({ title: "Activity Approved", description: "The activity is now active." });
   };
-  
+
   const handleDeclineActivity = async (activityId: string, reason: string) => {
-    await declineActivityUpdate(activityId, reason);
+    await declinePeriodEntry(activityId, reason);
     // Refetch or update state
     const activities = await getActivities(selectedPlanId!);
     setAllActivitiesForPlan(activities);
@@ -307,26 +323,37 @@ export default function MyActivityPage() {
           </Dialog>
         </div>
       </div>
-      <MyActivitySummaryCards
-        activeFilter={activeFilter}
-        onFilterChange={setActiveFilter}
-        overdueCount={overdueActivities.length}
-        pendingCount={pendingCount}
-        activeCount={activeActivities.length}
-        completedCount={completedActivities.length}
-        allCount={allCount}
-      />
-      <MyActivityTaskList 
-          title={taskListTitle} 
-          count={filteredActivities.length} 
-          activities={filteredActivities} 
-          onUpdateActivity={handleUpdateActivity}
-          onEditDeclined={handleEditDeclined}
-          currentUser={currentUser}
-          rules={statusRules}
-          onApprove={handleApproveActivity}
-          onDecline={handleDeclineActivity}
-      />
+      <Tabs defaultValue="tasks">
+        <TabsList>
+          <TabsTrigger value="tasks">My Tasks</TabsTrigger>
+          <TabsTrigger value="plan">Monthly Breakdown</TabsTrigger>
+        </TabsList>
+        <TabsContent value="tasks" className="space-y-6">
+          <MyActivitySummaryCards
+            activeFilter={activeFilter}
+            onFilterChange={setActiveFilter}
+            overdueCount={overdueActivities.length}
+            pendingCount={pendingCount}
+            activeCount={activeActivities.length}
+            completedCount={completedActivities.length}
+            allCount={allCount}
+          />
+          <MyActivityTaskList
+              title={taskListTitle}
+              count={filteredActivities.length}
+              activities={filteredActivities}
+              onUpdateActivity={handleUpdateActivity}
+              onEditDeclined={handleEditDeclined}
+              currentUser={currentUser}
+              rules={statusRules}
+              onApprove={handleApproveActivity}
+              onDecline={handleDeclineActivity}
+          />
+        </TabsContent>
+        <TabsContent value="plan">
+          <MyActivityPlanList activities={activitiesIAmResponsibleFor} plan={selectedPlan} onChanged={refreshActivities} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
