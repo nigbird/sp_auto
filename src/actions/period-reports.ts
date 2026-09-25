@@ -19,8 +19,9 @@ function fail(message: string, fieldErrors?: Record<string, string>): ReportActi
 }
 
 function revalidateReportPages() {
-    revalidatePath('/my-activity');
-    revalidatePath('/approvals');
+    revalidatePath('/reports/submit');
+    revalidatePath('/reports/approvals');
+    revalidatePath('/reports');
     revalidatePath('/settings/reporting-periods');
     revalidatePath('/strategic-plan', 'layout');
 }

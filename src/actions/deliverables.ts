@@ -27,7 +27,7 @@ export async function createDeliverable(activityId: string, title: string, descr
       dueDate: dueDate ? new Date(dueDate) : null,
     },
   });
-  revalidatePath('/my-activity');
+  revalidatePath('/plan');
   return deliverable;
 }
 
@@ -41,7 +41,7 @@ export async function toggleDeliverableDelivered(id: string, delivered: boolean)
       deliveredDate: delivered ? new Date() : null,
     },
   });
-  revalidatePath('/my-activity');
+  revalidatePath('/plan');
   return deliverable;
 }
 
@@ -49,5 +49,5 @@ export async function deleteDeliverable(id: string) {
   await requireUser();
 
   await prisma.deliverable.delete({ where: { id } });
-  revalidatePath('/my-activity');
+  revalidatePath('/plan');
 }

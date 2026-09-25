@@ -3,8 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/auth/permissions-server';
-import { parseStrategicPlanWorkbook, type ImportActivity, type ParsedWorkbook } from '@/lib/plan-import/parse-workbook';
-import { monthKeyToDate } from '@/lib/monthly-breakdown';
+import { parseStrategicPlanWorkbook, type ParsedWorkbook } from '@/lib/plan-import/parse-workbook';
+import { writeImportedPlan } from '@/lib/plan-import/write-plan';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
@@ -102,85 +102,12 @@ export async function importStrategicPlan(formData: FormData): Promise<ImportRes
     return { success: false, message: problems.length === 1 ? problems[0] : `${problems.length} things need fixing before the import can run.`, problems };
   }
 
-  const departmentNames = Array.from(new Set(parsed.leadOwners.map(t => options.leadOwners[t].department.trim())));
-  const map = (title: string) => ({ userId: options.leadOwners[title].userId, department: options.leadOwners[title].department.trim() });
-
-  // Codes that appear more than once are one activity carried by several leads.
-  const codeCounts = new Map<string, number>();
-  parsed.pillars.forEach(p => p.objectives.forEach(o => o.initiatives.forEach(i => i.activities.forEach(a => codeCounts.set(a.code, (codeCounts.get(a.code) ?? 0) + 1)))));
-
-  const now = new Date();
   let planId: string;
   try {
-    planId = await prisma.$transaction(async (tx) => {
-      for (const dept of departmentNames) {
-        await tx.department.upsert({ where: { name: dept }, update: {}, create: { name: dept } });
-      }
-
-      const plan = await tx.strategicPlan.create({ data: { name, version, startYear, endYear, status: 'DRAFT' } });
-
-      const activityData = (a: ImportActivity) => {
-        const owner = map(a.leadOwner);
-        const withBreakdown = options.importBreakdowns && !a.breakdownProblem;
-        return {
-          title: a.title,
-          description: a.collaborators ? `Responsible / collaborating unit: ${a.collaborators}` : '',
-          deliverable: a.deliverable || null,
-          department: owner.department,
-          responsibleId: owner.userId,
-          startDate: new Date(a.startDate),
-          endDate: new Date(a.endDate),
-          status: 'Not Started',
-          weight: a.weight,
-          progress: 0,
-          approvalStatus: 'APPROVED' as const,
-          strategicPlanId: plan.id,
-          countsTowardWeight: a.countsTowardWeight,
-          duplicateGroupId: (codeCounts.get(a.code) ?? 0) > 1 ? `${plan.id}:${a.code}` : null,
-          // Keep the sheet's target settings even when the months can't be
-          // imported, so the owner's breakdown form starts from them.
-          targetType: a.targetType,
-          annualTarget: a.annualTarget,
-          targetAggregation: a.aggregation,
-          targetDirection: a.direction,
-          ...(withBreakdown ? {
-            planRequestStatus: 'ACCEPTED' as const,
-            planRequestSentAt: now,
-            planRequestSentById: importer.id,
-            planRequestRespondedAt: now,
-            planSubmissionStatus: 'APPROVED' as const,
-            planSubmittedById: importer.id,
-            planSubmittedAt: now,
-            planApprovedById: importer.id,
-            planApprovedAt: now,
-            monthlyTargets: { create: a.monthly.map(m => ({ month: monthKeyToDate(m.month), value: m.value })) },
-          } : {}),
-        };
-      };
-
-      for (const p of parsed.pillars) {
-        const pillar = await tx.pillar.create({ data: { title: p.title, description: '', strategicPlanId: plan.id } });
-        for (const o of p.objectives) {
-          const objective = await tx.objective.create({ data: { statement: o.statement, pillarId: pillar.id } });
-          for (const i of o.initiatives) {
-            // The initiative's owners are the users leading its activities, in sheet order.
-            const owners = Array.from(new Set(i.activities.map(a => map(a.leadOwner).userId)));
-            await tx.initiative.create({
-              data: {
-                title: i.title,
-                description: '',
-                ownerId: owners[0],
-                coOwners: owners.slice(1),
-                collaborators: [],
-                objectiveId: objective.id,
-                activities: { create: i.activities.map(activityData) },
-              },
-            });
-          }
-        }
-      }
-      return plan.id;
-    }, { timeout: 120_000, maxWait: 10_000 });
+    planId = await prisma.$transaction(
+      (tx) => writeImportedPlan(tx, parsed, { name, version, startYear, endYear, leadOwners: options.leadOwners, importBreakdowns: !!options.importBreakdowns }, importer.id),
+      { timeout: 120_000, maxWait: 10_000 }
+    );
   } catch (error) {
     console.error('Plan import failed', error);
     return { success: false, message: 'The import failed because of a server error. Nothing was saved — please try again.' };

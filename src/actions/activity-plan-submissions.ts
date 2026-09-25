@@ -19,8 +19,8 @@ function fail(message: string, extra: { formErrors?: string[]; rowErrors?: Recor
 }
 
 function revalidateBreakdownPages() {
-    revalidatePath('/my-activity');
-    revalidatePath('/approvals');
+    revalidatePath('/plan');
+    revalidatePath('/plan/approvals');
     revalidatePath('/strategic-plan', 'layout');
 }
 
@@ -442,7 +442,7 @@ export async function acceptPlanRequest(activityId: string): Promise<BreakdownAc
         },
     });
 
-    revalidatePath('/my-activity');
+    revalidatePath('/plan');
     return { success: true };
 }
 

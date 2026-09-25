@@ -29,7 +29,7 @@ export async function setActivityMonthlyPlan(activityId: string, entries: Monthl
     );
 
     revalidatePath('/strategic-plan');
-    revalidatePath('/my-activity');
+    revalidatePath('/plan');
 }
 
 /**

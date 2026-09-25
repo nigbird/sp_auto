@@ -98,7 +98,7 @@ export function PerformanceReportTable({ planId, pillars, periods, selected, ent
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm text-muted-foreground">Reporting period:</span>
         {requested.map(p => (
-          <Link key={p.id} href={`/strategic-plan/${planId}?period=${p.id}#performance`} scroll={false}
+          <Link key={p.id} href={`/reports?plan=${planId}&period=${p.id}`} scroll={false}
             className={cn("rounded-md border px-2.5 py-1 text-sm", p.id === selected.id ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted")}>
             {p.name}
           </Link>

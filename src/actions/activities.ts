@@ -125,7 +125,7 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
         });
     }
 
-    revalidatePath('/my-activity');
+    revalidatePath('/plan');
     return newActivity;
 }
 
@@ -200,7 +200,7 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
         }
     }
 
-    revalidatePath('/my-activity');
+    revalidatePath('/plan');
     return updatedActivity;
 }
 

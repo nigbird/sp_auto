@@ -38,7 +38,7 @@ export default function HelpPage() {
                 <AccordionItem value="item-3">
                   <AccordionTrigger>Can I export reports?</AccordionTrigger>
                   <AccordionContent>
-                    Yes, on Reporting → "Performance Reports" you will find options to export the full hierarchical report to both Excel and PDF formats.
+                    Yes. On Reporting → "Performance Report", pick the plan and reporting period, then use Export to download it as PDF or Excel.
                   </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="item-4">

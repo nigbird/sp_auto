@@ -56,7 +56,7 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
     items: [
       { href: "/reports/submit", label: "My Reports", icon: FileText },
       { href: "/reports/approvals", label: "Report Approvals", icon: FileCheck2 },
-      { href: "/reports", label: "Performance Reports", icon: BarChart3, exact: true },
+      { href: "/reports", label: "Performance Report", icon: BarChart3, exact: true },
     ],
   },
   {

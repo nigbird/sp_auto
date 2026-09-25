@@ -9,13 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { getObjectiveWeight, getInitiativeWeight, getPillarWeight } from "@/lib/utils";
 import type { Pillar, Objective, Initiative, Activity } from "@/lib/types";
-import { ArrowLeft, Edit, User as UserIcon, Calendar, Weight, Info, PackageCheck } from "lucide-react";
+import { ArrowLeft, BarChart3, Edit, User as UserIcon, Calendar, Weight, Info, PackageCheck } from "lucide-react";
 import { PublishButton } from "@/components/strategic-plan/publish-button";
 import { DeletePlanButton } from "@/components/strategic-plan/delete-plan-button";
 import { SendBreakdownRequestsButton } from "@/components/strategic-plan/send-breakdown-requests-button";
 import { MonthlyBreakdownTable } from "@/components/strategic-plan/monthly-breakdown-table";
-import { PerformanceReportTable, type PerformanceEntry, type PerformancePeriod } from "@/components/strategic-plan/performance-report-table";
-import { getPlanPerformance } from "@/actions/period-reports";
 import { ExportMenu } from "@/components/export-menu";
 
 function HierarchyView({ pillars, userNames }: { pillars: Pillar[]; userNames: Map<string, string> }) {
@@ -134,10 +132,9 @@ function ActivityItem({ activity }: { activity: Activity }) {
 }
 
 
-export default async function StrategicPlanDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ period?: string }> }) {
+export default async function StrategicPlanDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
-    const { period: periodId } = await searchParams;
-    const [plan, users, performance] = await Promise.all([getStrategicPlanById(id), getUsers(), getPlanPerformance(id, periodId)]);
+    const [plan, users] = await Promise.all([getStrategicPlanById(id), getUsers()]);
 
     if (!plan) {
         notFound();
@@ -149,7 +146,6 @@ export default async function StrategicPlanDetailPage({ params, searchParams }: 
     const sendableOwnerCount = new Set(sendable.map(a => (a.responsible as { id?: string })?.id)).size;
     const approvedCount = activities.filter(a => a.planSubmissionStatus === 'APPROVED').length;
     const isPublished = plan.status === 'PUBLISHED';
-    const selectedPeriod = performance.selected as { id: string; name: string } | null;
 
     return (
         <div className="flex-1 space-y-6">
@@ -169,24 +165,18 @@ export default async function StrategicPlanDetailPage({ params, searchParams }: 
                     <ExportMenu options={[
                         {
                             kind: "excel",
-                            label: selectedPeriod ? `Plan & ${selectedPeriod.name} report (Excel)` : "Plan (Excel)",
-                            description: "Cascaded-initiatives layout with monthly targets and live report formulas. Can be imported again.",
-                            href: `/api/export/plan/${plan.id}${selectedPeriod ? `?period=${selectedPeriod.id}` : "?period=none"}`,
-                        },
-                        {
-                            kind: "pdf",
-                            label: selectedPeriod ? `${selectedPeriod.name} performance report (PDF)` : "Performance report (PDF)",
-                            description: selectedPeriod ? "Totals, pillar/objective/initiative results and every activity's report." : "Send a report request first — there is no period to report on yet.",
-                            href: selectedPeriod ? `/api/export/plan/${plan.id}?period=${selectedPeriod.id}&format=pdf` : undefined,
-                            disabled: !selectedPeriod,
-                        },
-                        {
-                            kind: "excel",
-                            label: "Plan only (Excel)",
-                            description: "Structure, weights and monthly targets without report values.",
+                            label: "Plan (Excel)",
+                            description: "Structure, weights and monthly targets in the cascaded-initiatives layout. Can be imported again.",
                             href: `/api/export/plan/${plan.id}?period=none`,
                         },
                     ]} />
+                    {isPublished && (
+                        <Button asChild variant="outline">
+                            <Link href={`/reports?plan=${plan.id}`}>
+                                <BarChart3 className="mr-2 h-4 w-4" /> Performance Report
+                            </Link>
+                        </Button>
+                    )}
                     {isPublished && <SendBreakdownRequestsButton planId={plan.id} sendableCount={sendable.length} ownerCount={sendableOwnerCount} />}
                     <Button asChild variant="outline">
                         <Link href={`/strategic-plan/edit/${plan.id}`}>
@@ -222,22 +212,6 @@ export default async function StrategicPlanDetailPage({ params, searchParams }: 
                 </CardHeader>
                 <CardContent>
                     <MonthlyBreakdownTable pillars={plan.pillars} />
-                </CardContent>
-            </Card>
-
-            <Card id="performance">
-                <CardHeader>
-                    <CardTitle>Performance Report</CardTitle>
-                    <CardDescription>Plan vs. actual for each reporting period, calculated from approved reports.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <PerformanceReportTable
-                        planId={plan.id}
-                        pillars={plan.pillars}
-                        periods={performance.periods as PerformancePeriod[]}
-                        selected={performance.selected as PerformancePeriod | null}
-                        entries={performance.entries as PerformanceEntry[]}
-                    />
                 </CardContent>
             </Card>
         </div>

@@ -43,7 +43,7 @@ export async function createRole(name: string, permissions: string[]) {
         },
     });
 
-    revalidatePath('/settings/role-management');
+    revalidatePath('/users/roles');
     return role;
 }
 
@@ -57,8 +57,7 @@ export async function updateRolePermissions(roleId: string, permissions: string[
         }),
     ]);
 
-    revalidatePath('/settings/role-management');
-    revalidatePath(`/settings/role-management/${roleId}`);
+    revalidatePath('/users/roles');
 }
 
 export async function deleteRole(roleId: string) {
@@ -76,5 +75,5 @@ export async function deleteRole(roleId: string) {
     }
 
     await prisma.role.delete({ where: { id: roleId } });
-    revalidatePath('/settings/role-management');
+    revalidatePath('/users/roles');
 }

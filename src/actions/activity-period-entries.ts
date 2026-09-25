@@ -154,7 +154,7 @@ export async function submitPeriodUpdate(
         prisma.activity.update({ where: { id: activityId }, data: activityUpdateData }),
     ]);
 
-    revalidatePath('/my-activity');
+    revalidatePath('/plan');
 }
 
 export async function approvePeriodEntry(activityId: string) {
@@ -218,7 +218,7 @@ export async function approvePeriodEntry(activityId: string) {
         },
     });
 
-    revalidatePath('/my-activity');
+    revalidatePath('/plan');
 }
 
 export async function declinePeriodEntry(activityId: string, reason: string) {
@@ -260,5 +260,5 @@ export async function declinePeriodEntry(activityId: string, reason: string) {
         },
     });
 
-    revalidatePath('/my-activity');
+    revalidatePath('/plan');
 }

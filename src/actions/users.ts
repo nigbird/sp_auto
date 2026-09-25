@@ -25,7 +25,7 @@ export async function createUser(data: { name: string, email: string, roleId: st
             createdAt: new Date(),
         }
     });
-    revalidatePath('/settings/user-management');
+    revalidatePath('/users');
     return newUser;
 }
 
@@ -36,12 +36,12 @@ export async function updateUser(email: string, data: { name?: string; status?: 
         where: { email },
         data: updateData,
     });
-    revalidatePath('/settings/user-management');
+    revalidatePath('/users');
     return updatedUser;
 }
 
 export async function deleteUser(email: string) {
     await requirePermission('settings:users:manage');
     await prisma.user.delete({ where: { email } });
-    revalidatePath('/settings/user-management');
+    revalidatePath('/users');
 }
