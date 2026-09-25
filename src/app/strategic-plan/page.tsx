@@ -26,12 +26,20 @@ export default async function StrategicPlanListPage() {
           <h1 className="text-3xl font-bold tracking-tight">Strategic Plans</h1>
           <p className="text-muted-foreground">Manage all strategic plans for the organization.</p>
         </div>
-        <Button asChild>
-          <Link href="/strategic-plan/create">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Create New Plan
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link href="/strategic-plan/import">
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              Import from Excel
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/strategic-plan/create">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Create New Plan
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <Card>
