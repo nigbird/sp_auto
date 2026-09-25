@@ -72,6 +72,11 @@ model ReportingPeriod {
   notifications   Notification[]
   periodEntries   ActivityPeriodEntry[]
 
+  // The report request sent to activity owners for this period.
+  reportRequestMessage  String?
+  reportRequestSentAt   DateTime?
+  reportRequestSentById String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -185,6 +190,11 @@ model Activity {
   // the plan request. planSubmissionStatus null = not submitted yet.
   deliverable             String?
   targetType              TargetType?
+  // CUMULATIVE: months add up to the target (Excel =SUM). RECURRING: each
+  // month is a level to hold, e.g. "80% every month" (Excel =MAX).
+  targetAggregation       TargetAggregation @default(CUMULATIVE)
+  // LOWER_IS_BETTER targets (e.g. a cost ratio) score Plan ÷ Actual instead of Actual ÷ Plan.
+  targetDirection         KpiDirection      @default(HIGHER_IS_BETTER)
   annualTarget            Float?
   monthlyTargets          ActivityMonthlyTarget[]
   proposedByOwner         Boolean         @default(false)
@@ -211,6 +221,15 @@ model ActivityPeriodEntry {
   plannedProgress       Float   @default(0)
   actualProgress        Float?
   pendingActualProgress Float?
+
+  // Period report (the Excel's blue columns), in the activity's target units.
+  // planToDate is snapshotted from the approved monthly breakdown when the
+  // request is sent; comment holds "Accomplished tasks & key achievements".
+  reportStatus       PeriodReportStatus @default(NOT_REQUESTED)
+  reportRequestedAt  DateTime?
+  planToDate         Float?
+  actualToDate       Float?
+  completionDate     DateTime?
 
   comment            String?
   reasonForVariation String?
@@ -414,6 +433,19 @@ enum PlanRequestStatus {
     SENT
     ACCEPTED
     DECLINED
+}
+
+enum PeriodReportStatus {
+    NOT_REQUESTED
+    REQUESTED
+    SUBMITTED
+    APPROVED
+    RETURNED
+}
+
+enum TargetAggregation {
+    CUMULATIVE
+    RECURRING
 }
 
 enum TargetType {

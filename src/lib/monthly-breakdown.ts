@@ -10,6 +10,13 @@
 
 export type TargetType = 'PERCENT' | 'NUMBER';
 
+/**
+ * CUMULATIVE: each month is the portion done that month and the months add up
+ * to the target (Excel =SUM). RECURRING: each month is a level to hold, e.g.
+ * "keep the ratio at 80%" (Excel =MAX).
+ */
+export type TargetAggregation = 'CUMULATIVE' | 'RECURRING';
+
 export interface BreakdownEntry {
   month: string; // "YYYY-MM"
   value: number;
@@ -17,6 +24,7 @@ export interface BreakdownEntry {
 
 export interface BreakdownInput {
   targetType: TargetType;
+  aggregation?: TargetAggregation;
   annualTarget: number;
   entries: BreakdownEntry[];
   startDate: string | Date;
@@ -76,6 +84,7 @@ export function validateBreakdown(input: BreakdownInput): BreakdownValidation {
   const formErrors: string[] = [];
   const rowErrors: Record<number, string> = {};
   const { targetType, annualTarget, entries } = input;
+  const aggregation = input.aggregation ?? 'CUMULATIVE';
 
   if (targetType !== 'PERCENT' && targetType !== 'NUMBER') {
     formErrors.push('Choose whether the target is a percentage or a number.');
@@ -119,32 +128,18 @@ export function validateBreakdown(input: BreakdownInput): BreakdownValidation {
       rowErrors[index] = 'A percentage can\'t be more than 100%.';
       return;
     }
-    if (Number.isFinite(annualTarget) && annualTarget > 0 && entry.value > annualTarget + 1e-9) {
+    if (aggregation === 'CUMULATIVE' && Number.isFinite(annualTarget) && annualTarget > 0 && entry.value > annualTarget + 1e-9) {
       rowErrors[index] = `This month's value can't be more than the annual target (${formatTargetValue(annualTarget, targetType)}).`;
     }
   });
 
+  // Cumulative months are portions of the target, so they must add up to it.
+  // Recurring months are levels to hold, so there is nothing to add up.
   const hasRowErrors = Object.keys(rowErrors).length > 0;
-  if (!hasRowErrors && formErrors.length === 0 && entries.length > 0) {
-    const sorted = [...entries].sort((a, b) => a.month.localeCompare(b.month));
-    if (targetType === 'NUMBER') {
-      const total = sorted.reduce((sum, e) => sum + e.value, 0);
-      if (Math.abs(total - annualTarget) > 1e-6) {
-        formErrors.push(`Monthly values add up to ${formatTargetValue(total, 'NUMBER')}, but the annual target is ${formatTargetValue(annualTarget, 'NUMBER')}. They must match.`);
-      }
-    } else {
-      // Percent values are "how far along by this month", so they can't go backwards
-      // and the last one has to reach the annual target.
-      for (let i = 1; i < sorted.length; i++) {
-        if (sorted[i].value < sorted[i - 1].value) {
-          formErrors.push(`${monthLabel(sorted[i].month)} (${sorted[i].value}%) is lower than ${monthLabel(sorted[i - 1].month)} (${sorted[i - 1].value}%). Percent progress can't go down.`);
-          break;
-        }
-      }
-      const last = sorted[sorted.length - 1];
-      if (Math.abs(last.value - annualTarget) > 1e-6) {
-        formErrors.push(`The last month (${monthLabel(last.month)}) is ${last.value}%, but the annual target is ${annualTarget}%. The finishing month must reach the annual target.`);
-      }
+  if (aggregation === 'CUMULATIVE' && !hasRowErrors && formErrors.length === 0 && entries.length > 0) {
+    const total = entries.reduce((sum, e) => sum + e.value, 0);
+    if (Math.abs(total - annualTarget) > 1e-6) {
+      formErrors.push(`Monthly values add up to ${formatTargetValue(total, targetType)}, but the annual target is ${formatTargetValue(annualTarget, targetType)}. They must match.`);
     }
   }
 
@@ -152,22 +147,32 @@ export function validateBreakdown(input: BreakdownInput): BreakdownValidation {
 }
 
 /**
- * How far along (0-100% of the annual target) the activity is planned to be
- * by the end of `month`. Number targets accumulate month by month; percent
- * targets already express progress, so the latest one at or before `month`
- * applies.
+ * The Excel's "Plan up to the reporting period", in the target's own units:
+ * the sum of the months up to and including `month` for cumulative targets
+ * (=SUM), the highest of them for recurring ones (=MAX).
  */
+export function planUpToMonth(entries: BreakdownEntry[], month: string, aggregation: TargetAggregation = 'CUMULATIVE'): number {
+  const upTo = entries.filter(e => e.month <= month).map(e => e.value);
+  if (upTo.length === 0) return 0;
+  return aggregation === 'RECURRING' ? Math.max(...upTo) : upTo.reduce((sum, v) => sum + v, 0);
+}
+
+/** planUpToMonth as a share (0-100%) of the annual target. */
 export function plannedPercentAtMonth(
-  targetType: TargetType,
+  _targetType: TargetType,
   annualTarget: number,
   entries: BreakdownEntry[],
-  month: string
+  month: string,
+  aggregation: TargetAggregation = 'CUMULATIVE'
 ): number {
   if (!annualTarget || annualTarget <= 0) return 0;
-  const upTo = entries.filter(e => e.month <= month).sort((a, b) => a.month.localeCompare(b.month));
-  if (upTo.length === 0) return 0;
-  const reached = targetType === 'NUMBER'
-    ? upTo.reduce((sum, e) => sum + e.value, 0)
-    : upTo[upTo.length - 1].value;
-  return Math.min(100, (reached / annualTarget) * 100);
+  return Math.min(100, (planUpToMonth(entries, month, aggregation) / annualTarget) * 100);
+}
+
+/** End of the last month that has a planned value — the date the owner committed to finish by. */
+export function plannedFinishDate(entries: BreakdownEntry[]): Date | null {
+  const planned = entries.filter(e => e.value > 0).map(e => e.month).sort();
+  if (planned.length === 0) return null;
+  const [y, m] = planned[planned.length - 1].split('-').map(Number);
+  return new Date(Date.UTC(y, m, 0)); // day 0 of next month = last day of this month
 }

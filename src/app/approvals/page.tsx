@@ -6,17 +6,21 @@ import { getPendingActivityPlans, getInitiativesForPlanRequests } from "@/action
 import { ActivityTable } from "@/components/dashboard/activity-table";
 import { PlanApprovalList, type PendingActivityPlan } from "@/components/approvals/plan-approval-list";
 import { SendPlanRequestsList, type InitiativeForPlanRequest } from "@/components/approvals/send-plan-requests-list";
+import { ReportApprovalList } from "@/components/approvals/report-approval-list";
+import type { PeriodReportEntry } from "@/components/my-activity/my-activity-report-list";
+import { getPendingPeriodReports } from "@/actions/period-reports";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Rule } from "@/lib/types";
 
 export default async function ApprovalsPage() {
-  const [activities, userList, rules, plans, pendingPlans, initiatives] = await Promise.all([
+  const [activities, userList, rules, plans, pendingPlans, initiatives, pendingReports] = await Promise.all([
     getActivities(),
     getUsers(),
     getRules(),
     listStrategicPlans(),
     getPendingActivityPlans(),
     getInitiativesForPlanRequests(),
+    getPendingPeriodReports(),
   ]);
 
   const users = userList.map(u => ({ id: u.id, name: u.name }));
@@ -35,6 +39,7 @@ export default async function ApprovalsPage() {
         <TabsList>
           <TabsTrigger value="activities">Activities Approval</TabsTrigger>
           <TabsTrigger value="plans">Breakdown Approval{pendingPlans.length > 0 ? ` (${pendingPlans.length})` : ''}</TabsTrigger>
+          <TabsTrigger value="reports">Report Approval{pendingReports.length > 0 ? ` (${pendingReports.length})` : ''}</TabsTrigger>
           <TabsTrigger value="send-plan-requests">Send Breakdown Requests</TabsTrigger>
         </TabsList>
         <TabsContent value="activities">
@@ -42,6 +47,9 @@ export default async function ApprovalsPage() {
         </TabsContent>
         <TabsContent value="plans">
           <PlanApprovalList plans={pendingPlans as unknown as PendingActivityPlan[]} />
+        </TabsContent>
+        <TabsContent value="reports">
+          <ReportApprovalList reports={pendingReports as PeriodReportEntry[]} />
         </TabsContent>
         <TabsContent value="send-plan-requests">
           <SendPlanRequestsList initiatives={initiatives as unknown as InitiativeForPlanRequest[]} />

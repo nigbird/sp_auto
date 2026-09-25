@@ -14,6 +14,8 @@ import { PublishButton } from "@/components/strategic-plan/publish-button";
 import { DeletePlanButton } from "@/components/strategic-plan/delete-plan-button";
 import { SendBreakdownRequestsButton } from "@/components/strategic-plan/send-breakdown-requests-button";
 import { MonthlyBreakdownTable } from "@/components/strategic-plan/monthly-breakdown-table";
+import { PerformanceReportTable, type PerformanceEntry, type PerformancePeriod } from "@/components/strategic-plan/performance-report-table";
+import { getPlanPerformance } from "@/actions/period-reports";
 
 function HierarchyView({ pillars, userNames }: { pillars: Pillar[]; userNames: Map<string, string> }) {
     return (
@@ -131,9 +133,10 @@ function ActivityItem({ activity }: { activity: Activity }) {
 }
 
 
-export default async function StrategicPlanDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function StrategicPlanDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ period?: string }> }) {
     const { id } = await params;
-    const [plan, users] = await Promise.all([getStrategicPlanById(id), getUsers()]);
+    const { period: periodId } = await searchParams;
+    const [plan, users, performance] = await Promise.all([getStrategicPlanById(id), getUsers(), getPlanPerformance(id, periodId)]);
 
     if (!plan) {
         notFound();
@@ -196,6 +199,22 @@ export default async function StrategicPlanDetailPage({ params }: { params: Prom
                 </CardHeader>
                 <CardContent>
                     <MonthlyBreakdownTable pillars={plan.pillars} />
+                </CardContent>
+            </Card>
+
+            <Card id="performance">
+                <CardHeader>
+                    <CardTitle>Performance Report</CardTitle>
+                    <CardDescription>Plan vs. actual for each reporting period, calculated from approved reports.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <PerformanceReportTable
+                        planId={plan.id}
+                        pillars={plan.pillars}
+                        periods={performance.periods as PerformancePeriod[]}
+                        selected={performance.selected as PerformancePeriod | null}
+                        entries={performance.entries as PerformanceEntry[]}
+                    />
                 </CardContent>
             </Card>
         </div>

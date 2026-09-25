@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma';
 import { hasPermission, requirePermission } from '@/lib/auth/permissions-server';
 import { requireUser } from '@/lib/auth/session';
-import { monthKey, monthKeyToDate, plannedPercentAtMonth, validateBreakdown, type BreakdownEntry, type TargetType } from '@/lib/monthly-breakdown';
+import { monthKey, monthKeyToDate, plannedPercentAtMonth, validateBreakdown, type BreakdownEntry, type TargetAggregation, type TargetType } from '@/lib/monthly-breakdown';
 
 /**
  * Result of an action the UI reports back to the user. Returned rather than
@@ -78,7 +78,7 @@ async function syncPlannedProgressFromBreakdown(activityId: string) {
         prisma.activityPeriodEntry.update({
             where: { id: entry.id },
             data: {
-                plannedProgress: plannedPercentAtMonth(activity.targetType as TargetType, activity.annualTarget!, breakdown, monthKey(entry.reportingPeriod.endDate)),
+                plannedProgress: plannedPercentAtMonth(activity.targetType as TargetType, activity.annualTarget!, breakdown, monthKey(entry.reportingPeriod.endDate), activity.targetAggregation),
             },
         })
     ));
@@ -102,6 +102,8 @@ export async function getActivityBreakdown(activityId: string) {
 
 export interface BreakdownSubmission {
     targetType: TargetType;
+    aggregation: TargetAggregation;
+    direction?: 'HIGHER_IS_BETTER' | 'LOWER_IS_BETTER';
     annualTarget: number;
     entries: BreakdownEntry[];
 }
@@ -114,6 +116,11 @@ function checkCanEditBreakdown(activity: { responsibleId: string; planRequestSta
     if (activity.planSubmissionStatus === 'PENDING') return "This breakdown is already waiting for approval. You can change it if an approver returns it.";
     if (activity.planSubmissionStatus === 'APPROVED') return "This breakdown has already been approved and can no longer be changed.";
     return null;
+}
+
+/** Anything but an explicit RECURRING counts as cumulative. */
+function aggregationOf(input: { aggregation?: string }): TargetAggregation {
+    return input.aggregation === 'RECURRING' ? 'RECURRING' : 'CUMULATIVE';
 }
 
 function breakdownRows(activityId: string, entries: BreakdownEntry[]) {
@@ -136,7 +143,7 @@ export async function submitActivityBreakdown(activityId: string, input: Breakdo
 
     const entries = (input.entries ?? []).map(e => ({ month: String(e.month ?? ''), value: Number(e.value) }));
     const annualTarget = Number(input.annualTarget);
-    const validation = validateBreakdown({ targetType: input.targetType, annualTarget, entries, startDate: activity.startDate, endDate: activity.endDate });
+    const validation = validateBreakdown({ targetType: input.targetType, aggregation: aggregationOf(input), annualTarget, entries, startDate: activity.startDate, endDate: activity.endDate });
     if (!validation.valid) {
         return fail(validation.formErrors[0] ?? 'Some months need fixing.', { formErrors: validation.formErrors, rowErrors: validation.rowErrors });
     }
@@ -148,6 +155,8 @@ export async function submitActivityBreakdown(activityId: string, input: Breakdo
             where: { id: activityId },
             data: {
                 targetType: input.targetType,
+                targetAggregation: aggregationOf(input),
+                targetDirection: input.direction === 'LOWER_IS_BETTER' ? 'LOWER_IS_BETTER' : 'HIGHER_IS_BETTER',
                 annualTarget,
                 planSubmissionStatus: 'PENDING',
                 planDeclineReason: null,
@@ -211,7 +220,7 @@ export async function proposeActivityWithBreakdown(siblingActivityId: string, in
 
     const entries = (input.entries ?? []).map(e => ({ month: String(e.month ?? ''), value: Number(e.value) }));
     const annualTarget = Number(input.annualTarget);
-    const validation = validateBreakdown({ targetType: input.targetType, annualTarget, entries, startDate: start, endDate: end });
+    const validation = validateBreakdown({ targetType: input.targetType, aggregation: aggregationOf(input), annualTarget, entries, startDate: start, endDate: end });
     if (!validation.valid) {
         return fail(validation.formErrors[0] ?? 'Some months need fixing.', { formErrors: validation.formErrors, rowErrors: validation.rowErrors });
     }
@@ -239,6 +248,8 @@ export async function proposeActivityWithBreakdown(siblingActivityId: string, in
                 planRequestSentById: sibling.planRequestSentById,
                 planRequestRespondedAt: now,
                 targetType: input.targetType,
+                targetAggregation: aggregationOf(input),
+                targetDirection: input.direction === 'LOWER_IS_BETTER' ? 'LOWER_IS_BETTER' : 'HIGHER_IS_BETTER',
                 annualTarget,
                 planSubmissionStatus: 'PENDING',
                 planSubmittedById: user.id,

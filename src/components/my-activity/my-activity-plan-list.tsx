@@ -93,6 +93,8 @@ function PlanCard({ activity, initiativeTitle, onChanged }: { activity: Activity
     try {
       const result = await submitActivityBreakdown(activity.id, {
         targetType: draft.targetType,
+        aggregation: draft.aggregation,
+        direction: draft.direction,
         annualTarget: Number(draft.annualTarget),
         entries: draftEntries(draft),
       });
@@ -219,7 +221,7 @@ function PlanCard({ activity, initiativeTitle, onChanged }: { activity: Activity
                 <p className="text-sm">
                   <span className="font-medium">Annual target:</span> {details.annualTarget}{details.targetType === 'PERCENT' ? '%' : ''} ({details.targetType === 'PERCENT' ? 'percent' : 'number'})
                 </p>
-                <BreakdownStrip months={monthsBetween(activity.startDate, activity.endDate)} entries={savedEntries} targetType={details.targetType as TargetType} annualTarget={details.annualTarget} />
+                <BreakdownStrip months={monthsBetween(activity.startDate, activity.endDate)} entries={savedEntries} targetType={details.targetType as TargetType} annualTarget={details.annualTarget} aggregation={details.targetAggregation ?? undefined} />
                 <div className="flex justify-start">
                   <Button type="button" variant="outline" onClick={() => setIsProposeOpen(true)}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add another activity
@@ -309,6 +311,8 @@ function ProposeActivityDialog({ open, onOpenChange, sibling, initiativeTitle, o
       const result = await proposeActivityWithBreakdown(sibling.id, {
         title, deliverable, startDate, endDate,
         targetType: draft.targetType,
+        aggregation: draft.aggregation,
+        direction: draft.direction,
         annualTarget: Number(draft.annualTarget),
         entries: draftEntries(draft),
       });

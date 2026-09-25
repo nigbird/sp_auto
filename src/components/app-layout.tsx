@@ -15,10 +15,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <SessionKeepAlive />
       <div className="flex h-full">
         <AppSidebar />
-        <div className="flex flex-1 flex-col">
+        {/* min-w-0 lets wide content (tables) scroll inside itself instead of stretching the page */}
+        <div className="flex min-w-0 flex-1 flex-col">
           <Header />
           <main className={cn(
-            "flex-1 overflow-y-auto bg-background p-4 sm:p-6 lg:p-8"
+            "min-w-0 flex-1 overflow-y-auto bg-background p-4 sm:p-6 lg:p-8"
           )}>
             {children}
           </main>

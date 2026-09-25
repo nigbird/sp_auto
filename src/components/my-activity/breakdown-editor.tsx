@@ -9,22 +9,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 import { Alert, AlertDescription } from "../ui/alert";
 import { cn } from "@/lib/utils";
-import { formatTargetValue, monthKey, monthLabel, monthsBetween, plannedPercentAtMonth, validateBreakdown, type BreakdownEntry, type TargetType } from "@/lib/monthly-breakdown";
+import { formatTargetValue, monthKey, monthLabel, monthsBetween, plannedPercentAtMonth, validateBreakdown, type BreakdownEntry, type TargetAggregation, type TargetType } from "@/lib/monthly-breakdown";
 
 export interface BreakdownDraft {
   targetType: TargetType;
+  aggregation: TargetAggregation;
+  direction: 'HIGHER_IS_BETTER' | 'LOWER_IS_BETTER';
   annualTarget: string;
   rows: { month: string; value: string }[];
 }
 
 export function emptyBreakdownDraft(): BreakdownDraft {
-  return { targetType: 'PERCENT', annualTarget: '100', rows: [{ month: '', value: '' }] };
+  return { targetType: 'PERCENT', aggregation: 'CUMULATIVE', direction: 'HIGHER_IS_BETTER', annualTarget: '100', rows: [{ month: '', value: '' }] };
 }
 
-export function breakdownDraftFrom(activity: { targetType?: TargetType | null; annualTarget?: number | null; monthlyTargets?: { month: string | Date; value: number }[] }): BreakdownDraft {
+export function breakdownDraftFrom(activity: { targetType?: TargetType | null; targetAggregation?: TargetAggregation | null; targetDirection?: 'HIGHER_IS_BETTER' | 'LOWER_IS_BETTER' | null; annualTarget?: number | null; monthlyTargets?: { month: string | Date; value: number }[] }): BreakdownDraft {
   const rows = (activity.monthlyTargets ?? []).map(t => ({ month: monthKey(t.month), value: String(t.value) }));
   return {
     targetType: activity.targetType ?? 'PERCENT',
+    aggregation: activity.targetAggregation ?? 'CUMULATIVE',
+    direction: activity.targetDirection ?? 'HIGHER_IS_BETTER',
     annualTarget: activity.annualTarget != null ? String(activity.annualTarget) : '100',
     rows: rows.length > 0 ? rows : [{ month: '', value: '' }],
   };
@@ -37,6 +41,7 @@ export function draftEntries(draft: BreakdownDraft): BreakdownEntry[] {
 export function validateDraft(draft: BreakdownDraft, startDate: string | Date, endDate: string | Date) {
   return validateBreakdown({
     targetType: draft.targetType,
+    aggregation: draft.aggregation,
     annualTarget: draft.annualTarget.trim() === '' ? NaN : Number(draft.annualTarget),
     entries: draftEntries(draft),
     startDate,
@@ -96,10 +101,22 @@ export function BreakdownEditor({ draft, onChange, startDate, endDate, showError
             <label className="flex items-center gap-2 text-sm"><RadioGroupItem value="PERCENT" /> Percent (%)</label>
             <label className="flex items-center gap-2 text-sm"><RadioGroupItem value="NUMBER" /> Number (count)</label>
           </RadioGroup>
+          <Label className="block pt-2">How the months count</Label>
+          <RadioGroup
+            className="space-y-1"
+            value={draft.aggregation}
+            onValueChange={(v) => update({ aggregation: v as TargetAggregation })}
+            disabled={disabled}
+          >
+            <label className="flex items-center gap-2 text-sm"><RadioGroupItem value="CUMULATIVE" /> Add up to the target (one-off work)</label>
+            <label className="flex items-center gap-2 text-sm"><RadioGroupItem value="RECURRING" /> Same level every month (ongoing target)</label>
+          </RadioGroup>
           <p className="text-xs text-muted-foreground">
-            {draft.targetType === 'PERCENT'
-              ? 'Each month says how far along (in %) you will be by the end of that month.'
-              : 'Each month says how many you will deliver in that month; together they must add up to the annual target.'}
+            {draft.aggregation === 'RECURRING'
+              ? 'Each month is the level to reach or keep that month (e.g. 100% every month). The plan up to a period is the highest month so far.'
+              : draft.targetType === 'PERCENT'
+                ? 'Each month is the share of the work (in %) you plan to do in that month; together they must add up to the annual target.'
+                : 'Each month is how many you plan to deliver in that month; together they must add up to the annual target.'}
           </p>
         </div>
         <div className="space-y-2">
@@ -114,6 +131,16 @@ export function BreakdownEditor({ draft, onChange, startDate, endDate, showError
             onChange={(e) => update({ annualTarget: e.target.value })}
             disabled={disabled}
           />
+          <Label className="block pt-2">Which way is better?</Label>
+          <RadioGroup
+            className="space-y-1"
+            value={draft.direction}
+            onValueChange={(v) => update({ direction: v as BreakdownDraft['direction'] })}
+            disabled={disabled}
+          >
+            <label className="flex items-center gap-2 text-sm"><RadioGroupItem value="HIGHER_IS_BETTER" /> Higher is better (most targets)</label>
+            <label className="flex items-center gap-2 text-sm"><RadioGroupItem value="LOWER_IS_BETTER" /> Lower is better (e.g. a cost or NPL ratio)</label>
+          </RadioGroup>
         </div>
       </div>
 
@@ -165,16 +192,16 @@ export function BreakdownEditor({ draft, onChange, startDate, endDate, showError
           <Button type="button" variant="outline" size="sm" onClick={() => update({ rows: [...draft.rows, { month: nextFreeMonth, value: '' }] })} disabled={disabled || draft.rows.length >= months.length}>
             <PlusCircle className="mr-2 h-4 w-4" /> Add month
           </Button>
-          {draft.targetType === 'NUMBER' && Number.isFinite(annual) && annual > 0 && (
+          {draft.aggregation === 'CUMULATIVE' && Number.isFinite(annual) && annual > 0 && (
             <p className={cn("text-sm font-medium", Math.abs(numberTotal - annual) < 1e-6 ? "text-green-600" : "text-muted-foreground")}>
-              Planned so far: {formatTargetValue(numberTotal, 'NUMBER')} of {formatTargetValue(annual, 'NUMBER')}
+              Planned so far: {formatTargetValue(numberTotal, draft.targetType)} of {formatTargetValue(annual, draft.targetType)}
             </p>
           )}
         </div>
       </div>
 
       {entries.length > 0 && Number.isFinite(annual) && annual > 0 && (
-        <BreakdownStrip months={months} entries={entries} targetType={draft.targetType} annualTarget={annual} />
+        <BreakdownStrip months={months} entries={entries} targetType={draft.targetType} annualTarget={annual} aggregation={draft.aggregation} />
       )}
 
       {formErrors.length > 0 && (
@@ -192,7 +219,7 @@ export function BreakdownEditor({ draft, onChange, startDate, endDate, showError
 }
 
 /** A one-row, month-by-month preview of a breakdown, like a row of the Excel. */
-export function BreakdownStrip({ months, entries, targetType, annualTarget }: { months: string[]; entries: BreakdownEntry[]; targetType: TargetType; annualTarget: number }) {
+export function BreakdownStrip({ months, entries, targetType, annualTarget, aggregation = 'CUMULATIVE' }: { months: string[]; entries: BreakdownEntry[]; targetType: TargetType; annualTarget: number; aggregation?: TargetAggregation }) {
   const byMonth = new Map(entries.map(e => [e.month, e.value]));
   return (
     <div className="overflow-x-auto rounded-md border">
@@ -215,7 +242,7 @@ export function BreakdownStrip({ months, entries, targetType, annualTarget }: { 
           </tr>
           <tr className="text-muted-foreground border-t">
             {months.map(m => (
-              <td key={m} className="px-2 py-1 text-center">{Math.round(plannedPercentAtMonth(targetType, annualTarget, entries, m))}%</td>
+              <td key={m} className="px-2 py-1 text-center">{Math.round(plannedPercentAtMonth(targetType, annualTarget, entries, m, aggregation))}%</td>
             ))}
           </tr>
         </tbody>

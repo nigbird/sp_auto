@@ -10,7 +10,7 @@ import { Textarea } from "../ui/textarea";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../ui/alert-dialog";
 import { approveActivityPlan, declineActivityPlan } from "@/actions/activity-plan-submissions";
 import { useToast } from "@/hooks/use-toast";
-import { monthKey, monthsBetween, type TargetType } from "@/lib/monthly-breakdown";
+import { monthKey, monthsBetween, type TargetAggregation, type TargetType } from "@/lib/monthly-breakdown";
 import { BreakdownStrip } from "../my-activity/breakdown-editor";
 
 export interface PendingActivityPlan {
@@ -23,6 +23,8 @@ export interface PendingActivityPlan {
   weight: number;
   proposedByOwner: boolean;
   targetType: TargetType | null;
+  targetAggregation: TargetAggregation;
+  targetDirection: 'HIGHER_IS_BETTER' | 'LOWER_IS_BETTER';
   annualTarget: number | null;
   planSubmittedAt: string | null;
   responsible: { name: string } | null;
@@ -113,7 +115,7 @@ export function PlanApprovalList({ plans: initialPlans }: { plans: PendingActivi
             {plan.targetType && plan.annualTarget != null ? (
               <>
                 <p className="text-sm">
-                  <span className="font-medium">Annual target:</span> {plan.annualTarget}{plan.targetType === 'PERCENT' ? '%' : ''} ({plan.targetType === 'PERCENT' ? 'percent' : 'number'})
+                  <span className="font-medium">Annual target:</span> {plan.annualTarget}{plan.targetType === 'PERCENT' ? '%' : ''} ({plan.targetType === 'PERCENT' ? 'percent' : 'number'}, {plan.targetAggregation === 'RECURRING' ? 'same level every month' : 'months add up'}{plan.targetDirection === 'LOWER_IS_BETTER' ? ', lower is better' : ''})
                   {plan.planSubmittedAt && <span className="text-muted-foreground"> · submitted {format(new Date(plan.planSubmittedAt), "PPp")}</span>}
                 </p>
                 <BreakdownStrip
@@ -121,6 +123,7 @@ export function PlanApprovalList({ plans: initialPlans }: { plans: PendingActivi
                   entries={plan.monthlyTargets.map(t => ({ month: monthKey(t.month), value: t.value }))}
                   targetType={plan.targetType}
                   annualTarget={plan.annualTarget}
+                  aggregation={plan.targetAggregation}
                 />
               </>
             ) : (

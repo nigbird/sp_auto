@@ -5,16 +5,16 @@ import type { CSSProperties, ReactNode } from "react";
 /* ------------------------------------------------------------------ */
 
 const C = {
-  gold: "#C99532",
-  goldLight: "#D8A94E",
-  goldDeep: "#AE8545",
-  brown: "#5E4231",
-  brownDark: "#4A3021",
-  brownMid: "#6E5140",
-  cream: "#F1E9DB",
-  paper: "#F3EFE7",
-  floor: "#EFE8DC",
-  shadow: "rgba(74, 48, 33, 0.1)",
+  gold: "#D9A441",
+  goldLight: "#E6C27A",
+  goldDeep: "#B98A5A",
+  brown: "#79563F",
+  brownDark: "#634634",
+  brownMid: "#8E6A51",
+  cream: "#F4EEE5",
+  paper: "#F7F2EA",
+  floor: "#F1EADF",
+  shadow: "rgba(121, 86, 63, 0.09)",
 };
 
 const delay = (s: number): CSSProperties => ({ animationDelay: `${s}s` });
@@ -248,7 +248,7 @@ function RingPanels({ panels, glow }: { panels: Panel[]; glow?: boolean }) {
     <>
       {panels.map((pn) => (
         <g key={pn.key} transform={`matrix(1 ${pn.k.toFixed(4)} 0 1 ${pn.x.toFixed(2)} ${pn.y.toFixed(2)})`}>
-          <rect width={pn.w} height={pn.h} rx={3} fill="url(#nibil-panel)" fillOpacity={0.92} stroke={C.goldLight} strokeOpacity={0.55} strokeWidth={1.2} />
+          <rect width={pn.w} height={pn.h} rx={3} fill="url(#nibil-panel)" fillOpacity={0.9} stroke={C.goldLight} strokeOpacity={0.6} strokeWidth={1.2} />
           <rect width={pn.w} height={pn.h} rx={3} fill="url(#nibil-sheen)" />
           <PanelContent kind={pn.kind} w={pn.w} h={pn.h} index={pn.index} />
           {glow && (
@@ -492,28 +492,6 @@ function IsoBox({
   );
 }
 
-function Plant({ x, y }: { x: number; y: number }) {
-  const leaves = [
-    { d: "M0 0 C-4 -14 -14 -22 -20 -24 C-18 -14 -10 -4 0 0 Z", dl: 0 },
-    { d: "M0 0 C4 -14 14 -22 20 -26 C18 -14 10 -4 0 0 Z", dl: 0.6 },
-    { d: "M0 0 C-2 -18 -2 -30 2 -40 C6 -28 5 -14 0 0 Z", dl: 1.2 },
-    { d: "M0 -8 C-8 -20 -18 -26 -24 -38 C-12 -36 -4 -24 0 -8 Z", dl: 1.8 },
-    { d: "M0 -10 C8 -22 16 -30 24 -40 C12 -38 4 -26 0 -10 Z", dl: 2.4 },
-  ];
-  return (
-    <g transform={`translate(${x} ${y})`}>
-      <ellipse cx={0} cy={2} rx={16} ry={4} fill={C.shadow} />
-      <path d="M-12 -22 L12 -22 L9 0 L-9 0 Z" fill="#F6F2EA" />
-      <ellipse cx={0} cy={-22} rx={12} ry={3.2} fill="#EAE2D5" />
-      <g transform="translate(0 -22)">
-        {leaves.map((l, i) => (
-          <path key={i} d={l.d} className="nib-self-bottom a-sway" style={delay(l.dl)} fill={i % 2 ? C.goldDeep : C.gold} />
-        ))}
-      </g>
-    </g>
-  );
-}
-
 /* ------------------------------------------------------------------ */
 /* Scene                                                               */
 /* ------------------------------------------------------------------ */
@@ -543,10 +521,9 @@ export function LoginIllustration({ className }: { className?: string }) {
 
       {/* floor */}
       <ellipse cx={320} cy={340} rx={310} ry={150} fill="url(#nibil-floor)" />
-      <ellipse cx={RING.cx} cy={RING.cy} rx={RING.rx + 14} ry={RING.ry + 8} fill="#ECE3D3" opacity={0.55} />
+      <ellipse cx={RING.cx} cy={RING.cy} rx={RING.rx + 14} ry={RING.ry + 8} fill="#EFE6D8" opacity={0.55} />
 
       {/* back scenery */}
-      <Plant x={572} y={232} />
       <g className="a-float" style={delay(0.8)}>
         <IsoBox x={58} y={316} a={22} b={22} h={22} />
       </g>
@@ -565,7 +542,7 @@ export function LoginIllustration({ className }: { className?: string }) {
           y={276}
           scale={0.78}
           skin="#6b4428"
-          hair="#33241B"
+          hair="#4A3628"
           hairStyle="short"
           top={C.brownMid}
           pants={C.brownDark}
@@ -581,7 +558,7 @@ export function LoginIllustration({ className }: { className?: string }) {
         y={312}
         scale={0.9}
         skin="#8d5a3b"
-        hair="#3B2A1F"
+        hair="#503A2B"
         hairStyle="bun"
         top={C.gold}
         pants={C.brown}
@@ -596,10 +573,10 @@ export function LoginIllustration({ className }: { className?: string }) {
         y={338}
         scale={0.92}
         skin="#6b4428"
-        hair="#33241B"
+        hair="#4A3628"
         hairStyle="short"
         top={C.paper}
-        pants="#57402F"
+        pants="#6A4D3A"
         armL={{ s: 0, e: -65, fl: 11 }}
         armR={{ s: 0, e: 65, fl: 11, eAnim: "a-tap", delay: 0.4 }}
         headAnim="a-nod"
@@ -639,7 +616,7 @@ export function LoginIllustration({ className }: { className?: string }) {
         y={470}
         scale={1.1}
         skin="#6b4428"
-        hair="#33241B"
+        hair="#4A3628"
         hairStyle="short"
         top={C.gold}
         pants={C.brownDark}
@@ -656,7 +633,7 @@ export function LoginIllustration({ className }: { className?: string }) {
         y={494}
         scale={1.08}
         skin="#7a4a2c"
-        hair="#33241B"
+        hair="#4A3628"
         hairStyle="curly"
         top={C.paper}
         pants={C.brown}
@@ -671,7 +648,7 @@ export function LoginIllustration({ className }: { className?: string }) {
         y={490}
         scale={1.12}
         skin="#5c3a22"
-        hair="#33241B"
+        hair="#4A3628"
         hairStyle="short"
         top={C.brownMid}
         jacket={{ shirt: C.paper, tie: C.gold }}
@@ -689,7 +666,7 @@ export function LoginIllustration({ className }: { className?: string }) {
         y={478}
         scale={1.02}
         skin="#8d5a3b"
-        hair="#3B2A1F"
+        hair="#503A2B"
         hairStyle="pony"
         top={C.gold}
         pants={C.brownDark}

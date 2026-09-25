@@ -117,6 +117,8 @@ export type ReportingPeriod = {
   endDate: string | Date;
   cutOffDate: string | Date;
   status: 'OPEN' | 'CLOSED';
+  reportRequestMessage?: string | null;
+  reportRequestSentAt?: string | Date | null;
 };
 
 export type ActivityPeriodEntry = {

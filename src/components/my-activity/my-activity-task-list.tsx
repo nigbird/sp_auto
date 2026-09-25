@@ -250,42 +250,9 @@ function TaskCard({ activity, currentUser, rules, onUpdateActivity, onEditDeclin
                 <CardContent className="space-y-6 pt-0">
                         {isOpen && (
                     <>
-                        <div className="grid grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                                <Label htmlFor={`status-${activity.id}`}>Status</Label>
-                                <Select value={status} onValueChange={(value) => setStatus(value as ActivityStatus)} disabled>
-                                    <SelectTrigger id={`status-${activity.id}`} className="bg-background">
-                                        <SelectValue placeholder="Status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="On Track">On Track</SelectItem>
-                                        <SelectItem value="Completed As Per Target">Completed As Per Target</SelectItem>
-                                        <SelectItem value="Delayed">Delayed</SelectItem>
-                                        <SelectItem value="Not Started">Not Started</SelectItem>
-                                        <SelectItem value="Overdue">Overdue</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                 <Label htmlFor={`progress-${activity.id}`}>Progress: {progress}%</Label>
-                                 <Slider
-                                    id={`progress-${activity.id}`}
-                                    value={[progress]}
-                                    onValueChange={handleProgressChange}
-                                    max={100}
-                                    step={1}
-                                />
-                            </div>
-                        </div>
-                         <div className="space-y-2">
-                             <Label htmlFor={`update-${activity.id}`}>Provide an update</Label>
-                            <Textarea
-                                id={`update-${activity.id}`}
-                                placeholder="E.g., 'Completed the initial draft of the proposal...'"
-                                value={updateComment}
-                                onChange={(e) => setUpdateComment(e.target.value)}
-                            />
-                         </div>
+                        <p className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
+                            Progress is reported once per reporting period. When a report is requested, fill it in under <span className="font-medium text-foreground">My Activity → Reports</span>; the progress here updates when the report is approved.
+                        </p>
 
                          {deliverables.length > 0 && (
                             <div className="space-y-2 rounded-lg border p-4">
@@ -307,89 +274,29 @@ function TaskCard({ activity, currentUser, rules, onUpdateActivity, onEditDeclin
                             </div>
                          )}
 
-                         {isCompleting && (
-                            <div className="space-y-3 rounded-lg border p-4">
-                                <p className="text-sm font-medium">
-                                    Completing this activity requires a completion date, at least one piece of supporting evidence{deliverables.length > 0 ? ', and all deliverables above checked off' : ''}.
-                                </p>
-                                <div className="space-y-2">
-                                    <Label htmlFor={`completion-date-${activity.id}`}>Completion Date</Label>
-                                    <Input
-                                        id={`completion-date-${activity.id}`}
-                                        type="date"
-                                        value={completionDate}
-                                        onChange={(e) => setCompletionDate(e.target.value)}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor={`evidence-${activity.id}`}>Attach Evidence</Label>
-                                    <Input
-                                        id={`evidence-${activity.id}`}
-                                        type="file"
-                                        onChange={handleFileUpload}
-                                        disabled={isUploadingEvidence}
-                                    />
-                                    {evidenceList.length > 0 && (
-                                        <ul className="space-y-1">
-                                            {evidenceList.map((ev) => (
-                                                <li key={ev.id} className="flex items-center justify-between text-sm rounded-md border px-2 py-1">
-                                                    <a href={`/api/evidence/${ev.id}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-primary hover:underline">
-                                                        <Paperclip className="h-3 w-3" /> {ev.fileName}
-                                                    </a>
-                                                    <Button size="icon" variant="ghost" onClick={() => handleRemoveEvidence(ev.id)}>
-                                                        <X className="h-3 w-3 text-destructive" />
-                                                    </Button>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
-                                </div>
-                            </div>
-                         )}
-
-                         {isUnderperforming && (
-                            <div className="space-y-3 rounded-lg border border-amber-500/50 p-4">
-                                <p className="text-sm font-medium">This update is behind schedule. Please explain and provide a recommended action.</p>
-                                <div className="space-y-2">
-                                    <Label htmlFor={`delay-explanation-${activity.id}`}>Explanation</Label>
-                                    <Textarea
-                                        id={`delay-explanation-${activity.id}`}
-                                        placeholder="Why is this activity delayed?"
-                                        value={delayExplanation}
-                                        onChange={(e) => setDelayExplanation(e.target.value)}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor={`recommended-action-${activity.id}`}>Recommended Action / Ways Forward</Label>
-                                    <Textarea
-                                        id={`recommended-action-${activity.id}`}
-                                        placeholder="What will be done to get back on track?"
-                                        value={recommendedAction}
-                                        onChange={(e) => setRecommendedAction(e.target.value)}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor={`escalation-issues-${activity.id}`}>Issues That Need Escalation (optional)</Label>
-                                    <Textarea
-                                        id={`escalation-issues-${activity.id}`}
-                                        placeholder="Anything that needs a decision or support from leadership?"
-                                        value={escalationIssues}
-                                        onChange={(e) => setEscalationIssues(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                         )}
-
-                         {periodClosed && (
-                            <p className="text-sm text-destructive">
-                                {activity.reportingPeriod?.status === 'CLOSED'
-                                    ? `The "${activity.reportingPeriod?.name}" reporting period has been closed — updates can no longer be submitted.`
-                                    : `The "${activity.reportingPeriod?.name}" reporting period's cut-off date (${format(new Date(activity.reportingPeriod!.cutOffDate), "PP")}) has passed — updates can no longer be submitted.`}
-                            </p>
-                         )}
-                         <div className="flex justify-end">
-                            <Button onClick={handleSubmit} disabled={periodClosed || missingCompletionRequirements || missingUnderperformanceRequirements}>Resubmit Update for Review</Button>
-                        </div>
+                         <div className="space-y-2 rounded-lg border p-4">
+                             <Label htmlFor={`evidence-${activity.id}`}>Supporting Evidence</Label>
+                             <Input
+                                 id={`evidence-${activity.id}`}
+                                 type="file"
+                                 onChange={handleFileUpload}
+                                 disabled={isUploadingEvidence}
+                             />
+                             {evidenceList.length > 0 && (
+                                 <ul className="space-y-1">
+                                     {evidenceList.map((ev) => (
+                                         <li key={ev.id} className="flex items-center justify-between text-sm rounded-md border px-2 py-1">
+                                             <a href={`/api/evidence/${ev.id}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-primary hover:underline">
+                                                 <Paperclip className="h-3 w-3" /> {ev.fileName}
+                                             </a>
+                                             <Button size="icon" variant="ghost" onClick={() => handleRemoveEvidence(ev.id)}>
+                                                 <X className="h-3 w-3 text-destructive" />
+                                             </Button>
+                                         </li>
+                                     ))}
+                                 </ul>
+                             )}
+                         </div>
                     </>
                     )}
 

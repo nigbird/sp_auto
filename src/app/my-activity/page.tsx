@@ -6,6 +6,7 @@ import type { Activity, ActivityStatus, PendingUpdate, Rule, StrategicPlan, Pill
 import { MyActivitySummaryCards } from "@/components/my-activity/my-activity-summary-cards";
 import { MyActivityTaskList } from "@/components/my-activity/my-activity-task-list";
 import { MyActivityPlanList } from "@/components/my-activity/my-activity-plan-list";
+import { MyActivityReportList } from "@/components/my-activity/my-activity-report-list";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { getActivities, createActivity, updateActivity } from "@/actions/activities";
@@ -327,6 +328,7 @@ export default function MyActivityPage() {
         <TabsList>
           <TabsTrigger value="tasks">My Tasks</TabsTrigger>
           <TabsTrigger value="plan">Monthly Breakdown</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
         <TabsContent value="tasks" className="space-y-6">
           <MyActivitySummaryCards
@@ -352,6 +354,9 @@ export default function MyActivityPage() {
         </TabsContent>
         <TabsContent value="plan">
           <MyActivityPlanList activities={activitiesIAmResponsibleFor} plan={selectedPlan} onChanged={refreshActivities} />
+        </TabsContent>
+        <TabsContent value="reports">
+          <MyActivityReportList />
         </TabsContent>
       </Tabs>
     </div>

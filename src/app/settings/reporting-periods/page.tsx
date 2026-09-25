@@ -21,8 +21,19 @@ import {
   deleteReportingPeriod,
 } from "@/actions/reporting-periods";
 import type { StrategicPlan, ReportingPeriod } from "@/lib/types";
+import { getReportSummaries } from "@/actions/period-reports";
+import { ReportRequestButton, ReportSummaryBadges, type ReportSummary } from "@/components/reporting-periods/report-request-dialog";
+import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
 
 type EditableFields = { name: string; startDate: string; endDate: string; cutOffDate: string };
+
+function validatePeriodFields(fields: EditableFields): string | null {
+  if (!fields.name.trim()) return "Name is required.";
+  if (!fields.startDate || !fields.endDate || !fields.cutOffDate) return "Start, end and cut-off dates are all required.";
+  if (new Date(fields.endDate) < new Date(fields.startDate)) return "End date can't be before the start date.";
+  if (new Date(fields.cutOffDate) < new Date(fields.endDate)) return "Cut-off date can't be before the end date — owners report after the period ends.";
+  return null;
+}
 
 function toDateInputValue(value: string | Date): string {
   return format(new Date(value), "yyyy-MM-dd");
@@ -34,7 +45,10 @@ export default function ReportingPeriodsPage() {
   const [periods, setPeriods] = useState<ReportingPeriod[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedFields, setEditedFields] = useState<EditableFields | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [summaries, setSummaries] = useState<Record<string, ReportSummary>>({});
   const { toast } = useToast();
+  const selectedPlan = plans.find((p) => p.id === selectedPlanId);
 
   useEffect(() => {
     listStrategicPlans().then((plans) => {
@@ -46,6 +60,7 @@ export default function ReportingPeriodsPage() {
 
   const loadPeriods = useCallback((planId: string) => {
     getReportingPeriods(planId).then((data) => setPeriods(data as unknown as ReportingPeriod[]));
+    getReportSummaries(planId).then(setSummaries);
   }, []);
 
   useEffect(() => {
@@ -64,6 +79,7 @@ export default function ReportingPeriodsPage() {
   };
 
   const handleCancelEdit = () => {
+    setEditError(null);
     setEditingId(null);
     setEditedFields(null);
   };
@@ -75,6 +91,12 @@ export default function ReportingPeriodsPage() {
 
   const handleSaveEdit = async () => {
     if (!editedFields || !editingId) return;
+    const problem = validatePeriodFields(editedFields);
+    if (problem) {
+      setEditError(problem);
+      return;
+    }
+    setEditError(null);
     await updateReportingPeriod(editingId, editedFields);
     if (selectedPlanId) loadPeriods(selectedPlanId);
     setEditingId(null);
@@ -148,6 +170,7 @@ export default function ReportingPeriodsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {editError && <p className="mb-3 text-sm font-medium text-destructive">{editError}</p>}
           <Table>
             <TableHeader>
               <TableRow>
@@ -156,13 +179,14 @@ export default function ReportingPeriodsPage() {
                 <TableHead>End Date</TableHead>
                 <TableHead>Cut-off Date</TableHead>
                 <TableHead className="text-center">Status</TableHead>
+                <TableHead className="text-center">Report Request</TableHead>
                 <TableHead className="text-center">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {periods.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     <CalendarRange className="mx-auto mb-2 h-6 w-6" />
                     No reporting periods defined for this plan yet.
                   </TableCell>
@@ -210,6 +234,24 @@ export default function ReportingPeriodsPage() {
                             Cut-off passed
                           </Badge>
                         )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <ReportRequestButton
+                          period={period}
+                          disabledReason={
+                            selectedPlan?.status !== "PUBLISHED"
+                              ? "Publish the strategic plan first."
+                              : isPeriodClosedForSubmissions(period)
+                                ? "Period is closed or past cut-off."
+                                : isEditing
+                                  ? "Save the period first."
+                                  : undefined
+                          }
+                          onSent={() => selectedPlanId && loadPeriods(selectedPlanId)}
+                        />
+                        <ReportSummaryBadges summary={summaries[period.id]} />
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
