@@ -16,6 +16,8 @@ import { getMyPeriodReports, submitPeriodReport } from "@/actions/period-reports
 import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
 import { formatTargetValue, type TargetAggregation, type TargetType } from "@/lib/monthly-breakdown";
 import { computeReportRow, formatRatio } from "@/lib/report-calculations";
+import { ReportEvidence } from "../reports/report-evidence";
+import type { EvidenceMeta } from "@/actions/evidence";
 
 export interface PeriodReportEntry {
   id: string;
@@ -29,6 +31,7 @@ export interface PeriodReportEntry {
   escalationIssues: string | null;
   declineReason: string | null;
   submittedAt: string | null;
+  evidence: EvidenceMeta[];
   reportingPeriod: { id: string; name: string; startDate: string; endDate: string; cutOffDate: string; status: 'OPEN' | 'CLOSED'; reportRequestMessage: string | null };
   activity: {
     id: string;
@@ -167,6 +170,7 @@ function ReportForm({ entry, onSubmitted }: { entry: PeriodReportEntry; onSubmit
         <Textarea id={`escalation-${entry.id}`} rows={2} value={escalation} onChange={(e) => setEscalation(e.target.value)} />
         {fieldError('escalationIssues')}
       </div>
+      <ReportEvidence entryId={entry.id} files={entry.evidence ?? []} editable />
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">* required{row.isBehindPlan ? ' — reasons and the way forward are required because the actual is below plan.' : ''}</p>
         <Button onClick={handleSubmit} disabled={isSaving}>
@@ -198,6 +202,7 @@ function ReportSummaryView({ entry }: { entry: PeriodReportEntry }) {
       <div className="col-span-2">{item('Reasons for variation', entry.reasonForVariation)}</div>
       <div className="col-span-2">{item('The way forward', entry.wayForward)}</div>
       <div className="col-span-2 md:col-span-4">{item('Issues that need escalation', entry.escalationIssues)}</div>
+      <div className="col-span-2 md:col-span-4"><ReportEvidence entryId={entry.id} files={entry.evidence ?? []} /></div>
     </div>
   );
 }

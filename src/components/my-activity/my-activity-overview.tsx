@@ -4,14 +4,13 @@ import * as React from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import {
-  AlertTriangle, ArrowRight, CalendarClock, Check, CheckCircle2, ChevronDown, ChevronUp, ClipboardList,
-  FileText, Hourglass, List, Paperclip, ShieldQuestion, ShieldX, X,
+  ArrowRight, CalendarClock, Check, CheckCircle2, ChevronDown, ChevronUp, FileText, PencilLine, ShieldQuestion, ShieldX, TableProperties,
 } from "lucide-react";
 import type { Activity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
 import { monthKey, monthsBetween, type TargetAggregation, type TargetType } from "@/lib/monthly-breakdown";
-import { getEvidenceList, uploadEvidence, deleteEvidence, type EvidenceMeta } from "@/actions/evidence";
+import { formatWeight } from "@/lib/report-calculations";
 import { toggleDeliverableDelivered } from "@/actions/deliverables";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader } from "../ui/card";
@@ -19,7 +18,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/colla
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
-import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Progress } from "../ui/progress";
 import { BreakdownStrip } from "./breakdown-editor";
@@ -30,18 +28,19 @@ export interface LatestReport {
   activityId: string;
   reportStatus: 'REQUESTED' | 'SUBMITTED' | 'APPROVED' | 'RETURNED';
   declineReason: string | null;
-  reportingPeriod: { name: string; endDate: string; cutOffDate: string; status: 'OPEN' | 'CLOSED' };
+  reportingPeriod: { id: string; name: string; endDate: string; cutOffDate: string; status: 'OPEN' | 'CLOSED' };
 }
 
 type Step = { label: string; tone: 'done' | 'waiting' | 'todo' | 'problem' | 'none'; detail?: string | null };
 type NextAction = 'breakdown' | 'report' | 'resubmit' | null;
 
-export type OverviewFilter = 'todo' | 'waiting' | 'behind' | 'completed' | 'all';
+export type OverviewFilter = 'all' | 'todo' | 'waiting' | 'behind' | 'completed';
 
 const isRequestOpen = (a: Activity) => a.planRequestStatus === 'SENT' || a.planRequestStatus === 'ACCEPTED';
 const isCompleted = (a: Activity) => a.status === 'Completed As Per Target' || a.progress >= 100;
 const isOverdue = (a: Activity) => !isCompleted(a) && new Date(a.endDate) < new Date();
 const isBehind = (a: Activity) => !isCompleted(a) && (isOverdue(a) || a.status === 'Delayed');
+const reportIsOpen = (r: LatestReport) => !isPeriodClosedForSubmissions(r.reportingPeriod);
 
 function activityStep(a: Activity): Step {
   if (a.approvalStatus === 'APPROVED') return { label: 'Approved', tone: 'done' };
@@ -66,16 +65,16 @@ function reportStep(report: LatestReport | undefined): Step {
     case 'SUBMITTED': return { label: `${period}: waiting for approval`, tone: 'waiting' };
     case 'RETURNED': return { label: `${period}: returned`, tone: 'problem', detail: report.declineReason };
     default:
-      return isPeriodClosedForSubmissions(report.reportingPeriod)
-        ? { label: `${period}: missed (period closed)`, tone: 'problem' }
-        : { label: `${period}: to submit by ${format(new Date(report.reportingPeriod.cutOffDate), "MMM d")}`, tone: 'todo' };
+      return reportIsOpen(report)
+        ? { label: `${period}: to submit by ${format(new Date(report.reportingPeriod.cutOffDate), "MMM d")}`, tone: 'todo' }
+        : { label: `${period}: missed (period closed)`, tone: 'problem' };
   }
 }
 
 function nextAction(a: Activity, report: LatestReport | undefined): NextAction {
   if (a.approvalStatus === 'DECLINED') return 'resubmit';
   if (isRequestOpen(a) && (a.planSubmissionStatus == null || a.planSubmissionStatus === 'DECLINED')) return 'breakdown';
-  if (report && (report.reportStatus === 'RETURNED' || (report.reportStatus === 'REQUESTED' && !isPeriodClosedForSubmissions(report.reportingPeriod)))) return 'report';
+  if (report && (report.reportStatus === 'REQUESTED' || report.reportStatus === 'RETURNED') && reportIsOpen(report)) return 'report';
   return null;
 }
 
@@ -133,39 +132,8 @@ function ActivityCard({ activity, initiativeTitle, report, onOpenBreakdown, onEd
   onEdit: (activity: Activity) => void;
 }) {
   const [isOpen, setIsOpen] = React.useState(false);
-  const [evidence, setEvidence] = React.useState<EvidenceMeta[]>([]);
-  const [isUploading, setIsUploading] = React.useState(false);
   const [deliverables, setDeliverables] = React.useState(activity.deliverables ?? []);
   const { toast } = useToast();
-
-  React.useEffect(() => {
-    if (isOpen) getEvidenceList(activity.id).then(setEvidence);
-  }, [isOpen, activity.id]);
-
-  const showError = (err: unknown, fallback: string) =>
-    toast({ title: "Something went wrong", description: err instanceof Error ? err.message : fallback, variant: "destructive" });
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      await uploadEvidence(activity.id, formData);
-      setEvidence(await getEvidenceList(activity.id));
-    } catch (err) {
-      showError(err, 'Failed to upload file.');
-    } finally {
-      setIsUploading(false);
-      e.target.value = '';
-    }
-  };
-
-  const handleRemoveEvidence = async (id: string) => {
-    await deleteEvidence(id);
-    setEvidence(prev => prev.filter(ev => ev.id !== id));
-  };
 
   const handleToggleDeliverable = async (id: string, delivered: boolean) => {
     setDeliverables(prev => prev.map(d => (d.id === id ? { ...d, isDelivered: delivered } : d)));
@@ -173,7 +141,7 @@ function ActivityCard({ activity, initiativeTitle, report, onOpenBreakdown, onEd
       await toggleDeliverableDelivered(id, delivered);
     } catch (err) {
       setDeliverables(prev => prev.map(d => (d.id === id ? { ...d, isDelivered: !delivered } : d)));
-      showError(err, 'Failed to update deliverable.');
+      toast({ title: "Couldn't update the deliverable", description: err instanceof Error ? err.message : "Please try again.", variant: "destructive" });
     }
   };
 
@@ -192,7 +160,7 @@ function ActivityCard({ activity, initiativeTitle, report, onOpenBreakdown, onEd
             </div>
             {initiativeTitle && <p className="text-xs text-muted-foreground">Initiative: {initiativeTitle}</p>}
             <p className="text-sm text-muted-foreground">
-              {format(new Date(activity.startDate), "PP")} – {format(new Date(activity.endDate), "PP")} · Weight {activity.weight}%
+              {format(new Date(activity.startDate), "PP")} – {format(new Date(activity.endDate), "PP")} · Weight {formatWeight(activity.weight)}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
@@ -256,25 +224,6 @@ function ActivityCard({ activity, initiativeTitle, report, onOpenBreakdown, onEd
                 </ul>
               </div>
             )}
-
-            <div className="space-y-2 rounded-lg border p-4">
-              <Label htmlFor={`evidence-${activity.id}`}>Supporting evidence</Label>
-              <Input id={`evidence-${activity.id}`} type="file" onChange={handleUpload} disabled={isUploading} />
-              {evidence.length > 0 && (
-                <ul className="space-y-1">
-                  {evidence.map(ev => (
-                    <li key={ev.id} className="flex items-center justify-between rounded-md border px-2 py-1 text-sm">
-                      <a href={`/api/evidence/${ev.id}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-primary hover:underline">
-                        <Paperclip className="h-3 w-3" /> {ev.fileName}
-                      </a>
-                      <Button size="icon" variant="ghost" onClick={() => handleRemoveEvidence(ev.id)} aria-label={`Remove ${ev.fileName}`}>
-                        <X className="h-3 w-3 text-destructive" />
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
           </CardContent>
         </CollapsibleContent>
       </Collapsible>
@@ -282,18 +231,30 @@ function ActivityCard({ activity, initiativeTitle, report, onOpenBreakdown, onEd
   );
 }
 
-const FILTERS: { id: OverviewFilter; label: string; hint: string; icon: React.ReactNode }[] = [
-  { id: 'todo', label: 'Needs your action', hint: 'Breakdowns and reports to fill in', icon: <ClipboardList className="h-4 w-4 text-amber-600" /> },
-  { id: 'waiting', label: 'Waiting for approval', hint: 'Submitted, with an approver', icon: <Hourglass className="h-4 w-4 text-blue-600" /> },
-  { id: 'behind', label: 'Behind schedule', hint: 'Delayed or past the end date', icon: <AlertTriangle className="h-4 w-4 text-destructive" /> },
-  { id: 'completed', label: 'Completed', hint: 'Reported as done', icon: <CheckCircle2 className="h-4 w-4 text-green-600" /> },
-  { id: 'all', label: 'All my activities', hint: 'Everything assigned to you', icon: <List className="h-4 w-4 text-muted-foreground" /> },
+/** One concrete to-do line at the top of the tab, e.g. "79 reports to submit for New Period — due Nov 7". */
+function TodoRow({ icon, text, action }: { icon: React.ReactNode; text: React.ReactNode; action: React.ReactNode }) {
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+      <span className="flex items-center gap-2 text-sm">{icon}{text}</span>
+      {action}
+    </li>
+  );
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+const FILTERS: { id: OverviewFilter; label: string; hint: string }[] = [
+  { id: 'all', label: 'All', hint: 'Every activity you are responsible for in this plan.' },
+  { id: 'todo', label: 'Needs your action', hint: 'Activities where you have a breakdown or report to fill in, or a declined activity to fix.' },
+  { id: 'waiting', label: 'Waiting for approval', hint: 'You submitted something (activity, breakdown or report) and an approver hasn\'t decided yet.' },
+  { id: 'behind', label: 'Behind schedule', hint: 'Delayed according to your approved reports, or past the end date and not complete.' },
+  { id: 'completed', label: 'Completed', hint: 'Reported as done in an approved report.' },
 ];
 
 /**
- * The "My Activities" tab of My Plan: each activity the user is responsible
- * for, where it stands in the plan → breakdown → report flow, and the one
- * thing (if any) they need to do next.
+ * The "My Activities" tab of My Plan: a short to-do list, then each activity
+ * the user is responsible for and where it stands in the
+ * plan → breakdown → report flow.
  */
 export function MyActivityOverview({ activities, reports, initiativeTitles, onOpenBreakdown, onEdit }: {
   activities: Activity[];
@@ -302,6 +263,8 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
   onOpenBreakdown: () => void;
   onEdit: (activity: Activity) => void;
 }) {
+  const [filter, setFilter] = React.useState<OverviewFilter>('all');
+
   const latestByActivity = React.useMemo(() => {
     // Reports arrive newest period first, so the first one per activity is the latest.
     const map = new Map<string, LatestReport>();
@@ -312,19 +275,34 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
   const groups = React.useMemo(() => {
     const report = (a: Activity) => latestByActivity.get(a.id);
     return {
+      all: activities,
       todo: activities.filter(a => nextAction(a, report(a)) !== null),
       waiting: activities.filter(a => isWaiting(a, report(a))),
       behind: activities.filter(a => a.approvalStatus === 'APPROVED' && isBehind(a)),
       completed: activities.filter(a => a.approvalStatus === 'APPROVED' && isCompleted(a)),
-      all: activities,
     } satisfies Record<OverviewFilter, Activity[]>;
   }, [activities, latestByActivity]);
 
-  const [filter, setFilter] = React.useState<OverviewFilter | null>(null);
-  // Start on "Needs your action" when there is something to do, otherwise show everything.
-  const activeFilter = filter ?? (groups.todo.length > 0 ? 'todo' : 'all');
-  const shown = groups[activeFilter];
-  const activeMeta = FILTERS.find(f => f.id === activeFilter)!;
+  // The to-do list, broken down by what actually has to be done.
+  const todos = React.useMemo(() => {
+    const reportsByPeriod = new Map<string, { name: string; cutOff: string; count: number }>();
+    let returnedReports = 0, breakdowns = 0, declined = 0;
+    for (const a of groups.todo) {
+      const action = nextAction(a, latestByActivity.get(a.id));
+      if (action === 'resubmit') declined++;
+      else if (action === 'breakdown') breakdowns++;
+      else if (action === 'report') {
+        const r = latestByActivity.get(a.id)!;
+        if (r.reportStatus === 'RETURNED') returnedReports++;
+        else {
+          const p = reportsByPeriod.get(r.reportingPeriod.id) ?? { name: r.reportingPeriod.name, cutOff: r.reportingPeriod.cutOffDate, count: 0 };
+          p.count++;
+          reportsByPeriod.set(r.reportingPeriod.id, p);
+        }
+      }
+    }
+    return { reportsByPeriod: Array.from(reportsByPeriod.values()), returnedReports, breakdowns, declined };
+  }, [groups.todo, latestByActivity]);
 
   if (activities.length === 0) {
     return (
@@ -336,39 +314,83 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
     );
   }
 
+  const shown = groups[filter];
+  const activeMeta = FILTERS.find(f => f.id === filter)!;
+  const hasTodos = groups.todo.length > 0;
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        {FILTERS.map(f => (
-          <button
-            key={f.id}
-            type="button"
-            onClick={() => setFilter(f.id)}
-            className={cn(
-              "rounded-lg border bg-card p-4 text-left transition-colors hover:bg-muted/50",
-              activeFilter === f.id && "border-primary ring-1 ring-primary"
-            )}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-medium">{f.label}</p>
-              {f.icon}
-            </div>
-            <p className="mt-2 text-2xl font-bold">{groups[f.id].length}</p>
-            <p className="text-xs text-muted-foreground">{f.hint}</p>
-          </button>
-        ))}
+      <Card>
+        <CardHeader className="pb-2">
+          <h2 className="text-lg font-semibold">What you need to do</h2>
+        </CardHeader>
+        <CardContent className="p-0 pb-2">
+          {!hasTodos ? (
+            <p className="flex items-center gap-2 px-6 pb-4 text-sm text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4 text-green-600" /> You're all caught up — nothing needs your action right now.
+            </p>
+          ) : (
+            <ul className="divide-y">
+              {todos.reportsByPeriod.map(p => (
+                <TodoRow
+                  key={p.name}
+                  icon={<FileText className="h-4 w-4 text-amber-600" />}
+                  text={<><span className="font-semibold">{plural(p.count, 'report', 'reports')}</span>&nbsp;to submit for {p.name} — due {format(new Date(p.cutOff), "MMM d, yyyy")}</>}
+                  action={<Button size="sm" asChild><Link href="/reports/submit">Go to My Reports <ArrowRight className="ml-1 h-4 w-4" /></Link></Button>}
+                />
+              ))}
+              {todos.returnedReports > 0 && (
+                <TodoRow
+                  icon={<ShieldX className="h-4 w-4 text-destructive" />}
+                  text={<><span className="font-semibold">{plural(todos.returnedReports, 'report was', 'reports were')}</span>&nbsp;returned — fix and resubmit</>}
+                  action={<Button size="sm" variant="outline" asChild><Link href="/reports/submit">Go to My Reports</Link></Button>}
+                />
+              )}
+              {todos.breakdowns > 0 && (
+                <TodoRow
+                  icon={<TableProperties className="h-4 w-4 text-amber-600" />}
+                  text={<><span className="font-semibold">{plural(todos.breakdowns, 'monthly breakdown', 'monthly breakdowns')}</span>&nbsp;to fill in</>}
+                  action={<Button size="sm" variant="outline" onClick={onOpenBreakdown}>Open Monthly Breakdown</Button>}
+                />
+              )}
+              {todos.declined > 0 && (
+                <TodoRow
+                  icon={<PencilLine className="h-4 w-4 text-destructive" />}
+                  text={<><span className="font-semibold">{plural(todos.declined, 'activity was', 'activities were')}</span>&nbsp;declined — edit and resubmit</>}
+                  action={<Button size="sm" variant="outline" onClick={() => setFilter('todo')}>Show them</Button>}
+                />
+              )}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filter activities">
+          {FILTERS.map(f => (
+            <button
+              key={f.id}
+              type="button"
+              role="tab"
+              aria-selected={filter === f.id}
+              onClick={() => setFilter(f.id)}
+              className={cn(
+                "rounded-full border px-3 py-1 text-sm transition-colors",
+                filter === f.id ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-muted"
+              )}
+            >
+              {f.label} <span className="ml-1 font-semibold">{groups[f.id].length}</span>
+            </button>
+          ))}
+        </div>
+        <p className="text-sm text-muted-foreground">{activeMeta.hint}</p>
       </div>
 
       <div className="space-y-4">
-        <h2 className="flex items-center gap-2 text-xl font-bold">
-          {activeMeta.icon} {activeMeta.label} ({shown.length})
-        </h2>
         {shown.length === 0 ? (
           <Card>
             <CardContent className="pt-6">
-              <p className="text-center text-muted-foreground">
-                {activeFilter === 'todo' ? "You're all caught up — nothing needs your action right now." : "No activities here."}
-              </p>
+              <p className="text-center text-muted-foreground">No activities here.</p>
             </CardContent>
           </Card>
         ) : (
@@ -383,8 +405,8 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
             />
           ))
         )}
-        <p className="flex items-center gap-1 text-xs text-muted-foreground">
-          <FileText className="h-3 w-3" /> Progress comes from your approved period reports (Reporting → My Reports).
+        <p className="text-xs text-muted-foreground">
+          Progress comes from your approved period reports. Supporting evidence is attached to each report under Reporting → My Reports.
         </p>
       </div>
     </div>

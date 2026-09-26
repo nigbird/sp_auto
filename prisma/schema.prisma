@@ -246,6 +246,8 @@ model ActivityPeriodEntry {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  evidence Evidence[]
+
   @@unique([activityId, reportingPeriodId])
   @@index([activityId])
   @@index([reportingPeriodId])
@@ -286,6 +288,9 @@ model Evidence {
   id           String   @id @default(cuid())
   activity     Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
   activityId   String
+  // The period report this file supports. Null only for files uploaded before evidence moved onto reports.
+  periodEntry   ActivityPeriodEntry? @relation(fields: [periodEntryId], references: [id], onDelete: Cascade)
+  periodEntryId String?
   fileName     String
   mimeType     String
   fileSize     Int
@@ -295,6 +300,7 @@ model Evidence {
   uploadedAt   DateTime @default(now())
 
   @@index([activityId])
+  @@index([periodEntryId])
 }
 
 model Kpi {

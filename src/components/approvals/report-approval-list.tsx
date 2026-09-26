@@ -13,6 +13,7 @@ import { approvePeriodReport, returnPeriodReport } from "@/actions/period-report
 import { formatTargetValue } from "@/lib/monthly-breakdown";
 import { computeReportRow, formatRatio, formatWeight } from "@/lib/report-calculations";
 import type { PeriodReportEntry } from "../my-activity/my-activity-report-list";
+import { ReportEvidence } from "../reports/report-evidence";
 
 function Field({ label, children, wide }: { label: string; children: React.ReactNode; wide?: boolean }) {
   return (
@@ -118,6 +119,7 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
                 <div className="col-span-2"><Field label="Reasons for variation">{entry.reasonForVariation}</Field></div>
                 <div className="col-span-2"><Field label="The way forward">{entry.wayForward}</Field></div>
               </div>
+              <ReportEvidence entryId={entry.id} files={entry.evidence ?? []} />
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <Field label="%age Achiev't">{formatRatio(row.achievement)}</Field>
                 <Field label="Date delayed">{row.daysDelayed != null ? `${row.daysDelayed} days` : null}</Field>

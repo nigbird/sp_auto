@@ -126,6 +126,11 @@ export async function sendReportRequest(periodId: string, message: string): Prom
 
 const reportEntryInclude = {
     reportingPeriod: true,
+    // File details only — the contents are served by /api/evidence/[id] after an access check.
+    evidence: {
+        select: { id: true, fileName: true, mimeType: true, fileSize: true, uploadedAt: true },
+        orderBy: { uploadedAt: 'asc' as const },
+    },
     activity: {
         include: {
             responsible: { select: publicUserSelect },

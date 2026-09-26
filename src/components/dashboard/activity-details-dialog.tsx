@@ -17,13 +17,14 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { ArrowRight, Paperclip } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { ScrollArea } from "../ui/scroll-area";
 import { calculateKpiAchievement, ACHIEVEMENT_CAP_PERCENT } from "@/lib/kpi";
 import { getAppConfig } from "@/actions/app-config";
 import { calculateDelayDays } from "@/lib/utils";
 import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
-import { getEvidenceList, type EvidenceMeta } from "@/actions/evidence";
+import { getActivityEvidence, type EvidenceMeta } from "@/actions/evidence";
+import { ReportEvidence } from "@/components/reports/report-evidence";
 
 type ActivityDetailsDialogProps = {
   isOpen: boolean;
@@ -52,7 +53,7 @@ export function ActivityDetailsDialog({
 
   useEffect(() => {
     if (activity) {
-      getEvidenceList(activity.id).then(setEvidenceList);
+      getActivityEvidence(activity.id).then(setEvidenceList);
     } else {
       setEvidenceList([]);
     }
@@ -198,17 +199,7 @@ export function ActivityDetailsDialog({
                                 Completed on {format(new Date(activity.completionDate), "PP")}
                             </p>
                         )}
-                        {evidenceList.length > 0 && (
-                            <ul className="space-y-1">
-                                {evidenceList.map((ev) => (
-                                    <li key={ev.id}>
-                                        <a href={`/api/evidence/${ev.id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
-                                            <Paperclip className="h-3 w-3" /> {ev.fileName}
-                                        </a>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
+                        {evidenceList.length > 0 && <ReportEvidence entryId="" files={evidenceList} />}
                     </div>
                 )}
 
