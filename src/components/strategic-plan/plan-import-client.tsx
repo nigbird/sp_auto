@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, FileSpreadsheet, Loader2, AlertCircle, AlertTriangle, Upload, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, FileSpreadsheet, Loader2, AlertCircle, AlertTriangle, Upload, CheckCircle2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,15 +16,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { importStrategicPlan, previewPlanImport, type LeadOwnerMapping } from "@/actions/plan-import";
+import { registerLeadOwnerUser } from "@/actions/users";
+import { UserForm } from "@/components/settings/user-form";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { ParsedWorkbook } from "@/lib/plan-import/parse-workbook";
 
-type Person = { id: string; name: string };
+type Person = { id: string; name: string; email?: string; leadOwner?: string | null; department?: string | null };
 
 const ISSUES_SHOWN = 12;
+const sameText = (a?: string | null, b?: string | null) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
 
-export function PlanImportClient({ users, departments }: { users: Person[]; departments: string[] }) {
+export function PlanImportClient({ users: initialUsers, departments, canRegister = false }: { users: Person[]; departments: string[]; canRegister?: boolean }) {
   const router = useRouter();
   const { toast } = useToast();
+  const [users, setUsers] = React.useState<Person[]>(initialUsers);
+  const [registeringTitle, setRegisteringTitle] = React.useState<string | null>(null);
   const [file, setFile] = React.useState<File | null>(null);
   const [preview, setPreview] = React.useState<ParsedWorkbook | null>(null);
   const [sheet, setSheet] = React.useState<string>("");
@@ -61,12 +67,15 @@ export function PlanImportClient({ users, departments }: { users: Person[]; depa
       setName(p.planTitle || chosen.name.replace(/\.[^.]+$/, ""));
       setStartYear(p.startYear ? String(p.startYear) : "");
       setEndYear(p.endYear ? String(p.endYear) : "");
-      // Suggest a department with the same name as the lead-owner title when one exists.
+      // Match each office to the person registered as holding it (Users → Lead Owner),
+      // and take their department; otherwise suggest a department named like the office.
       setMapping(prev => {
         const next: Record<string, LeadOwnerMapping> = {};
         for (const title of p.leadOwners) {
-          const existingDept = departments.find(d => d.toLowerCase() === title.toLowerCase());
-          next[title] = prev[title] ?? { userId: "", department: existingDept ?? title };
+          if (prev[title]) { next[title] = prev[title]; continue; }
+          const holder = users.find(u => sameText(u.leadOwner, title));
+          const existingDept = departments.find(d => sameText(d, title));
+          next[title] = { userId: holder?.id ?? "", department: holder?.department ?? existingDept ?? title };
         }
         return next;
       });
@@ -109,6 +118,21 @@ export function PlanImportClient({ users, departments }: { users: Person[]; depa
 
   const fillUnmapped = (userId: string) =>
     setMapping(prev => Object.fromEntries(Object.entries(prev).map(([t, m]) => [t, m.userId ? m : { ...m, userId }])));
+
+  /** Everything the sheet tells us about an office, shown when registering the person who holds it. */
+  const officeDetails = (title: string) => {
+    const owned = activities.filter(a => a.leadOwner === title);
+    const initiatives = new Set(preview?.pillars.flatMap(p => p.objectives.flatMap(o => o.initiatives.filter(i => i.activities.some(a => a.leadOwner === title)).map(i => i.title))) ?? []);
+    const collaborators = Array.from(new Set(owned.flatMap(a => a.collaborators.split(/\s*[,;]\s*/)).map(s => s.trim()).filter(Boolean)));
+    return { owned, initiatives: Array.from(initiatives), collaborators };
+  };
+
+  const handleRegistered = (title: string, person: Person) => {
+    setUsers(prev => [...prev, person].sort((a, b) => a.name.localeCompare(b.name)));
+    setOwner(title, { userId: person.id, department: person.department || mapping[title]?.department || title });
+    setRegisteringTitle(null);
+    toast({ title: "User registered", description: `${person.name} was created as ${title} and assigned to its ${activitiesPerOwner(title)} activities.` });
+  };
 
   const handleImport = async () => {
     setAttempted(true);
@@ -305,12 +329,31 @@ export function PlanImportClient({ users, departments }: { users: Person[]; depa
                         <TableRow key={title} className="align-top">
                           <TableCell className="font-medium">{title}</TableCell>
                           <TableCell className="text-right">{activitiesPerOwner(title)}</TableCell>
-                          <TableCell className="min-w-[220px]">
-                            <Select value={m.userId} onValueChange={(v) => setOwner(title, { userId: v })}>
-                              <SelectTrigger className={cn(missingUser && "border-destructive")}><SelectValue placeholder="Choose a person…" /></SelectTrigger>
-                              <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
-                            </Select>
-                            {missingUser && <p className="mt-1 text-xs text-destructive">Required</p>}
+                          <TableCell className="min-w-[280px]">
+                            <div className="flex items-center gap-2">
+                              <Select value={m.userId} onValueChange={(v) => setOwner(title, { userId: v, department: users.find(u => u.id === v)?.department || m.department })}>
+                                <SelectTrigger className={cn(missingUser && "border-destructive")}><SelectValue placeholder="Choose a person…" /></SelectTrigger>
+                                <SelectContent>
+                                  {users.map(u => (
+                                    <SelectItem key={u.id} value={u.id}>
+                                      {u.name}{u.leadOwner ? ` — ${u.leadOwner}` : ""}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {canRegister && !users.some(u => sameText(u.leadOwner, title)) && (
+                                <Button type="button" variant="outline" size="sm" onClick={() => setRegisteringTitle(title)}>
+                                  <UserPlus className="mr-1 h-4 w-4" /> Register
+                                </Button>
+                              )}
+                            </div>
+                            {missingUser && <p className="mt-1 text-xs text-destructive">Required — pick someone{canRegister ? " or register the person who holds this office" : ""}.</p>}
+                            {m.userId && sameText(users.find(u => u.id === m.userId)?.leadOwner, title) && (
+                              <p className="mt-1 flex items-center gap-1 text-xs text-green-600"><CheckCircle2 className="h-3 w-3" /> Registered as {title}</p>
+                            )}
+                            {!users.some(u => sameText(u.leadOwner, title)) && !m.userId && (
+                              <p className="mt-1 text-xs text-amber-600">No one is registered as this office yet.</p>
+                            )}
                           </TableCell>
                           <TableCell className="min-w-[260px]">
                             <Input list="import-departments" value={m.department} onChange={(e) => setOwner(title, { department: e.target.value })} className={cn(missingDept && "border-destructive")} />
@@ -325,6 +368,66 @@ export function PlanImportClient({ users, departments }: { users: Person[]; depa
               </div>
             </CardContent>
           </Card>
+
+          <Dialog open={registeringTitle !== null} onOpenChange={(open) => { if (!open) setRegisteringTitle(null); }}>
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Register {registeringTitle}</DialogTitle>
+                <DialogDescription>
+                  Create the account for the person who holds this office. They'll be linked to it, so future imports match them automatically.
+                </DialogDescription>
+              </DialogHeader>
+              {registeringTitle && (() => {
+                const details = officeDetails(registeringTitle);
+                return (
+                  <>
+                    <div className="space-y-2 rounded-md border bg-muted/30 p-3 text-sm">
+                      <p className="font-medium">From the plan</p>
+                      <dl className="grid grid-cols-[150px_1fr] gap-x-3 gap-y-1">
+                        <dt className="text-muted-foreground">Lead / Owner</dt><dd className="font-medium">{registeringTitle}</dd>
+                        <dt className="text-muted-foreground">Activities</dt><dd>{details.owned.length} in {details.initiatives.length} initiative{details.initiatives.length === 1 ? "" : "s"}</dd>
+                        <dt className="text-muted-foreground">Department</dt><dd>{mapping[registeringTitle]?.department || registeringTitle}</dd>
+                        {details.collaborators.length > 0 && (<><dt className="text-muted-foreground">Works with</dt><dd>{details.collaborators.join(", ")}</dd></>)}
+                      </dl>
+                      <details>
+                        <summary className="cursor-pointer text-xs text-muted-foreground">Show the activities</summary>
+                        <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs">
+                          {details.owned.map(a => <li key={`${a.row}`}>{a.code} {a.title}{a.deliverable ? ` — ${a.deliverable}` : ""}</li>)}
+                        </ul>
+                      </details>
+                    </div>
+                    <UserForm
+                      user={null}
+                      fixedLeadOwnerName={registeringTitle}
+                      initialValues={{ department: mapping[registeringTitle]?.department || registeringTitle }}
+                      submitLabel="Register & assign"
+                      onCancel={() => setRegisteringTitle(null)}
+                      onSubmit={async (values) => {
+                        const result = await registerLeadOwnerUser({
+                          name: values.name,
+                          email: values.email,
+                          roleId: values.roleId,
+                          department: values.department || null,
+                          leadOwnerName: registeringTitle,
+                        });
+                        if (!result.success) {
+                          toast({ title: "Could not register", description: result.message, variant: "destructive" });
+                          return false; // keep the confirmation open so it can be corrected
+                        }
+                        handleRegistered(registeringTitle, {
+                          id: result.user.id,
+                          name: result.user.name,
+                          email: result.user.email,
+                          leadOwner: result.user.leadOwner ?? registeringTitle,
+                          department: result.user.department ?? null,
+                        });
+                      }}
+                    />
+                  </>
+                );
+              })()}
+            </DialogContent>
+          </Dialog>
 
           <Card>
             <CardContent className="space-y-3 pt-6">

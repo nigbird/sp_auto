@@ -38,6 +38,7 @@ function activityData(a: PlanActivity) {
         title: a.title.trim(),
         description: a.description ?? '',
         deliverable: a.deliverable?.trim() || null,
+        leadOwner: a.leadOwner?.trim() || null,
         department: a.department,
         responsibleId: a.responsible,
         startDate: new Date(a.startDate),

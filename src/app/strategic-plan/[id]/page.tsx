@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { getObjectiveWeight, getInitiativeWeight, getPillarWeight } from "@/lib/utils";
 import type { Pillar, Objective, Initiative, Activity } from "@/lib/types";
-import { ArrowLeft, BarChart3, Edit, User as UserIcon, Calendar, Weight, Info, PackageCheck } from "lucide-react";
+import { ArrowLeft, BarChart3, Edit, User as UserIcon, Users, Calendar, Weight, Info, PackageCheck } from "lucide-react";
 import { PublishButton } from "@/components/strategic-plan/publish-button";
 import { DeletePlanButton } from "@/components/strategic-plan/delete-plan-button";
 import { SendBreakdownRequestsButton } from "@/components/strategic-plan/send-breakdown-requests-button";
@@ -91,6 +91,9 @@ function BreakdownBadge({ activity }: { activity: Activity }) {
 
 function ActivityItem({ activity }: { activity: Activity }) {
     const responsible = activity.responsible as { name?: string };
+    // Imported activities keep the sheet's "Responsible / Collaborating Unit" text in the description.
+    const collaborators = (activity.description ?? '').match(/^Responsible \/ collaborating unit:\s*([\s\S]*)$/i)?.[1]?.trim();
+    const otherDescription = collaborators ? '' : (activity.description ?? '').trim();
     return (
         <div className="p-3 rounded-md border bg-background">
             <div className="flex flex-wrap justify-between items-start gap-2">
@@ -100,11 +103,15 @@ function ActivityItem({ activity }: { activity: Activity }) {
                 </p>
                 <BreakdownBadge activity={activity} />
             </div>
-            <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1.5">
-                    <UserIcon className="h-3 w-3" />
-                    <span>{responsible?.name}</span>
-                </div>
+
+            {/* Lead / Owner in full — the office, the person holding it, and their department. */}
+            <div className="mt-2 flex flex-wrap items-start gap-x-2 gap-y-1 rounded-md bg-muted/40 px-2 py-1.5 text-xs">
+                <span className="flex items-center gap-1 font-medium text-muted-foreground"><UserIcon className="h-3 w-3" /> Lead / Owner:</span>
+                <span className="font-semibold text-foreground">{activity.leadOwner || activity.department}</span>
+                <span className="text-muted-foreground">— {responsible?.name ?? 'Unassigned'}{activity.leadOwner && activity.department && activity.department !== activity.leadOwner ? `, ${activity.department}` : ''}</span>
+            </div>
+
+            <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1.5">
                     <Calendar className="h-3 w-3" />
                     <span>{format(new Date(activity.startDate), "MMM d")} - {format(new Date(activity.endDate), "MMM d, yyyy")}</span>
@@ -113,13 +120,19 @@ function ActivityItem({ activity }: { activity: Activity }) {
                     <Weight className="h-3 w-3" />
                     <span>Weight: {activity.weight}%</span>
                 </div>
-                {activity.description &&
-                    <div className="flex items-center gap-1.5">
-                        <Info className="h-3 w-3" />
-                        <span className="truncate">{activity.description}</span>
-                    </div>
-                }
             </div>
+            {collaborators && (
+                <p className="mt-2 flex items-start gap-1.5 text-xs">
+                    <Users className="h-3 w-3 mt-0.5 text-muted-foreground" />
+                    <span><span className="font-medium">Responsible / collaborating units:</span> {collaborators}</span>
+                </p>
+            )}
+            {otherDescription && (
+                <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
+                    <Info className="h-3 w-3 mt-0.5" />
+                    <span className="whitespace-pre-wrap">{otherDescription}</span>
+                </p>
+            )}
             {activity.deliverable && (
                 <p className="mt-2 flex items-start gap-1.5 text-xs">
                     <PackageCheck className="h-3 w-3 mt-0.5 text-muted-foreground" />

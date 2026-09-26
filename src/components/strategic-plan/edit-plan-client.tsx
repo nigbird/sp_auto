@@ -23,10 +23,11 @@ import { format } from "date-fns";
 import { calculateInitiativeWeight } from "@/lib/utils";
 import { planFormSchema, formatPlanIssue, type PlanFormValues, type PlanIssue } from "@/lib/plan-schema";
 import { applyIssuesToForm, collectPlanIssues, focusIssue, IssueSummary, ListIssue, PlanFormIssuesProvider, useAutoOpenAccordion } from "./plan-form-issues";
+import { ActivityLeadOwnerField, applyResponsibleDefaults, type PlanPerson } from "./activity-lead-owner-field";
 
 type FormValues = PlanFormValues;
 type PlanForm = UseFormReturn<FormValues>;
-type Person = { id: string; name: string };
+type Person = PlanPerson;
 
 function generateId(prefix: string) {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -40,7 +41,9 @@ const getOneMonthFromToday = () => {
 }
 
 function newActivity(users: Person[], departments: string[]) {
-    return { id: generateId('A'), title: '', weight: 0, description: '', deliverable: '', startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] ?? '', responsible: users[0]?.id ?? '' };
+    const person = users[0];
+    const department = person?.department && departments.includes(person.department) ? person.department : departments[0] ?? '';
+    return { id: generateId('A'), title: '', weight: 0, description: '', deliverable: '', startDate: getToday(), endDate: getOneMonthFromToday(), department, leadOwner: person?.leadOwner ?? '', responsible: person?.id ?? '' };
 }
 function newInitiative(users: Person[], departments: string[]) {
     return { id: generateId('I'), title: '', description: '', owners: users[0]?.id ? [users[0].id] : [], collaborators: [], activities: [newActivity(users, departments)] };
@@ -81,6 +84,7 @@ function planToFormValues(plan: StrategicPlan): FormValues {
                         weight: a.weight,
                         description: a.description ?? '',
                         deliverable: a.deliverable ?? '',
+                        leadOwner: a.leadOwner ?? '',
                         startDate: toDateInput(a.startDate),
                         endDate: toDateInput(a.endDate),
                         department: a.department,
@@ -404,8 +408,9 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users,
                                     <TableHead>Weight (%)</TableHead>
                                     <TableHead>Start</TableHead>
                                     <TableHead>End</TableHead>
-                                    <TableHead>Department</TableHead>
                                     <TableHead>Responsible</TableHead>
+                                    <TableHead>Lead / Owner</TableHead>
+                                    <TableHead>Department</TableHead>
                                     <TableHead><span className="sr-only">Remove</span></TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -419,23 +424,26 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users,
                                             <TableCell className="min-w-[100px]"><FormField control={control} name={`${aBase}.weight`} render={({ field }) => <FormItem><FormControl><Input type="number" step="0.01" min={0} max={100} {...field} /></FormControl><FormMessage /></FormItem>} /></TableCell>
                                             <TableCell className="min-w-[150px]"><FormField control={control} name={`${aBase}.startDate`} render={({ field }) => <FormItem><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>} /></TableCell>
                                             <TableCell className="min-w-[150px]"><FormField control={control} name={`${aBase}.endDate`} render={({ field }) => <FormItem><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>} /></TableCell>
+                                            <TableCell className="min-w-[170px]">
+                                                <FormField control={control} name={`${aBase}.responsible`} render={({ field }) => (
+                                                    <FormItem data-field-path={field.name} tabIndex={-1}>
+                                                        <Select onValueChange={(v) => { field.onChange(v); applyResponsibleDefaults(form, aBase, v, users, departments); }} value={field.value}>
+                                                            <FormControl><SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger></FormControl>
+                                                            <SelectContent>{userOptions.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}</SelectContent>
+                                                        </Select>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )} />
+                                            </TableCell>
+                                            <TableCell className="min-w-[220px]">
+                                                <ActivityLeadOwnerField form={form} name={`${aBase}.leadOwner`} />
+                                            </TableCell>
                                             <TableCell className="min-w-[150px]">
                                                 <FormField control={control} name={`${aBase}.department`} render={({ field }) => (
                                                     <FormItem data-field-path={field.name} tabIndex={-1}>
                                                         <Select onValueChange={field.onChange} value={field.value}>
                                                             <FormControl><SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger></FormControl>
                                                             <SelectContent>{departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-                                                        </Select>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )} />
-                                            </TableCell>
-                                            <TableCell className="min-w-[170px]">
-                                                <FormField control={control} name={`${aBase}.responsible`} render={({ field }) => (
-                                                    <FormItem data-field-path={field.name} tabIndex={-1}>
-                                                        <Select onValueChange={field.onChange} value={field.value}>
-                                                            <FormControl><SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger></FormControl>
-                                                            <SelectContent>{userOptions.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}</SelectContent>
                                                         </Select>
                                                         <FormMessage />
                                                     </FormItem>

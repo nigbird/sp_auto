@@ -13,7 +13,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         tabs={[
           { href: "/settings/reporting-periods", label: "Reporting Periods" },
           { href: "/settings/rules", label: "Performance Rules" },
-          { href: "/settings/departments", label: "Departments" },
+          { href: "/settings/organization", label: "Departments & Lead Owners" },
         ]}
       />
       {children}

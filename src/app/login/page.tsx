@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LoginIllustration } from "@/components/login/login-illustration";
+import { NibMark } from "@/components/login/nib-mark";
 import "@/components/login/login.css";
 
 export default function LoginPage() {
@@ -71,16 +72,24 @@ function Backdrop() {
 function IllustrationPanel() {
   return (
     <section className="relative hidden min-h-screen flex-col px-10 py-10 lg:flex xl:px-14">
-      <div className="relative z-10 flex flex-1 items-center justify-center py-6">
-        <LoginIllustration className="a-enter-scene h-auto w-full max-w-[740px]" />
+      <div className="a-enter relative z-10 flex items-center gap-3">
+        <NibMark className="h-11 w-11 shrink-0 drop-shadow-[0_4px_10px_rgba(121,86,63,0.18)]" />
+        <div className="leading-tight">
+          <p className="text-lg font-bold tracking-tight text-[#5B4030]">Nib International Bank</p>
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#8A7361]">Strategic Plan</p>
+        </div>
       </div>
 
-      <p
-        className="a-enter relative z-10 mb-14 max-w-md text-sm leading-relaxed text-[#8A7361]"
-        style={{ animationDelay: "0.3s" }}
-      >
-        Plan, track and report on strategic initiatives across every branch and department, all in one place.
-      </p>
+      {/* illustration and tagline as one centred group */}
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center py-6">
+        <LoginIllustration className="a-enter-scene h-auto w-full max-w-[740px]" />
+        <p
+          className="a-enter mt-2 max-w-md text-center text-sm leading-relaxed text-[#8A7361]"
+          style={{ animationDelay: "0.3s" }}
+        >
+          Plan, track and report on strategic initiatives across every branch and department, all in one place.
+        </p>
+      </div>
     </section>
   );
 }
@@ -93,7 +102,7 @@ function FormPanel() {
         {/* soft blurred glow around the card's outer edge */}
         <div className="pointer-events-none absolute -inset-6 rounded-[40px] bg-[radial-gradient(ellipse_at_center,rgba(255,250,240,0.55),rgba(230,194,122,0.10)_55%,transparent_75%)] blur-2xl" />
 
-        <div className="relative rounded-3xl border border-[#FAF8F4]/70 bg-[#F4EEE5]/[0.42] px-7 py-8 shadow-[0_18px_44px_-30px_rgba(121,86,63,0.3)] backdrop-blur-lg sm:px-9">
+        <div className="relative rounded-3xl border border-[#C9A36A]/40 bg-[#F4EEE5]/[0.5] px-7 py-8 shadow-[0_22px_50px_-24px_rgba(121,86,63,0.38),0_2px_6px_-2px_rgba(121,86,63,0.08)] ring-1 ring-inset ring-[#FFFDF8]/60 backdrop-blur-lg sm:px-9">
           <h1
             className="a-enter text-4xl font-bold tracking-tight text-[#5B4030]"
             style={{ animationDelay: "0.08s" }}
@@ -101,13 +110,13 @@ function FormPanel() {
             Hello!
           </h1>
           <p
-            className="a-enter bg-gradient-to-r from-[#D9A441] to-[#B98A5A] bg-clip-text pb-1 text-3xl font-bold tracking-tight text-transparent"
+            className={cn("a-enter pb-1 text-3xl font-bold tracking-tight", DEEP_GOLD_TEXT)}
             style={{ animationDelay: "0.16s" }}
           >
             Welcome back!
           </p>
-          <p className="a-enter mt-1 text-sm text-[#8A7361]" style={{ animationDelay: "0.24s" }}>
-            Sign in to your Strategic Plan workspace.
+          <p className="a-enter mt-1 text-sm leading-relaxed text-[#8A7361]" style={{ animationDelay: "0.24s" }}>
+            Sign in to your Nib International Bank Strategic Plan workspace.
           </p>
 
           <LoginForm />
@@ -116,6 +125,13 @@ function FormPanel() {
     </section>
   );
 }
+
+/**
+ * Deep antique gold for gold text on the cream card: #765618 keeps ≥4.5:1 (WCAG AA,
+ * normal text) even against the darker beige the frosted card can pick up. The
+ * brighter #D9A441 stays for the button, borders and decoration.
+ */
+const DEEP_GOLD_TEXT = "text-[#765618]";
 
 const fieldClass =
   "peer h-12 w-full rounded-xl border border-[#E4D6C3]/80 bg-[#FDFBF7]/70 pl-12 pr-4 text-[15px] text-[#5B4030] shadow-[0_4px_14px_-10px_rgba(121,86,63,0.25)] outline-none transition-all duration-300 placeholder:text-[#A8927E] hover:border-[#D9A441]/45 focus:border-[#D9A441]/70 focus:bg-[#FDFBF7]/90 focus:ring-4 focus:ring-[#D9A441]/[0.12] [&:-webkit-autofill]:[-webkit-text-fill-color:#5B4030] [&:-webkit-autofill]:[transition:background-color_9999s_ease-out] [&:-webkit-autofill]:shadow-[inset_0_0_0_40px_#FBF7F0]";
@@ -127,6 +143,7 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showResetHelp, setShowResetHelp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorKey, setErrorKey] = useState(0);
@@ -216,6 +233,26 @@ function LoginForm() {
             {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
           </button>
         </div>
+        {/* There is no self-service reset; point people to their administrator. */}
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowResetHelp((v) => !v)}
+            aria-expanded={showResetHelp}
+            aria-controls="reset-help"
+            className={cn(
+              "rounded text-sm font-medium underline-offset-4 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9A441]/50",
+              DEEP_GOLD_TEXT
+            )}
+          >
+            Forgot password?
+          </button>
+        </div>
+        {showResetHelp && (
+          <p id="reset-help" className="a-enter rounded-lg bg-[#FDFBF7]/70 px-3 py-2 text-xs leading-relaxed text-[#6B5443]">
+            Passwords are reset by your system administrator. Contact them and they will issue you a new one.
+          </p>
+        )}
       </div>
 
       {error && (

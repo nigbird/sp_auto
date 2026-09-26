@@ -25,9 +25,10 @@ import { format } from "date-fns";
 import { calculateInitiativeWeight } from "@/lib/utils";
 import { planFormSchema, sectionOfPath, formatPlanIssue, type PlanFormValues, type PlanIssue, type PlanSection } from "@/lib/plan-schema";
 import { applyIssuesToForm, collectPlanIssues, focusIssue, IssueSummary, ListIssue, PlanFormIssuesProvider, useAutoOpenAccordion } from "./plan-form-issues";
+import { ActivityLeadOwnerField, applyResponsibleDefaults, type PlanPerson } from "./activity-lead-owner-field";
 
 type FormValues = PlanFormValues;
-type Person = { id: string; name: string };
+type Person = PlanPerson;
 
 const TABS: { value: string; title: string; section: PlanSection | 'review' }[] = [
     { value: "plan-info", title: "Plan Info", section: 'plan-info' },
@@ -57,7 +58,9 @@ const getOneMonthFromToday = () => {
 }
 
 function newActivity(users: Person[], departments: string[], title = "", weight = 0) {
-    return { id: generateId('A'), title, weight, description: '', deliverable: '', startDate: getToday(), endDate: getOneMonthFromToday(), department: departments[0] ?? '', responsible: users[0]?.id ?? '' };
+    const person = users[0];
+    const department = person?.department && departments.includes(person.department) ? person.department : departments[0] ?? '';
+    return { id: generateId('A'), title, weight, description: '', deliverable: '', startDate: getToday(), endDate: getOneMonthFromToday(), department, leadOwner: person?.leadOwner ?? '', responsible: person?.id ?? '' };
 }
 function newInitiative(users: Person[], departments: string[], title = "") {
     return { id: generateId('I'), title, description: "", owners: users[0]?.id ? [users[0].id] : [], collaborators: [], activities: [newActivity(users, departments)] };
@@ -624,8 +627,9 @@ function ActivityTable({ pIndex, oIndex, iIndex, form, users, departments, userO
                             <TableHead>Weight (%)</TableHead>
                             <TableHead>Start Date</TableHead>
                             <TableHead>End Date</TableHead>
-                            <TableHead>Department</TableHead>
                             <TableHead>Responsible</TableHead>
+                            <TableHead>Lead / Owner</TableHead>
+                            <TableHead>Department</TableHead>
                             <TableHead><span className="sr-only">Remove</span></TableHead>
                         </TableRow>
                     </TableHeader>
@@ -672,6 +676,22 @@ function ActivityTable({ pIndex, oIndex, iIndex, form, users, departments, userO
                                         </FormItem>
                                     )} />
                                 </TableCell>
+                                <TableCell className="min-w-[170px]">
+                                    <FormField control={control} name={`${base}.${aIndex}.responsible`} render={({ field }) => (
+                                        <FormItem data-field-path={field.name} tabIndex={-1}>
+                                            <Select onValueChange={(v) => { field.onChange(v); applyResponsibleDefaults(form, `${base}.${aIndex}`, v, users, departments); }} value={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>{userOptions.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}</SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                </TableCell>
+                                <TableCell className="min-w-[220px]">
+                                    <ActivityLeadOwnerField form={form} name={`${base}.${aIndex}.leadOwner`} />
+                                </TableCell>
                                 <TableCell className="min-w-[150px]">
                                     <FormField control={control} name={`${base}.${aIndex}.department`} render={({ field }) => (
                                         <FormItem data-field-path={field.name} tabIndex={-1}>
@@ -680,19 +700,6 @@ function ActivityTable({ pIndex, oIndex, iIndex, form, users, departments, userO
                                                     <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>{departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                </TableCell>
-                                <TableCell className="min-w-[170px]">
-                                    <FormField control={control} name={`${base}.${aIndex}.responsible`} render={({ field }) => (
-                                        <FormItem data-field-path={field.name} tabIndex={-1}>
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>{userOptions.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}</SelectContent>
                                             </Select>
                                             <FormMessage />
                                         </FormItem>
@@ -745,7 +752,7 @@ function ReviewSection({ values, users }: { values: FormValues; users: Person[] 
                                     <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
                                         {initiative.activities.map((activity, aIndex) => (
                                             <li key={activity.id ?? aIndex}>
-                                                <span className="font-semibold text-foreground">{activity.title}</span> — {activity.weight}% · {activity.startDate} to {activity.endDate} · {nameOf(activity.responsible)}
+                                                <span className="font-semibold text-foreground">{activity.title}</span> — {activity.weight}% · {activity.startDate} to {activity.endDate} · {nameOf(activity.responsible)}{activity.leadOwner ? ` (${activity.leadOwner})` : ""}
                                                 {activity.deliverable ? <> · <span className="italic">Deliverable: {activity.deliverable}</span></> : null}
                                             </li>
                                         ))}

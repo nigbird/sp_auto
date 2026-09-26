@@ -139,6 +139,18 @@ model Milestone {
   @@index([initiativeId])
 }
 
+/// An office that leads activities in the plan, e.g. "Chief Strategy Officer"
+/// (the Excel's "Lead/ Owner (Activity)" column).
+model LeadOwner {
+  id         String  @id @default(cuid())
+  name       String  @unique
+  department String?
+  users      User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Department {
   id   String @id @default(cuid())
   name String @unique
@@ -152,6 +164,9 @@ model Activity {
   title           String
   description     String?
   department      String
+  // The lead-owner office for this activity, kept as written so the plan
+  // shows it even if the office list changes later.
+  leadOwner       String?
   responsible     User           @relation(fields: [responsibleId], references: [id])
   responsibleId   String
   startDate       DateTime
@@ -335,6 +350,11 @@ model User {
   sessions       ActiveSession[]
   uploadedEvidence Evidence[]
   ownedInitiatives Initiative[]
+  // The office this person holds (e.g. "Chief Strategy Officer") and their
+  // department. Both optional; used to match plan lead owners to people.
+  leadOwner        LeadOwner?   @relation(fields: [leadOwnerId], references: [id], onDelete: SetNull)
+  leadOwnerId      String?
+  department       String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

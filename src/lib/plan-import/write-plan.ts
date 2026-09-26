@@ -35,6 +35,17 @@ export async function writeImportedPlan(tx: Prisma.TransactionClient, parsed: Pa
     await tx.department.upsert({ where: { name: dept }, update: {}, create: { name: dept } });
   }
 
+  // Every office in the sheet joins the Lead Owners list, and the person picked
+  // for it is linked to it unless they already hold an office — so the next
+  // import matches them automatically.
+  for (const title of parsed.leadOwners) {
+    const { userId, department } = map(title);
+    const office = await tx.leadOwner.findFirst({ where: { name: { equals: title, mode: 'insensitive' } } })
+      ?? await tx.leadOwner.create({ data: { name: title, department } });
+    await tx.user.updateMany({ where: { id: userId, leadOwnerId: null }, data: { leadOwnerId: office.id } });
+    await tx.user.updateMany({ where: { id: userId, department: null }, data: { department } });
+  }
+
   const plan = await tx.strategicPlan.create({ data: { name, version, startYear, endYear, status: 'DRAFT' } });
 
   const activityData = (a: ImportActivity) => {
@@ -46,6 +57,7 @@ export async function writeImportedPlan(tx: Prisma.TransactionClient, parsed: Pa
       description: a.collaborators ? `Responsible / collaborating unit: ${a.collaborators}` : '',
       deliverable: a.deliverable || null,
       department: owner.department,
+      leadOwner: a.leadOwner || null,
       responsibleId: owner.userId,
       startDate: new Date(a.startDate),
       endDate: new Date(a.endDate),

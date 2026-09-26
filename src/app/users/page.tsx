@@ -39,7 +39,6 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
 import { getUsers, createUser, updateUser, deleteUser } from "@/actions/users";
-import { getRoles } from "@/actions/roles";
 import type { User } from "@/lib/types";
 import { format } from "date-fns";
 import { UserForm, UserFormValues } from "@/components/settings/user-form";
@@ -84,14 +83,15 @@ export default function UsersPage() {
   };
 
   const handleRegisterUser = async (values: UserFormValues) => {
-    try {
-      await createUser({ name: values.name, email: values.email, roleId: values.roleId });
-    } catch (error) {
-      toast({
-        title: "Could Not Register User",
-        description: error instanceof Error ? error.message : "An unexpected error occurred.",
-        variant: "destructive",
-      });
+    const result = await createUser({
+      name: values.name,
+      email: values.email,
+      roleId: values.roleId,
+      leadOwnerId: values.leadOwnerId || null,
+      department: values.department || null,
+    });
+    if (!result.success) {
+      toast({ title: "Could Not Register User", description: result.message, variant: "destructive" });
       return;
     }
     setUsers(await getUsers());
@@ -104,12 +104,18 @@ export default function UsersPage() {
 
   const handleUpdateUser = async (values: UserFormValues) => {
     if (!selectedUser) return;
-    const roles = await getRoles();
-    const roleName = roles.find((r) => r.id === values.roleId)?.name ?? selectedUser.role;
-    await updateUser(selectedUser.email, { name: values.name, roleId: values.roleId });
-    setUsers(users.map(user =>
-        user.email === selectedUser.email ? { ...user, name: values.name, role: roleName, roleId: values.roleId } : user
-    ));
+    try {
+      await updateUser(selectedUser.email, {
+        name: values.name,
+        roleId: values.roleId,
+        leadOwnerId: values.leadOwnerId || null,
+        department: values.department || null,
+      });
+    } catch (error) {
+      toast({ title: "Could Not Update User", description: error instanceof Error ? error.message : "An unexpected error occurred.", variant: "destructive" });
+      return;
+    }
+    setUsers(await getUsers());
     setIsEditDialogOpen(false);
     setSelectedUser(null);
     toast({
@@ -152,6 +158,8 @@ export default function UsersPage() {
               <TableRow>
                 <TableHead>User</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Lead Owner</TableHead>
+                <TableHead>Department</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead><span className="sr-only">Actions</span></TableHead>
@@ -160,7 +168,7 @@ export default function UsersPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     Loading users...
                   </TableCell>
                 </TableRow>
@@ -180,6 +188,8 @@ export default function UsersPage() {
                         </div>
                     </TableCell>
                   <TableCell>{user.role}</TableCell>
+                  <TableCell className="max-w-[220px]">{user.leadOwner ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                  <TableCell>{user.department ?? <span className="text-muted-foreground">—</span>}</TableCell>
                    <TableCell>
                     <Badge variant={user.status === 'Active' ? 'default' : 'secondary'} className={user.status === 'Active' ? 'bg-green-500/20 text-green-700 border-green-400' : ''}>
                       {user.status}

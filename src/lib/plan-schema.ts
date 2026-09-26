@@ -22,6 +22,7 @@ export const planActivitySchema = z.object({
   responsible: z.string().min(1, "Responsible person is required"),
   description: z.string().optional(),
   deliverable: z.string().max(1000, "Deliverable must be 1000 characters or less").optional(),
+  leadOwner: z.string().max(200, "Lead owner must be 200 characters or less").optional(),
   countsTowardWeight: z.boolean().optional(),
 }).refine((data) => !isValidDate(data.startDate) || !isValidDate(data.endDate) || new Date(data.endDate) > new Date(data.startDate), {
   message: "End date must be after the start date",
@@ -105,6 +106,7 @@ const FIELD_LABELS: Record<string, string> = {
   department: 'Department',
   responsible: 'Responsible',
   deliverable: 'Deliverable',
+  leadOwner: 'Lead / Owner',
   _weight: 'Total weight',
 };
 
