@@ -346,24 +346,6 @@ export async function declineActivityPlan(activityId: string, reason: string): P
 }
 
 /**
- * The admin-facing list for the "Send Plan Requests" screen: every initiative
- * in a published plan with its activities' request status.
- */
-export async function getInitiativesForPlanRequests() {
-    await requirePermission('activities:edit');
-
-    return prisma.initiative.findMany({
-        where: { objective: { pillar: { strategicPlan: { status: 'PUBLISHED' } } } },
-        include: {
-            owner: { select: publicUserSelect },
-            objective: { include: { pillar: true } },
-            activities: { include: { responsible: { select: publicUserSelect } } },
-        },
-        orderBy: { title: 'asc' },
-    });
-}
-
-/**
  * Marks the given activities' breakdown requests as SENT to each activity's
  * responsible person and notifies them. Already-sent activities are left
  * alone; ones declined under the old accept/decline flow are re-sent.
@@ -400,24 +382,6 @@ async function sendRequests(where: { initiativeId?: string; strategicPlanId?: st
 
     revalidateBreakdownPages();
     return activities.length;
-}
-
-async function isInitiativeInPublishedPlan(initiativeId: string) {
-    const initiative = await prisma.initiative.findUnique({
-        where: { id: initiativeId },
-        select: { objective: { select: { pillar: { select: { strategicPlan: { select: { status: true } } } } } } },
-    });
-    return initiative?.objective.pillar.strategicPlan?.status === 'PUBLISHED';
-}
-
-export async function sendPlanRequestsForInitiative(initiativeId: string): Promise<BreakdownActionResult & { sent?: number }> {
-    const sender = await requirePermission('activities:edit');
-    if (!(await isInitiativeInPublishedPlan(initiativeId))) {
-        return fail("Publish this initiative's strategic plan before sending breakdown requests.");
-    }
-    const sent = await sendRequests({ initiativeId }, sender.id);
-    if (sent === 0) return fail("Every activity in this initiative already has a breakdown request.");
-    return { success: true, sent };
 }
 
 /** The "send monthly breakdown requests" button on a published plan. */

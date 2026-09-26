@@ -4,7 +4,8 @@ import * as React from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import {
-  ArrowRight, CalendarClock, Check, CheckCircle2, ChevronDown, ChevronUp, FileText, PencilLine, ShieldQuestion, ShieldX, TableProperties,
+  AlertTriangle, ArrowRight, CalendarClock, Check, CheckCircle2, ChevronDown, ChevronUp, ClipboardList, FileText, Hourglass, List,
+  PencilLine, ShieldQuestion, ShieldX, TableProperties,
 } from "lucide-react";
 import type { Activity } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -243,12 +244,12 @@ function TodoRow({ icon, text, action }: { icon: React.ReactNode; text: React.Re
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-const FILTERS: { id: OverviewFilter; label: string; hint: string }[] = [
-  { id: 'all', label: 'All', hint: 'Every activity you are responsible for in this plan.' },
-  { id: 'todo', label: 'Needs your action', hint: 'Activities where you have a breakdown or report to fill in, or a declined activity to fix.' },
-  { id: 'waiting', label: 'Waiting for approval', hint: 'You submitted something (activity, breakdown or report) and an approver hasn\'t decided yet.' },
-  { id: 'behind', label: 'Behind schedule', hint: 'Delayed according to your approved reports, or past the end date and not complete.' },
-  { id: 'completed', label: 'Completed', hint: 'Reported as done in an approved report.' },
+const FILTERS: { id: OverviewFilter; label: string; short: string; hint: string; icon: React.ReactNode }[] = [
+  { id: 'all', label: 'All activities', short: 'Assigned to you', icon: <List className="h-4 w-4 text-muted-foreground" />, hint: 'every activity you are responsible for in this plan.' },
+  { id: 'todo', label: 'Needs your action', short: 'Breakdown or report to fill in', icon: <ClipboardList className="h-4 w-4 text-amber-600" />, hint: 'a breakdown or report to fill in, or a declined activity to fix.' },
+  { id: 'waiting', label: 'Waiting for approval', short: 'With an approver', icon: <Hourglass className="h-4 w-4 text-blue-600" />, hint: "you submitted something (activity, breakdown or report) and an approver hasn't decided yet." },
+  { id: 'behind', label: 'Behind schedule', short: 'Delayed or overdue', icon: <AlertTriangle className="h-4 w-4 text-destructive" />, hint: 'delayed according to your approved reports, or past the end date and not complete.' },
+  { id: 'completed', label: 'Completed', short: 'Reported as done', icon: <CheckCircle2 className="h-4 w-4 text-green-600" />, hint: 'reported as done in an approved report.' },
 ];
 
 /**
@@ -366,7 +367,7 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
       </Card>
 
       <div className="space-y-3">
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filter activities">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5" role="tablist" aria-label="Filter activities">
           {FILTERS.map(f => (
             <button
               key={f.id}
@@ -375,15 +376,22 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
               aria-selected={filter === f.id}
               onClick={() => setFilter(f.id)}
               className={cn(
-                "rounded-full border px-3 py-1 text-sm transition-colors",
-                filter === f.id ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-muted"
+                "flex flex-col rounded-lg border bg-card p-4 text-left shadow-sm transition-colors hover:bg-muted/50",
+                filter === f.id && "border-primary bg-primary/5 ring-1 ring-primary"
               )}
             >
-              {f.label} <span className="ml-1 font-semibold">{groups[f.id].length}</span>
+              <span className="flex items-center justify-between gap-2 text-sm font-medium">
+                {f.label}
+                {f.icon}
+              </span>
+              <span className="mt-2 text-3xl font-bold">{groups[f.id].length}</span>
+              <span className="mt-1 text-xs text-muted-foreground">{f.short}</span>
             </button>
           ))}
         </div>
-        <p className="text-sm text-muted-foreground">{activeMeta.hint}</p>
+        <p className="text-sm text-muted-foreground">
+          Showing <span className="font-medium text-foreground">{activeMeta.label.toLowerCase()}</span> ({shown.length}): {activeMeta.hint}
+        </p>
       </div>
 
       <div className="space-y-4">

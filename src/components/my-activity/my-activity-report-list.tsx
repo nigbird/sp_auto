@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { format } from "date-fns";
-import { AlertCircle, Check, ClipboardList, Loader2, ShieldQuestion, ShieldX } from "lucide-react";
+import { AlertCircle, AlertTriangle, Check, CheckCircle2, ClipboardList, Hourglass, List, Loader2, PencilLine, ShieldQuestion, ShieldX, TrendingDown, Undo2 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -242,10 +242,38 @@ function ReportCard({ entry, onChanged }: { entry: PeriodReportEntry; onChanged:
   );
 }
 
+const isEditableStatus = (e: PeriodReportEntry) => e.reportStatus === 'REQUESTED' || e.reportStatus === 'RETURNED';
+const periodOpen = (e: PeriodReportEntry) => !isPeriodClosedForSubmissions(e.reportingPeriod);
+
+function approvedRow(e: PeriodReportEntry) {
+  const a = e.activity;
+  return computeReportRow(
+    { weight: a.weight, countsTowardWeight: a.countsTowardWeight, targetType: a.targetType, annualTarget: a.annualTarget, targetAggregation: a.targetAggregation, targetDirection: a.targetDirection, monthlyTargets: a.monthlyTargets },
+    { actualToDate: e.actualToDate, completionDate: e.completionDate },
+    e.reportingPeriod.endDate
+  );
+}
+
+/** Approved, and the activity reported as finished (a completion date is required once the annual target is reached). */
+const isCompletedAsPerTarget = (e: PeriodReportEntry) => e.reportStatus === 'APPROVED' && !!e.completionDate;
+
+type ReportFilter = 'all' | 'toFill' | 'returned' | 'overdue' | 'waiting' | 'approved' | 'completed' | 'behind';
+
+const REPORT_FILTERS: { id: ReportFilter; label: string; short: string; icon: React.ReactNode; test: (e: PeriodReportEntry) => boolean }[] = [
+  { id: 'all', label: 'All reports', short: 'Requested from you', icon: <List className="h-4 w-4 text-muted-foreground" />, test: () => true },
+  { id: 'toFill', label: 'Not started', short: 'To fill in before the cut-off', icon: <PencilLine className="h-4 w-4 text-amber-600" />, test: e => e.reportStatus === 'REQUESTED' && periodOpen(e) },
+  { id: 'returned', label: 'Returned', short: 'Sent back — fix and resubmit', icon: <Undo2 className="h-4 w-4 text-destructive" />, test: e => e.reportStatus === 'RETURNED' && periodOpen(e) },
+  { id: 'overdue', label: 'Overdue', short: 'Cut-off passed, not submitted', icon: <AlertTriangle className="h-4 w-4 text-destructive" />, test: e => isEditableStatus(e) && !periodOpen(e) },
+  { id: 'waiting', label: 'Waiting for approval', short: 'Submitted, with an approver', icon: <Hourglass className="h-4 w-4 text-blue-600" />, test: e => e.reportStatus === 'SUBMITTED' },
+  { id: 'approved', label: 'Approved', short: 'Counted on the plan', icon: <Check className="h-4 w-4 text-green-600" />, test: e => e.reportStatus === 'APPROVED' },
+  { id: 'completed', label: 'Completed as per target', short: 'Approved and finished', icon: <CheckCircle2 className="h-4 w-4 text-green-600" />, test: isCompletedAsPerTarget },
+  { id: 'behind', label: 'Behind plan', short: 'Approved, actual below plan', icon: <TrendingDown className="h-4 w-4 text-amber-600" />, test: e => e.reportStatus === 'APPROVED' && approvedRow(e).isBehindPlan },
+];
 /** Reporting → My Reports: every period report requested from the current user, newest period first. */
 export function MyActivityReportList({ initialEntries }: { initialEntries?: PeriodReportEntry[] }) {
   // Server-rendered pages pass the first load in; the list only fetches itself to refresh after a submit.
   const [entries, setEntries] = React.useState<PeriodReportEntry[] | null>(initialEntries ?? null);
+  const [filter, setFilter] = React.useState<ReportFilter>('all');
 
   const load = React.useCallback(async () => {
     setEntries(await getMyPeriodReports());
@@ -257,8 +285,12 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
     return <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading reports…</p>;
   }
 
+  const counts = Object.fromEntries(REPORT_FILTERS.map(f => [f.id, entries.filter(e => f.test(e)).length])) as Record<ReportFilter, number>;
+  const activeFilter = REPORT_FILTERS.find(f => f.id === filter)!;
+  const shown = entries.filter(activeFilter.test);
+
   const byPeriod = new Map<string, PeriodReportEntry[]>();
-  for (const e of entries) byPeriod.set(e.reportingPeriod.id, [...(byPeriod.get(e.reportingPeriod.id) ?? []), e]);
+  for (const e of shown) byPeriod.set(e.reportingPeriod.id, [...(byPeriod.get(e.reportingPeriod.id) ?? []), e]);
   const toFill = entries.filter(e => (e.reportStatus === 'REQUESTED' || e.reportStatus === 'RETURNED') && !isPeriodClosedForSubmissions(e.reportingPeriod)).length;
 
   return (
@@ -271,6 +303,35 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
             : toFill > 0 ? `${toFill} ${toFill === 1 ? 'report needs' : 'reports need'} to be filled in.` : 'Nothing is waiting on you right now.'}
         </p>
       </div>
+      {entries.length > 0 && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4" role="tablist" aria-label="Filter reports">
+            {REPORT_FILTERS.map(f => (
+              <button
+                key={f.id}
+                type="button"
+                role="tab"
+                aria-selected={filter === f.id}
+                onClick={() => setFilter(f.id)}
+                className={cn(
+                  "flex flex-col rounded-lg border bg-card p-4 text-left shadow-sm transition-colors hover:bg-muted/50",
+                  filter === f.id && "border-primary bg-primary/5 ring-1 ring-primary"
+                )}
+              >
+                <span className="flex items-center justify-between gap-2 text-sm font-medium">{f.label}{f.icon}</span>
+                <span className="mt-2 text-3xl font-bold">{counts[f.id]}</span>
+                <span className="mt-1 text-xs text-muted-foreground">{f.short}</span>
+              </button>
+            ))}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Showing <span className="font-medium text-foreground">{activeFilter.label.toLowerCase()}</span> ({shown.length}){filter !== 'all' && <> · <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => setFilter('all')}>show all</button></>}
+          </p>
+        </div>
+      )}
+      {entries.length > 0 && shown.length === 0 && (
+        <Card><CardContent className="pt-6"><p className="text-center text-muted-foreground">No reports in this category.</p></CardContent></Card>
+      )}
       {Array.from(byPeriod.values()).map(periodEntries => {
         const period = periodEntries[0].reportingPeriod;
         return (
