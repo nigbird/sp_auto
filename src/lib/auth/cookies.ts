@@ -11,7 +11,7 @@ const baseCookieOptions = {
 
 export async function setAuthCookies(
   response: NextResponse,
-  params: { accessJwt: string; refreshOpaqueToken: string }
+  params: { accessJwt: string; refreshOpaqueToken: string | null }
 ): Promise<void> {
   const encryptedAccess = await encryptForCookie(params.accessJwt);
 
@@ -20,10 +20,14 @@ export async function setAuthCookies(
     maxAge: ACCESS_TOKEN_TTL_SECONDS,
   });
 
-  response.cookies.set(REFRESH_COOKIE_NAME, params.refreshOpaqueToken, {
-    ...baseCookieOptions,
-    maxAge: REFRESH_TOKEN_TTL_SECONDS,
-  });
+  // Null on the concurrent-refresh grace path: the browser already holds the
+  // newer refresh cookie, so don't overwrite it.
+  if (params.refreshOpaqueToken) {
+    response.cookies.set(REFRESH_COOKIE_NAME, params.refreshOpaqueToken, {
+      ...baseCookieOptions,
+      maxAge: REFRESH_TOKEN_TTL_SECONDS,
+    });
+  }
 }
 
 export function clearAuthCookies(response: NextResponse): void {

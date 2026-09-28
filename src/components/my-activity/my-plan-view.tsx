@@ -64,7 +64,7 @@ export function MyPlanView({ plans, plan, activities, reports, periods, users }:
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">My Plan</h1>
           <p className="text-muted-foreground">
-            The activities you are responsible for: what's approved, what needs your input, and how they're progressing.
+            Your activities and their progress.
           </p>
         </div>
         {plans.length > 0 && (
