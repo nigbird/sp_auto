@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { matchesSearch } from "@/lib/list-filters";
+import { SearchBox } from "../list-controls";
 import { REPORT_COLUMNS, REPORT_VIEWS, statusClass, type ColumnGroup, type ReportColumn } from "./performance-report-columns";
 
 /** Plain, pre-computed report data: cells are strings in REPORT_COLUMNS order. */
@@ -17,8 +19,25 @@ type View = ColumnGroup | 'all';
  * "All columns" keeps the full sheet layout and scrolls sideways. The header
  * and the activity column stay pinned while scrolling.
  */
-export function PerformanceReportGrid({ pillars }: { pillars: GridPillar[] }) {
+export function PerformanceReportGrid({ pillars: allPillars }: { pillars: GridPillar[] }) {
   const [view, setView] = useState<View>('progress');
+  const [query, setQuery] = useState('');
+  // Search keeps the pillar → objective → initiative grouping: a match on a group shows all of it.
+  const pillars = useMemo(() => {
+    if (!query.trim()) return allPillars;
+    return allPillars.map(p => ({
+      ...p,
+      objectives: p.objectives.map(o => ({
+        ...o,
+        initiatives: o.initiatives.map(i => ({
+          ...i,
+          rows: matchesSearch(query, p.title, o.statement, i.title) ? i.rows : i.rows.filter(r => matchesSearch(query, r.title, r.owner)),
+        })).filter(i => i.rows.length > 0),
+      })).filter(o => o.initiatives.length > 0),
+    })).filter(p => p.objectives.length > 0);
+  }, [allPillars, query]);
+  const total = allPillars.reduce((s, p) => s + p.objectives.reduce((s2, o) => s2 + o.initiatives.reduce((s3, i) => s3 + i.rows.length, 0), 0), 0);
+  const shown = pillars.reduce((s, p) => s + p.objectives.reduce((s2, o) => s2 + o.initiatives.reduce((s3, i) => s3 + i.rows.length, 0), 0), 0);
   const columns = REPORT_COLUMNS
     .map((column, index) => ({ column, index }))
     .filter(({ column }) => view === 'all' || column.group === view);
@@ -46,6 +65,11 @@ export function PerformanceReportGrid({ pillars }: { pillars: GridPillar[] }) {
         </div>
         <p className="text-xs text-muted-foreground">{REPORT_VIEWS.find(v => v.id === view)?.hint}</p>
       </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <SearchBox value={query} onChange={setQuery} placeholder="Search activity, owner, initiative or pillar" className="sm:w-96" />
+        {query.trim() && <p className="text-sm text-muted-foreground">{shown} of {total} activities match</p>}
+      </div>
+      {query.trim() && shown === 0 && <p className="rounded-md border p-6 text-center text-sm text-muted-foreground">No activities match “{query.trim()}”.</p>}
 
       <ScrollFrame resetKey={view}>
         <table className="w-full border-separate border-spacing-0 text-xs">

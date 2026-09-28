@@ -17,6 +17,8 @@ import { getActivityBreakdown, submitActivityBreakdown, proposeActivityWithBreak
 import { useToast } from "@/hooks/use-toast";
 import { monthKey, monthsBetween, type TargetType } from "@/lib/monthly-breakdown";
 import { BreakdownEditor, BreakdownStrip, breakdownDraftFrom, draftEntries, emptyBreakdownDraft, validateDraft, type BreakdownDraft } from "./breakdown-editor";
+import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } from "../list-controls";
+import { isRangeSet, matchesSearch, overlapsDateRange, type DateRangeValue } from "@/lib/list-filters";
 
 type BreakdownActivity = Activity & { monthlyTargets?: { month: string; value: number }[] };
 
@@ -315,6 +317,14 @@ export function MyActivityPlanList({ activities, plan, onChanged }: { activities
   const waitingCount = activities.length - actionable.length;
   const needsAction = actionable.filter(a => isRequestOpen(a) && (a.planSubmissionStatus == null || a.planSubmissionStatus === 'DECLINED'));
 
+  const [query, setQuery] = React.useState('');
+  const [range, setRange] = React.useState<DateRangeValue>({});
+  const narrowed = query.trim() !== '' || isRangeSet(range);
+  const matching = actionable.filter(a =>
+    overlapsDateRange(a.startDate, a.endDate, range) &&
+    matchesSearch(query, a.title, initiativeTitles.get(a.initiativeId), a.deliverable));
+  const pagination = usePagination(matching, `${query}|${range.from}|${range.to}`);
+
   if (activities.length === 0) {
     return (
       <Card>
@@ -345,9 +355,18 @@ export function MyActivityPlanList({ activities, plan, onChanged }: { activities
         </Card>
       ) : (
         <div className="space-y-4">
-          {actionable.map((activity) => (
+          <ListToolbar count={narrowed ? `${matching.length} of ${actionable.length} match` : undefined}>
+            <SearchBox value={query} onChange={setQuery} placeholder="Search activity, initiative or deliverable" />
+            <DateRangeFilter value={range} onChange={setRange} label="Any dates" hint="Shows activities that run at any point in this range." />
+            {narrowed && <Button variant="ghost" className="h-10 px-3" onClick={() => { setQuery(''); setRange({}); }}>Reset</Button>}
+          </ListToolbar>
+          {matching.length === 0 && (
+            <Card><CardContent className="pt-6"><p className="text-center text-muted-foreground">No activities match the search or dates.</p></CardContent></Card>
+          )}
+          {pagination.items.map((activity) => (
             <PlanCard key={activity.id} activity={activity} initiativeTitle={initiativeTitles.get(activity.initiativeId)} onChanged={onChanged} />
           ))}
+          <Pagination state={pagination} noun="activities" />
         </div>
       )}
     </div>

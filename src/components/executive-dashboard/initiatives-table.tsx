@@ -4,6 +4,8 @@ import { Fragment, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { INITIATIVE_STATUS_LABEL, INITIATIVE_STATUS_ORDER, type InitiativeStatus, type InitiativeSummary, type NarrativeItem } from "@/lib/dashboard-metrics";
+import { overlapsDateRange, type DateRangeValue } from "@/lib/list-filters";
+import { DateRangeFilter, Pagination, usePagination } from "../list-controls";
 import { MeterBar, RatingChip, STATUS_COLOR, StatusPill, pct, pillarColor, shortDate, weightPct } from "./primitives";
 
 type SortKey = "code" | "achieved" | "planned" | "total" | "due";
@@ -22,6 +24,7 @@ export function InitiativesTable({ initiatives }: { initiatives: InitiativeSumma
   const [status, setStatus] = useState<InitiativeStatus | "all">("all");
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "code", dir: 1 });
   const [open, setOpen] = useState<Set<string>>(new Set());
+  const [range, setRange] = useState<DateRangeValue>({});
 
   const pillars = useMemo(() => [...new Set(initiatives.map(i => i.pillarCode))], [initiatives]);
   const counts = useMemo(() => {
@@ -45,11 +48,13 @@ export function InitiativesTable({ initiatives }: { initiatives: InitiativeSumma
       .filter(i => pillar === "all" || i.pillarCode === pillar)
       .filter(i => status === "all" || i.status === status)
       .filter(i => !q || `${i.code} ${i.title} ${i.owner}`.toLowerCase().includes(q))
+      .filter(i => overlapsDateRange(i.startDate, i.dueDate, range))
       .sort((a, b) => {
         const va = value(a), vb = value(b);
         return (va < vb ? -1 : va > vb ? 1 : 0) * sort.dir;
       });
-  }, [initiatives, pillar, status, query, sort]);
+  }, [initiatives, pillar, status, query, sort, range]);
+  const pagination = usePagination(rows, `${query}|${pillar}|${status}|${range.from}|${range.to}|${sort.key}|${sort.dir}`, 25);
 
   const toggle = (id: string) => setOpen(prev => {
     const next = new Set(prev);
@@ -71,6 +76,7 @@ export function InitiativesTable({ initiatives }: { initiatives: InitiativeSumma
             className="h-9 w-64 rounded-xl border bg-background pl-9 pr-3 text-sm outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
           />
         </div>
+        <DateRangeFilter value={range} onChange={setRange} label="Any dates" hint="Shows initiatives whose activities run at any point in this range." className="h-9 rounded-xl" />
         <div className="inline-flex flex-wrap rounded-xl bg-muted p-0.5">
           {["all", ...pillars].map(p => (
             <button
@@ -111,7 +117,7 @@ export function InitiativesTable({ initiatives }: { initiatives: InitiativeSumma
             </tr>
           </thead>
           <tbody className="divide-y">
-            {rows.map(i => {
+            {pagination.items.map(i => {
               const { rollup, totalWeight, coverage } = i.summary;
               const hasPlan = rollup.weightedPlan > 0;
               const isOpen = open.has(i.id);
@@ -174,6 +180,7 @@ export function InitiativesTable({ initiatives }: { initiatives: InitiativeSumma
           </tbody>
         </table>
       </div>
+      <Pagination state={pagination} noun="initiatives" className="mt-4" />
     </div>
   );
 }

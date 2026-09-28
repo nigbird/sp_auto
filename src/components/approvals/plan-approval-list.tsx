@@ -12,6 +12,8 @@ import { approveActivityPlan, declineActivityPlan } from "@/actions/activity-pla
 import { useToast } from "@/hooks/use-toast";
 import { monthKey, monthsBetween, type TargetAggregation, type TargetType } from "@/lib/monthly-breakdown";
 import { BreakdownStrip } from "../my-activity/breakdown-editor";
+import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } from "../list-controls";
+import { isRangeSet, matchesSearch, overlapsDateRange, type DateRangeValue } from "@/lib/list-filters";
 
 export interface PendingActivityPlan {
   id: string;
@@ -79,6 +81,14 @@ export function PlanApprovalList({ plans: initialPlans }: { plans: PendingActivi
     }
   };
 
+  const [query, setQuery] = React.useState("");
+  const [range, setRange] = React.useState<DateRangeValue>({});
+  const narrowed = query.trim() !== "" || isRangeSet(range);
+  const matching = plans.filter(p =>
+    overlapsDateRange(p.startDate, p.endDate, range) &&
+    matchesSearch(query, p.title, p.department, p.responsible?.name, p.initiative?.title, p.deliverable));
+  const pagination = usePagination(matching, `${query}|${range.from}|${range.to}`);
+
   if (plans.length === 0) {
     return (
       <Card>
@@ -91,7 +101,15 @@ export function PlanApprovalList({ plans: initialPlans }: { plans: PendingActivi
 
   return (
     <div className="space-y-4">
-      {plans.map((plan) => (
+      <ListToolbar count={narrowed ? `${matching.length} of ${plans.length} match` : `${plans.length} waiting`}>
+        <SearchBox value={query} onChange={setQuery} placeholder="Search activity, owner or initiative" />
+        <DateRangeFilter value={range} onChange={setRange} label="Any dates" hint="Shows activities that run at any point in this range." />
+        {narrowed && <Button variant="ghost" className="h-10 px-3" onClick={() => { setQuery(""); setRange({}); }}>Reset</Button>}
+      </ListToolbar>
+      {matching.length === 0 && (
+        <Card><CardContent className="pt-6"><p className="text-center text-muted-foreground">No waiting breakdowns match the search or dates.</p></CardContent></Card>
+      )}
+      {pagination.items.map((plan) => (
         <Card key={plan.id}>
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div className="space-y-1">
@@ -138,6 +156,7 @@ export function PlanApprovalList({ plans: initialPlans }: { plans: PendingActivi
           </CardContent>
         </Card>
       ))}
+      <Pagination state={pagination} noun="breakdowns" />
 
       <AlertDialog open={declining !== null} onOpenChange={(open) => { if (!open) setDeclining(null); }}>
         <AlertDialogContent>

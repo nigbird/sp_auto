@@ -14,6 +14,8 @@ import { formatTargetValue } from "@/lib/monthly-breakdown";
 import { computeReportRow, formatRatio, formatWeight } from "@/lib/report-calculations";
 import type { PeriodReportEntry } from "../my-activity/my-activity-report-list";
 import { ReportEvidence } from "../reports/report-evidence";
+import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } from "../list-controls";
+import { inDateRange, isRangeSet, matchesSearch, type DateRangeValue } from "@/lib/list-filters";
 
 function Field({ label, children, wide }: { label: string; children: React.ReactNode; wide?: boolean }) {
   return (
@@ -71,6 +73,14 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
     }
   };
 
+  const [query, setQuery] = React.useState("");
+  const [range, setRange] = React.useState<DateRangeValue>({});
+  const narrowed = query.trim() !== "" || isRangeSet(range);
+  const matching = reports.filter(e =>
+    inDateRange(e.submittedAt, range) &&
+    matchesSearch(query, e.activity.title, e.activity.responsible?.name, e.activity.initiative?.title, e.reportingPeriod.name));
+  const pagination = usePagination(matching, `${query}|${range.from}|${range.to}`);
+
   if (reports.length === 0) {
     return (
       <Card>
@@ -83,7 +93,15 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
 
   return (
     <div className="space-y-4">
-      {reports.map(entry => {
+      <ListToolbar count={narrowed ? `${matching.length} of ${reports.length} reports match` : `${reports.length} waiting`}>
+        <SearchBox value={query} onChange={setQuery} placeholder="Search activity, owner, initiative or period" />
+        <DateRangeFilter value={range} onChange={setRange} label="Any submission date" hint="Shows reports submitted in this range." />
+        {narrowed && <Button variant="ghost" className="h-10 px-3" onClick={() => { setQuery(""); setRange({}); }}>Reset</Button>}
+      </ListToolbar>
+      {matching.length === 0 && (
+        <Card><CardContent className="pt-6"><p className="text-center text-muted-foreground">No waiting reports match the search or dates.</p></CardContent></Card>
+      )}
+      {pagination.items.map(entry => {
         const { activity, reportingPeriod: period } = entry;
         const row = computeReportRow(
           { weight: activity.weight, countsTowardWeight: activity.countsTowardWeight, targetType: activity.targetType, annualTarget: activity.annualTarget, targetAggregation: activity.targetAggregation, targetDirection: activity.targetDirection, monthlyTargets: activity.monthlyTargets },
@@ -140,6 +158,7 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
           </Card>
         );
       })}
+      <Pagination state={pagination} noun="reports" />
 
       <AlertDialog open={returning !== null} onOpenChange={(open) => { if (!open) setReturning(null); }}>
         <AlertDialogContent>

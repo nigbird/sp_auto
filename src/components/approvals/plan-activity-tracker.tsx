@@ -2,11 +2,10 @@
 
 import * as React from "react";
 import { format } from "date-fns";
-import { Loader2, Search, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
@@ -15,6 +14,8 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { BreakdownStrip } from "../my-activity/breakdown-editor";
 import { formatTargetValue, monthsBetween } from "@/lib/monthly-breakdown";
 import { useToast } from "@/hooks/use-toast";
+import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } from "../list-controls";
+import { isRangeSet, matchesSearch, overlapsDateRange, type DateRangeValue } from "@/lib/list-filters";
 import { cn } from "@/lib/utils";
 import { formatWeight } from "@/lib/report-calculations";
 import { approveNewActivity, returnNewActivity, type PlanApprovalActivity, type PlanStage } from "@/actions/plan-approvals";
@@ -46,6 +47,7 @@ export function PlanActivityTracker({ activities }: { activities: PlanApprovalAc
   const [query, setQuery] = React.useState("");
   const [owner, setOwner] = React.useState(ALL);
   const [stage, setStage] = React.useState<string>(ALL);
+  const [range, setRange] = React.useState<DateRangeValue>({});
   const [openId, setOpenId] = React.useState<string | null>(null);
   const open = activities.find(a => a.id === openId) ?? null;
 
@@ -56,21 +58,19 @@ export function PlanActivityTracker({ activities }: { activities: PlanApprovalAc
     return counts;
   }, [activities]);
 
-  const q = query.trim().toLowerCase();
   const rows = activities.filter(a =>
     (owner === ALL || (a.leadOwner || "Unassigned") === owner) &&
     (stage === ALL || a.stage === stage) &&
-    (!q || [a.title, a.initiative, a.responsible ?? "", a.leadOwner ?? ""].some(s => s.toLowerCase().includes(q)))
+    overlapsDateRange(a.startDate, a.endDate, range) &&
+    matchesSearch(query, a.title, a.initiative, a.responsible, a.leadOwner, a.deliverable)
   );
-  const filtered = q !== "" || owner !== ALL || stage !== ALL;
+  const filtered = query.trim() !== "" || owner !== ALL || stage !== ALL || isRangeSet(range);
+  const pagination = usePagination(rows, `${query}|${owner}|${stage}|${range.from}|${range.to}`, 25);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full sm:w-72">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search activity, initiative or person" className="pl-9" aria-label="Search activities" />
-        </div>
+        <SearchBox value={query} onChange={setQuery} placeholder="Search activity, initiative or person" />
         <Select value={owner} onValueChange={setOwner}>
           <SelectTrigger className="w-full sm:w-64" aria-label="Lead owner"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -87,8 +87,9 @@ export function PlanActivityTracker({ activities }: { activities: PlanApprovalAc
             ))}
           </SelectContent>
         </Select>
+        <DateRangeFilter value={range} onChange={setRange} label="Any dates" hint="Shows activities that run at any point in this range." />
         {filtered && (
-          <Button variant="ghost" onClick={() => { setQuery(""); setOwner(ALL); setStage(ALL); }} className="h-9 px-3">
+          <Button variant="ghost" onClick={() => { setQuery(""); setOwner(ALL); setStage(ALL); setRange({}); }} className="h-9 px-3">
             Reset <X className="ml-1.5 h-4 w-4" />
           </Button>
         )}
@@ -110,7 +111,7 @@ export function PlanActivityTracker({ activities }: { activities: PlanApprovalAc
           <TableBody>
             {rows.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="h-24 text-center text-muted-foreground">No activities match these filters.</TableCell></TableRow>
-            ) : rows.map(a => (
+            ) : pagination.items.map(a => (
               <TableRow key={a.id} onClick={() => setOpenId(a.id)} className="cursor-pointer">
                 <TableCell className="max-w-[380px]">
                   <button
@@ -137,6 +138,7 @@ export function PlanActivityTracker({ activities }: { activities: PlanApprovalAc
           </TableBody>
         </Table>
       </div>
+      <Pagination state={pagination} noun="activities" />
       <p className="text-xs text-muted-foreground">Click an activity to see its full details and monthly breakdown.</p>
 
       <ActivityDetailSheet activity={open} onClose={() => setOpenId(null)} />
@@ -277,6 +279,14 @@ export function NewActivityApprovalList({ activities: initial }: { activities: P
     }
   };
 
+  const [query, setQuery] = React.useState("");
+  const [range, setRange] = React.useState<DateRangeValue>({});
+  const narrowed = query.trim() !== "" || isRangeSet(range);
+  const matching = items.filter(a =>
+    overlapsDateRange(a.startDate, a.endDate, range) &&
+    matchesSearch(query, a.title, a.initiative, a.responsible, a.leadOwner, a.deliverable));
+  const pagination = usePagination(matching, `${query}|${range.from}|${range.to}`);
+
   if (items.length === 0) {
     return (
       <Card>
@@ -289,7 +299,15 @@ export function NewActivityApprovalList({ activities: initial }: { activities: P
 
   return (
     <div className="space-y-4">
-      {items.map(a => (
+      <ListToolbar count={narrowed ? `${matching.length} of ${items.length} match` : `${items.length} waiting`}>
+        <SearchBox value={query} onChange={setQuery} placeholder="Search activity, owner or initiative" />
+        <DateRangeFilter value={range} onChange={setRange} label="Any dates" hint="Shows activities that run at any point in this range." />
+        {narrowed && <Button variant="ghost" className="h-10 px-3" onClick={() => { setQuery(""); setRange({}); }}>Reset</Button>}
+      </ListToolbar>
+      {matching.length === 0 && (
+        <Card><CardContent className="pt-6"><p className="text-center text-muted-foreground">No waiting activities match the search or dates.</p></CardContent></Card>
+      )}
+      {pagination.items.map(a => (
         <Card key={a.id}>
           <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div className="space-y-1">
@@ -312,6 +330,7 @@ export function NewActivityApprovalList({ activities: initial }: { activities: P
           </CardContent>
         </Card>
       ))}
+      <Pagination state={pagination} noun="activities" />
 
       <AlertDialog open={returning !== null} onOpenChange={open => { if (!open) setReturning(null); }}>
         <AlertDialogContent>

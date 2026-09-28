@@ -44,6 +44,8 @@ import { format, formatDistanceToNow } from "date-fns";
 import { UserForm, UserFormValues } from "@/components/settings/user-form";
 import { InviteLinkDialog } from "@/components/settings/invite-link-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } from "@/components/list-controls";
+import { inDateRange, isRangeSet, matchesSearch, type DateRangeValue } from "@/lib/list-filters";
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -55,6 +57,13 @@ export default function UsersPage() {
   const [manualInvite, setManualInvite] = useState<{ name: string; email: string; link: string } | null>(null);
   const [resendingId, setResendingId] = useState<string | null>(null);
   const { toast } = useToast();
+  const [query, setQuery] = useState("");
+  const [range, setRange] = useState<DateRangeValue>({});
+  const narrowed = query.trim() !== "" || isRangeSet(range);
+  const matchingUsers = users.filter(u =>
+    inDateRange(u.createdAt, range) &&
+    matchesSearch(query, u.name, u.email, u.role, u.leadOwner, u.department, u.status));
+  const userPages = usePagination(matchingUsers, `${query}|${range.from}|${range.to}`);
 
   /** Tells the admin the invite went out, or hands them the link when it couldn't be emailed. */
   const reportInvite = (user: { name: string; email: string }, invite: InviteOutcome, verb: string) => {
@@ -183,7 +192,13 @@ export default function UsersPage() {
             <UserPlus className="mr-2 h-4 w-4" /> Register User
           </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <ListToolbar count={narrowed ? `${matchingUsers.length} of ${users.length} users match` : `${users.length} users`}>
+            <SearchBox value={query} onChange={setQuery} placeholder="Search name, email, role, lead owner or department" className="sm:w-96" />
+            <DateRangeFilter value={range} onChange={setRange} label="Any creation date" hint="Shows users created in this range." />
+            {narrowed && <Button variant="ghost" className="h-10 px-3" onClick={() => { setQuery(""); setRange({}); }}>Reset</Button>}
+          </ListToolbar>
+          <div className="overflow-x-auto rounded-md border">
            <Table>
             <TableHeader>
               <TableRow>
@@ -203,8 +218,14 @@ export default function UsersPage() {
                     Loading users...
                   </TableCell>
                 </TableRow>
+              ) : matchingUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                    {narrowed ? "No users match the search or dates." : "No users yet."}
+                  </TableCell>
+                </TableRow>
               ) : (
-                users.map((user) => (
+                userPages.items.map((user) => (
                 <TableRow key={user.email}>
                     <TableCell>
                         <div className="flex items-center gap-3">
@@ -262,6 +283,8 @@ export default function UsersPage() {
               )}
             </TableBody>
           </Table>
+          </div>
+          {!isLoading && <Pagination state={userPages} noun="users" />}
         </CardContent>
       </Card>
 

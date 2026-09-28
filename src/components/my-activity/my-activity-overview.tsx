@@ -22,6 +22,8 @@ import { Checkbox } from "../ui/checkbox";
 import { Label } from "../ui/label";
 import { Progress } from "../ui/progress";
 import { BreakdownStrip } from "./breakdown-editor";
+import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } from "../list-controls";
+import { isRangeSet, matchesSearch, overlapsDateRange, type DateRangeValue } from "@/lib/list-filters";
 
 /** The latest requested period report for an activity (from getMyPeriodReports). */
 export interface LatestReport {
@@ -147,6 +149,12 @@ function ActivityCard({ activity, initiativeTitle, report, onOpenBreakdown, onEd
   };
 
   const action = nextAction(activity, report);
+  // Finished steps stay quiet: a chip appears only while a step still needs something.
+  const steps = [
+    { name: "Activity", step: activityStep(activity) },
+    { name: "Monthly breakdown", step: breakdownStep(activity) },
+    { name: "Latest report", step: reportStep(report) },
+  ].filter(({ name, step }) => (name === "Latest report" ? step.tone !== "none" && step.tone !== "done" : step.tone !== "done"));
   const monthlyTargets = (activity.monthlyTargets ?? []).map(t => ({ month: monthKey(t.month), value: t.value }));
   const hasBreakdown = activity.targetType && activity.annualTarget != null && monthlyTargets.length > 0;
 
@@ -178,14 +186,14 @@ function ActivityCard({ activity, initiativeTitle, report, onOpenBreakdown, onEd
         </CardHeader>
         <CardContent className="space-y-4">
           <Progress value={activity.progress} className="h-2" />
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3">
-              <StepChip name="1. Activity" step={activityStep(activity)} />
-              <StepChip name="2. Monthly breakdown" step={breakdownStep(activity)} />
-              <StepChip name="3. Latest report" step={reportStep(report)} />
+          {(steps.length > 0 || action !== null) && (
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3">
+                {steps.map(({ name, step }) => <StepChip key={name} name={name} step={step} />)}
+              </div>
+              <ActionButton action={action} onOpenBreakdown={onOpenBreakdown} onEdit={() => onEdit(activity)} />
             </div>
-            <ActionButton action={action} onOpenBreakdown={onOpenBreakdown} onEdit={() => onEdit(activity)} />
-          </div>
+          )}
         </CardContent>
         <CollapsibleContent>
           <CardContent className="space-y-4 border-t pt-4">
@@ -265,6 +273,8 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
   onEdit: (activity: Activity) => void;
 }) {
   const [filter, setFilter] = React.useState<OverviewFilter>('all');
+  const [query, setQuery] = React.useState('');
+  const [range, setRange] = React.useState<DateRangeValue>({});
 
   const latestByActivity = React.useMemo(() => {
     // Reports arrive newest period first, so the first one per activity is the latest.
@@ -273,16 +283,28 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
     return map;
   }, [reports]);
 
-  const groups = React.useMemo(() => {
+  const groupsOf = React.useCallback((list: Activity[]) => {
     const report = (a: Activity) => latestByActivity.get(a.id);
     return {
-      all: activities,
-      todo: activities.filter(a => nextAction(a, report(a)) !== null),
-      waiting: activities.filter(a => isWaiting(a, report(a))),
-      behind: activities.filter(a => a.approvalStatus === 'APPROVED' && isBehind(a)),
-      completed: activities.filter(a => a.approvalStatus === 'APPROVED' && isCompleted(a)),
+      all: list,
+      todo: list.filter(a => nextAction(a, report(a)) !== null),
+      waiting: list.filter(a => isWaiting(a, report(a))),
+      behind: list.filter(a => a.approvalStatus === 'APPROVED' && isBehind(a)),
+      completed: list.filter(a => a.approvalStatus === 'APPROVED' && isCompleted(a)),
     } satisfies Record<OverviewFilter, Activity[]>;
-  }, [activities, latestByActivity]);
+  }, [latestByActivity]);
+
+  // The to-do box always covers everything; the tiles and list follow the search and dates.
+  const groups = React.useMemo(() => groupsOf(activities), [groupsOf, activities]);
+  const visible = React.useMemo(
+    () => activities.filter(a =>
+      overlapsDateRange(a.startDate, a.endDate, range) &&
+      matchesSearch(query, a.title, initiativeTitles.get(a.initiativeId), a.leadOwner, a.deliverable)),
+    [activities, range, query, initiativeTitles]
+  );
+  const visibleGroups = React.useMemo(() => groupsOf(visible), [groupsOf, visible]);
+  const narrowed = query.trim() !== '' || isRangeSet(range);
+  const pagination = usePagination(visibleGroups[filter], `${filter}|${query}|${range.from}|${range.to}`);
 
   // The to-do list, broken down by what actually has to be done.
   const todos = React.useMemo(() => {
@@ -315,7 +337,6 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
     );
   }
 
-  const shown = groups[filter];
   const hasTodos = groups.todo.length > 0;
 
   return (
@@ -383,22 +404,30 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
                 {f.label}
                 {f.icon}
               </span>
-              <span className="mt-2 text-3xl font-bold">{groups[f.id].length}</span>
+              <span className="mt-2 text-3xl font-bold">{visibleGroups[f.id].length}</span>
               <span className="mt-1 text-xs text-muted-foreground">{f.short}</span>
             </button>
           ))}
         </div>
       </div>
 
+      <ListToolbar count={narrowed ? `${visible.length} of ${activities.length} activities match` : undefined}>
+        <SearchBox value={query} onChange={setQuery} placeholder="Search activity, initiative or deliverable" />
+        <DateRangeFilter value={range} onChange={setRange} label="Any dates" hint="Shows activities that run at any point in this range." />
+        {narrowed && (
+          <Button variant="ghost" className="h-10 px-3" onClick={() => { setQuery(''); setRange({}); }}>Reset</Button>
+        )}
+      </ListToolbar>
+
       <div className="space-y-4">
-        {shown.length === 0 ? (
+        {pagination.total === 0 ? (
           <Card>
             <CardContent className="pt-6">
-              <p className="text-center text-muted-foreground">No activities here.</p>
+              <p className="text-center text-muted-foreground">{narrowed ? 'No activities match the search or dates.' : 'No activities here.'}</p>
             </CardContent>
           </Card>
         ) : (
-          shown.map(a => (
+          pagination.items.map(a => (
             <ActivityCard
               key={a.id}
               activity={a}
@@ -409,6 +438,7 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
             />
           ))
         )}
+        <Pagination state={pagination} noun="activities" />
       </div>
     </div>
   );

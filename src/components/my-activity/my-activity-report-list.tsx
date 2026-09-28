@@ -17,6 +17,8 @@ import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
 import { formatTargetValue, type TargetAggregation, type TargetType } from "@/lib/monthly-breakdown";
 import { computeReportRow, formatRatio } from "@/lib/report-calculations";
 import { ReportEvidence } from "../reports/report-evidence";
+import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } from "../list-controls";
+import { isRangeSet, matchesSearch, overlapsDateRange, type DateRangeValue } from "@/lib/list-filters";
 import type { EvidenceMeta } from "@/actions/evidence";
 
 export interface PeriodReportEntry {
@@ -281,14 +283,26 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
 
   React.useEffect(() => { if (!initialEntries) load(); }, [initialEntries, load]);
 
+  const [query, setQuery] = React.useState('');
+  const [range, setRange] = React.useState<DateRangeValue>({});
+  const narrowed = query.trim() !== '' || isRangeSet(range);
+  // Search and dates narrow everything below, the category tiles included.
+  const matching = React.useMemo(() => (entries ?? []).filter(e =>
+    overlapsDateRange(e.reportingPeriod.startDate, e.reportingPeriod.endDate, range) &&
+    matchesSearch(query, e.activity.title, e.activity.initiative?.title, e.activity.deliverable, e.reportingPeriod.name)
+  ), [entries, query, range]);
+  const activeTest = REPORT_FILTERS.find(f => f.id === filter)!.test;
+  const pagination = usePagination(matching.filter(activeTest), `${filter}|${query}|${range.from}|${range.to}`);
+
   if (entries == null) {
     return <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading reports…</p>;
   }
 
-  const counts = Object.fromEntries(REPORT_FILTERS.map(f => [f.id, entries.filter(e => f.test(e)).length])) as Record<ReportFilter, number>;
+  const counts = Object.fromEntries(REPORT_FILTERS.map(f => [f.id, matching.filter(e => f.test(e)).length])) as Record<ReportFilter, number>;
   const activeFilter = REPORT_FILTERS.find(f => f.id === filter)!;
-  const shown = entries.filter(activeFilter.test);
+  const shown = pagination.items;
 
+  // Group this page's reports under their period.
   const byPeriod = new Map<string, PeriodReportEntry[]>();
   for (const e of shown) byPeriod.set(e.reportingPeriod.id, [...(byPeriod.get(e.reportingPeriod.id) ?? []), e]);
   const toFill = entries.filter(e => (e.reportStatus === 'REQUESTED' || e.reportStatus === 'RETURNED') && !isPeriodClosedForSubmissions(e.reportingPeriod)).length;
@@ -303,6 +317,13 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
             : toFill > 0 ? `${toFill} ${toFill === 1 ? 'report needs' : 'reports need'} to be filled in.` : 'Nothing is waiting on you right now.'}
         </p>
       </div>
+      {entries.length > 0 && (
+        <ListToolbar count={narrowed ? `${matching.length} of ${entries.length} reports match` : undefined}>
+          <SearchBox value={query} onChange={setQuery} placeholder="Search activity, initiative or period" />
+          <DateRangeFilter value={range} onChange={setRange} label="Any period" hint="Shows reports for periods that fall in this range." />
+          {narrowed && <Button variant="ghost" className="h-10 px-3" onClick={() => { setQuery(''); setRange({}); }}>Reset</Button>}
+        </ListToolbar>
+      )}
       {entries.length > 0 && (
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4" role="tablist" aria-label="Filter reports">
@@ -325,12 +346,12 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
             ))}
           </div>
           <p className="text-sm text-muted-foreground">
-            Showing <span className="font-medium text-foreground">{activeFilter.label.toLowerCase()}</span> ({shown.length}){filter !== 'all' && <> · <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => setFilter('all')}>show all</button></>}
+            Showing <span className="font-medium text-foreground">{activeFilter.label.toLowerCase()}</span> ({pagination.total}){filter !== 'all' && <> · <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => setFilter('all')}>show all</button></>}
           </p>
         </div>
       )}
-      {entries.length > 0 && shown.length === 0 && (
-        <Card><CardContent className="pt-6"><p className="text-center text-muted-foreground">No reports in this category.</p></CardContent></Card>
+      {entries.length > 0 && pagination.total === 0 && (
+        <Card><CardContent className="pt-6"><p className="text-center text-muted-foreground">{narrowed ? 'No reports in this category match the search or dates.' : 'No reports in this category.'}</p></CardContent></Card>
       )}
       {Array.from(byPeriod.values()).map(periodEntries => {
         const period = periodEntries[0].reportingPeriod;
@@ -347,6 +368,7 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
           </section>
         );
       })}
+      <Pagination state={pagination} noun="reports" />
     </div>
   );
 }
