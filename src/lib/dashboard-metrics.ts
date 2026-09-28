@@ -125,6 +125,8 @@ export interface InitiativeSummary {
   title: string;
   pillarCode: string;
   objectiveCode: string;
+  /** The lead owner behind most of this initiative's activities. */
+  owner: string;
   summary: Summary;
   status: InitiativeStatus;
   rating: Rating;
@@ -356,6 +358,12 @@ export function computeDashboard(pillars: MetricPillar[], entries: MetricEntry[]
         const dueByPeriodEnd = due != null && due.getTime() <= periodEnd.getTime();
         const targeted = results.filter(r => r.row !== null);
         const completed = targeted.length > 0 && targeted.every(r => r.completed);
+        const ownerCounts = new Map<string, number>();
+        for (const r of results) {
+          const name = r.activity.leadOwner?.trim() || r.activity.department?.trim() || "Unassigned";
+          ownerCounts.set(name, (ownerCounts.get(name) ?? 0) + 1);
+        }
+        const owner = [...ownerCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "Unassigned";
         const worstDelay = results.reduce<number | null>((m, r) => (r.delayDays == null ? m : Math.max(m ?? 0, r.delayDays)), null);
 
         initiativeSummaries.push({
@@ -364,6 +372,7 @@ export function computeDashboard(pillars: MetricPillar[], entries: MetricEntry[]
           title: initiative.title,
           pillarCode,
           objectiveCode,
+          owner,
           summary,
           status,
           rating: ratingFor(summary.rollup.achievedResult, summary.rollup.weightedPlan > 0 && summary.coverage.approved > 0),

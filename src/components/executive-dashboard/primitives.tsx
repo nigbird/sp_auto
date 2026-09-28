@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AlertTriangle, Award, CheckCircle2, CircleDashed, Clock, MinusCircle, PauseCircle, ThumbsUp, TrendingUp, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, Award, CheckCircle2, CircleDashed, Clock, Minus, MinusCircle, PauseCircle, ThumbsUp, TrendingUp, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { INITIATIVE_STATUS_LABEL, type InitiativeStatus, type Rating } from "@/lib/dashboard-metrics";
 
@@ -79,29 +79,101 @@ export function RatingChip({ rating, className }: { rating: Rating; className?: 
 // Layout
 // ---------------------------------------------------------------------------
 
-export function SectionCard({ title, description, icon, action, children, className }: {
+/** The card surface used across the dashboard: soft, borderless-looking, generous padding. */
+export const CARD = "rounded-3xl border border-border/50 bg-card shadow-[0_1px_2px_rgba(16,24,40,0.04),0_12px_32px_-16px_rgba(16,24,40,0.10)]";
+
+export function SectionCard({ title, description, action, children, className }: {
   title: string;
   description?: string;
-  icon?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
   className?: string;
 }) {
   return (
-    <section className={cn("rounded-2xl border bg-card p-5 shadow-sm sm:p-6", className)}>
+    <section className={cn(CARD, "p-5 sm:p-6", className)}>
       <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          {icon && <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">{icon}</div>}
-          <div>
-            <h2 className="text-base font-semibold tracking-tight">{title}</h2>
-            {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
-          </div>
+        <div>
+          <h2 className="text-[15px] font-semibold tracking-tight">{title}</h2>
+          {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
         </div>
         {action}
       </header>
       {children}
     </section>
   );
+}
+
+/** A tinted pill with a status dot; the text stays in ink, the dot carries the colour. */
+export function StatusPill({ status }: { status: InitiativeStatus }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium text-foreground/80"
+      style={{ background: `${STATUS_COLOR[status]}1f` }}
+    >
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: STATUS_COLOR[status] }} />
+      {INITIATIVE_STATUS_LABEL[status]}
+    </span>
+  );
+}
+
+/**
+ * Change against the previous period. Up is good for every measure shown here,
+ * so it wears the "good" status; down wears "critical". Always paired with an arrow and a number.
+ */
+export function DeltaChip({ value, unit = "pts", className }: { value: number | null; unit?: "pts" | "count"; className?: string }) {
+  if (value == null || !Number.isFinite(value)) return null;
+  const rounded = unit === "pts" ? Math.round(value * 1000) / 10 : Math.round(value);
+  const flat = rounded === 0;
+  const up = rounded > 0;
+  const Icon = flat ? Minus : up ? ArrowUpRight : ArrowDownRight;
+  const text = unit === "pts" ? `${Math.abs(rounded).toFixed(1)} pts` : `${Math.abs(rounded)}`;
+  return (
+    <span className={cn(
+      "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+      flat ? "bg-muted text-muted-foreground" : up ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "bg-red-500/10 text-red-700 dark:text-red-400",
+      className
+    )}>
+      <Icon className="h-3 w-3" aria-hidden />
+      <span className="sr-only">{flat ? "No change" : up ? "Up" : "Down"}</span>
+      {text}
+    </span>
+  );
+}
+
+/** A semicircle gauge for a single headline ratio (0–100%). */
+export function Gauge({ value, label, caption }: { value: number | null; label: string; caption?: string }) {
+  const clamped = value == null ? 0 : Math.max(0, Math.min(1, value));
+  const arc = "M 16 96 A 80 80 0 0 1 176 96";
+  return (
+    <div className="flex flex-col items-center">
+      <div className="relative h-[108px] w-[192px]">
+        <svg viewBox="0 0 192 104" className="h-full w-full" aria-hidden>
+          <path d={arc} fill="none" stroke="hsl(var(--muted))" strokeWidth={14} strokeLinecap="round" />
+          <path
+            d={arc}
+            fill="none"
+            stroke="hsl(var(--primary))"
+            strokeWidth={14}
+            strokeLinecap="round"
+            pathLength={100}
+            strokeDasharray={`${clamped * 100} 100`}
+            className="transition-[stroke-dasharray] duration-1000 ease-out"
+          />
+        </svg>
+        <div className="absolute inset-x-0 bottom-0 flex flex-col items-center">
+          <span className="text-3xl font-bold tracking-tight">{pct(value)}</span>
+          <span className="text-xs text-muted-foreground">{label}</span>
+        </div>
+      </div>
+      {caption && <p className="mt-2 text-center text-[11px] text-muted-foreground">{caption}</p>}
+    </div>
+  );
+}
+
+/** Initials for a name, e.g. "Chief Strategy Officer" → "CS". */
+export function initials(name: string): string {
+  const words = name.replace(/[^A-Za-z\s&]/g, " ").split(/\s+/).filter(w => w && w !== "&" && !/^(of|the|and)$/i.test(w));
+  return (words[0]?.[0] ?? "?").toUpperCase() + (words[1]?.[0] ?? "").toUpperCase();
 }
 
 /**

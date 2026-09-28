@@ -1,376 +1,304 @@
 import Link from "next/link";
 import {
-  ArrowDownRight, ArrowUpRight, Building2, CalendarClock, CheckCircle2, ClipboardCheck, Crown,
-  FileWarning, Flag, Gauge, Layers, ListChecks, Sparkles, Target, TriangleAlert,
+  ArrowRight, CalendarClock, CheckCircle2, ClipboardCheck, FileWarning, Flag, Gauge as GaugeIcon, Sparkles, Target, TriangleAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { DashboardData } from "@/lib/dashboard-data";
+import type { DashboardData, TrendPoint } from "@/lib/dashboard-data";
 import {
-  DELAY_BUCKET_LABEL, INITIATIVE_STATUS_LABEL, INITIATIVE_STATUS_ORDER,
-  type DashboardMetrics, type DelayBucket, type Highlight, type InitiativeStatus, type ObjectiveSummary, type PillarSummary, type StreamSummary,
+  DELAY_BUCKET_LABEL, INITIATIVE_STATUS_ORDER,
+  type DashboardMetrics, type DelayBucket, type InitiativeSummary, type ObjectiveSummary, type PillarSummary, type StreamSummary,
 } from "@/lib/dashboard-metrics";
 import { DashboardFilters } from "./dashboard-filters";
+import { TrendChart } from "./trend-chart";
 import {
-  MeterBar, RatingChip, STATUS_COLOR, SectionCard, StatusLabel, StatusStack, Tip, TipRow, pct, shortDate, weightPct,
+  CARD, DeltaChip, Gauge, MeterBar, RatingChip, STATUS_COLOR, SectionCard, StatusLabel, StatusPill, Tip, TipRow,
+  initials, pct, shortDate, weightPct,
 } from "./primitives";
 
+const TZ = "Africa/Addis_Ababa";
+
 export function ExecutiveDashboard({ data }: { data: DashboardData }) {
+  const greeting = <Greeting name={data.userName} today={data.today} />;
+
   if (data.state === "no-plan") {
-    return <EmptyState title="No strategic plan yet" body="Create or import a strategic plan to see its execution dashboard." href="/strategic-plan" cta="Go to Strategic Plan" />;
+    return (
+      <div className="space-y-6">
+        <TopBar left={greeting} />
+        <EmptyState title="No strategic plan yet" body="Create or import a strategic plan to see its execution dashboard." href="/strategic-plan" cta="Go to Strategic Plans" />
+      </div>
+    );
   }
 
-  const header = (
-    <DashboardHeader
-      planName={data.plan.name}
-      subtitle={data.state === "ready" ? `Performance as of ${shortDate(data.period.endDate)} · ${data.period.name}` : "No reporting period yet"}
-      filters={<DashboardFilters plans={data.plans} planId={data.plan.id} periods={data.periods} periodId={data.state === "ready" ? data.period.id : undefined} />}
-    />
+  const filters = (
+    <DashboardFilters plans={data.plans} planId={data.plan.id} periods={data.periods} periodId={data.state === "ready" ? data.period.id : undefined} />
   );
 
   if (data.state === "no-period") {
     return (
       <div className="space-y-6">
-        {header}
+        <TopBar left={greeting} right={filters} />
         <EmptyState title="No reporting period to show" body="Add a reporting period and send a report request. Results appear here as reports are approved." href="/settings/reporting-periods" cta="Reporting periods" />
       </div>
     );
   }
 
   const m = data.metrics;
+  const previous = data.trend.length > 1 ? data.trend[data.trend.length - 2] : null;
+  const current = data.trend[data.trend.length - 1];
+
   return (
-    <div className="space-y-6">
-      {header}
+    <div className="space-y-5">
+      <TopBar
+        left={
+          <div>
+            {greeting}
+            <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{data.plan.name}</span>
+              <span aria-hidden>·</span>
+              <span>As of {shortDate(data.period.endDate)}</span>
+              {data.periodOpen && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:text-amber-300">
+                  <CalendarClock className="h-3 w-3" /> In progress · approved reports so far
+                </span>
+              )}
+            </p>
+          </div>
+        }
+        right={filters}
+      />
 
-      <div className="grid gap-4 lg:grid-cols-12">
-        <OverallHero m={m} className="lg:col-span-5" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:col-span-7">
-          <PillarHighlight label="Strongest pillar · this period" icon={<Crown className="h-4 w-4" />} highlight={m.strongestPillarPeriod} note="Achievement against the period plan" />
-          <PillarHighlight label="Strongest pillar · full year" icon={<Flag className="h-4 w-4" />} highlight={m.strongestPillarYear} note="Weighted actual out of the pillar's full-year weight" />
-          <KpiTile
-            label="Initiatives fully completed"
-            icon={<CheckCircle2 className="h-4 w-4" />}
-            value={`${m.initiativesCompleted}`}
-            suffix={`of ${m.initiatives.length}`}
-            note={`${m.initiativesDue} planned to be complete by ${shortDate(data.period.endDate)}`}
-            meter={m.initiativesDue > 0 ? Math.min(1, m.initiativesCompleted / m.initiativesDue) : null}
-          />
-          <KpiTile
-            label="Objectives at 80% or more"
-            icon={<Target className="h-4 w-4" />}
-            value={`${m.objectivesAtLeast80.count}`}
-            suffix={`of ${m.objectivesAtLeast80.of}`}
-            note="Objectives with a target this period"
-            meter={m.objectivesAtLeast80.of > 0 ? m.objectivesAtLeast80.count / m.objectivesAtLeast80.of : null}
-          />
-        </div>
+      <KpiStrip m={m} previous={previous} current={current} periodEnd={data.period.endDate} />
+
+      <div className="grid gap-5 lg:grid-cols-3">
+        <TrendCard trend={data.trend} current={current} previous={previous} className="lg:col-span-2" />
+        <StatusCard m={m} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <StoryCard lines={m.story} className="lg:col-span-2" />
-        <div className="grid gap-4">
-          <InitiativeHighlight kind="strongest" highlight={m.strongestInitiative} />
-          <InitiativeHighlight kind="weakest" highlight={m.weakestInitiative} />
-        </div>
+      <div className="grid gap-5 lg:grid-cols-3">
+        <PillarList pillars={m.pillars} planId={data.plan.id} />
+        <AttentionTable initiatives={m.initiatives} className="lg:col-span-2" />
       </div>
 
-      <PillarSection pillars={m.pillars} />
-
-      <div className="grid gap-4 xl:grid-cols-5">
-        <ObjectiveSection objectives={m.objectives} className="xl:col-span-3" />
-        <div className="grid gap-4 xl:col-span-2">
-          <StatusSection m={m} />
-          <DelaySection m={m} />
-        </div>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <ObjectiveSection objectives={m.objectives} />
+        <StreamSection streams={m.streams} />
       </div>
 
-      <StreamSection streams={m.streams} />
-
-      <IssuesSection issues={m.issues} />
+      <div className="grid gap-5 lg:grid-cols-3">
+        <StoryCard lines={m.story} />
+        <DelaySection m={m} />
+        <IssuesSection issues={m.issues} />
+      </div>
 
       <p className="px-1 text-xs leading-relaxed text-muted-foreground">
-        Achievement = weighted actual ÷ weighted plan for the period, using approved reports only; planned activities without an approved report count as zero.
-        Delay penalty: −10% after 30 days late, −20% after 60, −50% after 90. Ratings: Outstanding ≥ 90%, Very Good 80–89.9%, Good 70–79.9%, Fair 50–69.9%, Unsatisfactory below 50%.
+        Every figure is cumulative from the start of the plan year to the end of the selected reporting period. Achievement = weighted actual ÷ weighted plan,
+        from approved reports only; planned activities without an approved report count as zero. Delay penalty: −10% after 30 days late, −20% after 60, −50% after 90.
+        Ratings: Outstanding ≥ 90%, Very Good 80–89.9%, Good 70–79.9%, Fair 50–69.9%, Unsatisfactory below 50%.
       </p>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Header & empty state
+// Top bar
 // ---------------------------------------------------------------------------
 
-function DashboardHeader({ planName, subtitle, filters }: { planName: string; subtitle: string; filters: React.ReactNode }) {
+function Greeting({ name, today }: { name: string; today: string }) {
+  const date = new Date(today);
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone: TZ }).format(date));
+  const part = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const first = name.trim().split(/\s+/)[0] || "there";
   return (
-    <div className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-primary/[0.12] via-card to-card px-6 py-6 shadow-sm sm:px-8">
-      <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-primary/15 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-24 right-1/3 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
-      <div className="relative flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Strategic plan execution</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{planName}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
-        </div>
-        {filters}
-      </div>
+    <div>
+      <h1 className="text-2xl font-semibold tracking-tight sm:text-[28px]">{part}, {first}</h1>
+      <p className="mt-0.5 text-sm text-muted-foreground">
+        {new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: TZ }).format(date)}
+      </p>
+    </div>
+  );
+}
+
+function TopBar({ left, right }: { left: React.ReactNode; right?: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-4">
+      {left}
+      {right}
     </div>
   );
 }
 
 function EmptyState({ title, body, href, cta }: { title: string; body: string; href: string; cta: string }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed bg-card px-6 py-20 text-center">
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><Gauge className="h-6 w-6" /></div>
+    <div className={cn(CARD, "flex flex-col items-center justify-center px-6 py-20 text-center")}>
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><GaugeIcon className="h-6 w-6" /></div>
       <h2 className="text-lg font-semibold">{title}</h2>
       <p className="mt-1 max-w-md text-sm text-muted-foreground">{body}</p>
-      <Link href={href} className="mt-5 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90">{cta}</Link>
+      <Link href={href} className="mt-5 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90">{cta}</Link>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Headline row
+// KPI strip
 // ---------------------------------------------------------------------------
 
-function OverallHero({ m, className }: { m: DashboardMetrics; className?: string }) {
-  const { rollup, coverage, yearProgress, totalWeight } = m.overall;
+function KpiStrip({ m, previous, current, periodEnd }: { m: DashboardMetrics; previous: TrendPoint | null; current: TrendPoint; periodEnd: string }) {
+  const { rollup, coverage, yearProgress } = m.overall;
+  const diff = (a: number | null | undefined, b: number | null | undefined) => (a == null || b == null ? null : a - b);
+
   return (
-    <section className={cn("relative overflow-hidden rounded-2xl border bg-card p-6 shadow-sm", className)}>
-      <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-primary/10 blur-2xl" />
-      <div className="relative">
-        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-          <Gauge className="h-4 w-4 text-primary" /> Overall execution
-        </div>
-        <div className="mt-3 flex items-end gap-3">
-          <span className="text-6xl font-bold leading-none tracking-tight">{pct(rollup.achievedResult)}</span>
-          <span className="pb-1.5 text-sm text-muted-foreground">of the period plan</span>
-        </div>
-        <Tip
-          className="mt-5"
-          content={<div className="space-y-1"><TipRow label="Weighted plan" value={weightPct(rollup.weightedPlan)} /><TipRow label="Weighted actual" value={weightPct(rollup.weightedActual)} /><TipRow label="Achievement" value={pct(rollup.achievedResult)} /></div>}
-        >
-          <MeterBar value={rollup.achievedResult} className="h-3" />
+    <section className={cn(CARD, "grid gap-6 p-6 sm:grid-cols-2 lg:grid-cols-[repeat(4,minmax(0,1fr))_auto] lg:gap-0")}>
+      <Kpi
+        icon={<Flag className="h-4 w-4" />}
+        label="Full-year progress"
+        value={pct(yearProgress)}
+        delta={<DeltaChip value={diff(current.yearProgress, previous?.yearProgress)} />}
+        note="of total plan weight"
+      />
+      <Kpi
+        icon={<CheckCircle2 className="h-4 w-4" />}
+        label="Initiatives completed"
+        value={`${m.initiativesCompleted}`}
+        suffix={`/ ${m.initiatives.length}`}
+        delta={<DeltaChip value={diff(current.initiativesCompleted, previous?.initiativesCompleted)} unit="count" />}
+        note={`${m.initiativesDue} due by ${shortDate(periodEnd)}`}
+      />
+      <Kpi
+        icon={<Target className="h-4 w-4" />}
+        label="Objectives ≥ 80%"
+        value={`${m.objectivesAtLeast80.count}`}
+        suffix={`/ ${m.objectivesAtLeast80.of}`}
+        note="with a target this period"
+      />
+      <Kpi
+        icon={<ClipboardCheck className="h-4 w-4" />}
+        label="Reports approved"
+        value={`${coverage.approved}`}
+        suffix={`/ ${coverage.planned}`}
+        note={coverage.pending > 0 ? `${coverage.pending} awaiting approval` : coverage.missing > 0 ? `${coverage.missing} not yet approved` : "all planned activities reported"}
+      />
+      <div className="flex flex-col items-center justify-center sm:col-span-2 lg:col-span-1 lg:border-l lg:pl-8">
+        <Tip content={<div className="space-y-1"><TipRow label="Weighted plan" value={weightPct(rollup.weightedPlan)} /><TipRow label="Weighted actual" value={weightPct(rollup.weightedActual)} /><TipRow label="After delays" value={pct(rollup.achievedWithDelay)} /></div>}>
+          <Gauge value={rollup.weightedPlan > 0 ? rollup.achievedResult : null} label="Overall execution" caption={`${weightPct(rollup.weightedActual)} of ${weightPct(rollup.weightedPlan)} planned`} />
         </Tip>
-
-        <dl className="mt-6 grid grid-cols-3 gap-3 border-t pt-5">
-          <Stat label="Weighted plan" value={weightPct(rollup.weightedPlan)} hint={`of ${weightPct(totalWeight, 0)} total`} />
-          <Stat label="Weighted actual" value={weightPct(rollup.weightedActual)} hint={`${pct(yearProgress)} of the year`} />
-          <Stat label="After delays" value={pct(rollup.achievedWithDelay)} hint="with delay penalty" />
-        </dl>
-
-        <div className="mt-5 flex items-center gap-3 rounded-xl bg-muted/60 px-3 py-2.5 text-xs">
-          <ClipboardCheck className="h-4 w-4 shrink-0 text-primary" />
-          <span className="text-muted-foreground">
-            <span className="font-semibold text-foreground">{coverage.approved} of {coverage.planned}</span> planned activities have an approved report
-            {coverage.pending > 0 && <> · {coverage.pending} awaiting approval</>}
-          </span>
-        </div>
+        <DeltaChip value={diff(current.achieved, previous?.achieved)} className="mt-1" />
       </div>
     </section>
   );
 }
 
-function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Kpi({ icon, label, value, suffix, delta, note }: { icon: React.ReactNode; label: string; value: string; suffix?: string; delta?: React.ReactNode; note: string }) {
   return (
-    <div>
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-lg font-semibold tracking-tight">{value}</dd>
-      {hint && <dd className="text-[11px] text-muted-foreground">{hint}</dd>}
-    </div>
-  );
-}
-
-function KpiTile({ label, icon, value, suffix, note, meter }: { label: string; icon: React.ReactNode; value: string; suffix?: string; note: string; meter: number | null }) {
-  return (
-    <div className="flex flex-col rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
+    <div className="lg:border-l lg:px-6 lg:first:border-l-0 lg:first:pl-0">
+      <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">{icon}</span>
         {label}
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">{icon}</span>
       </div>
-      <div className="mt-2 flex items-baseline gap-2">
-        <span className="text-3xl font-bold tracking-tight">{value}</span>
+      <div className="mt-4 flex items-baseline gap-1.5">
+        <span className="text-[30px] font-bold leading-none tracking-tight">{value}</span>
         {suffix && <span className="text-sm text-muted-foreground">{suffix}</span>}
       </div>
-      <MeterBar value={meter} tone="soft" className="mt-auto" />
-      <p className="mt-2 text-xs text-muted-foreground">{note}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {delta}
+        <span className="text-xs text-muted-foreground">{note}</span>
+      </div>
     </div>
   );
 }
 
-function PillarHighlight({ label, icon, highlight, note }: { label: string; icon: React.ReactNode; highlight: Highlight | null; note: string }) {
+// ---------------------------------------------------------------------------
+// Trend & status
+// ---------------------------------------------------------------------------
+
+function TrendCard({ trend, current, previous, className }: { trend: TrendPoint[]; current: TrendPoint; previous: TrendPoint | null; className?: string }) {
   return (
-    <div className="flex flex-col rounded-2xl border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        {label}
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">{icon}</span>
-      </div>
-      {highlight ? (
-        <>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="rounded-md bg-primary/15 px-1.5 py-0.5 text-sm font-bold text-primary">{highlight.code}</span>
-            <span className="text-3xl font-bold tracking-tight">{pct(highlight.value)}</span>
+    <section className={cn(CARD, "p-5 sm:p-6", className)}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 className="text-[15px] font-semibold tracking-tight">Execution trend</h2>
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-[28px] font-bold leading-none tracking-tight">{pct(current.achieved)}</span>
+            <DeltaChip value={previous && current.achieved != null && previous.achieved != null ? current.achieved - previous.achieved : null} />
+            {previous && <span className="text-xs text-muted-foreground">vs {previous.name}</span>}
           </div>
-          <p className="mt-1 line-clamp-1 text-sm" title={highlight.title}>{highlight.title}</p>
-        </>
-      ) : (
-        <p className="mt-3 text-sm text-muted-foreground">No pillar has a target this period.</p>
-      )}
-      <p className="mt-auto pt-2 text-xs text-muted-foreground">{note}</p>
-    </div>
-  );
-}
-
-function StoryCard({ lines, className }: { lines: string[]; className?: string }) {
-  return (
-    <section className={cn("relative overflow-hidden rounded-2xl border bg-gradient-to-br from-primary/[0.08] via-card to-card p-6 shadow-sm", className)}>
-      <div className="flex items-center gap-2 text-sm font-semibold">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary"><Sparkles className="h-4 w-4" /></span>
-        Story in brief
+        </div>
+        <span className="text-xs text-muted-foreground">{trend.length} reporting period{trend.length === 1 ? "" : "s"}</span>
       </div>
-      <ul className="mt-4 space-y-2.5">
-        {lines.map((line, i) => (
-          <li key={i} className="flex gap-3 text-sm leading-relaxed">
-            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-            <span>{line}</span>
-          </li>
-        ))}
-      </ul>
+      <div className="mt-4">
+        <TrendChart points={trend} />
+      </div>
     </section>
   );
 }
 
-function InitiativeHighlight({ kind, highlight }: { kind: "strongest" | "weakest"; highlight: Highlight | null }) {
-  const strong = kind === "strongest";
-  const Icon = strong ? ArrowUpRight : ArrowDownRight;
+function StatusCard({ m }: { m: DashboardMetrics }) {
+  const total = m.initiatives.length;
+  const dueActivities = (["onTime", "d1_30", "d31_60", "d61_90", "d90plus"] as DelayBucket[]).reduce((s, k) => s + m.activityDelays[k], 0);
   return (
-    <div className="rounded-2xl border bg-card p-5 shadow-sm">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        <Icon className={cn("h-4 w-4", strong ? "text-emerald-600" : "text-amber-600")} />
-        {strong ? "Strongest initiative" : "Weakest initiative"} · this period
-      </div>
-      {highlight ? (
-        <div className="mt-2 flex items-end justify-between gap-3">
-          <p className="line-clamp-2 text-sm font-medium" title={highlight.title}>
-            <span className="mr-1.5 text-muted-foreground">{highlight.code}</span>{highlight.title}
-          </p>
-          <span className="text-2xl font-bold tracking-tight">{pct(highlight.value)}</span>
-        </div>
-      ) : (
-        <p className="mt-2 text-sm text-muted-foreground">{strong ? "No initiative has an approved report yet." : "Only one initiative has been measured so far."}</p>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Pillars
-// ---------------------------------------------------------------------------
-
-function PillarSection({ pillars }: { pillars: PillarSummary[] }) {
-  return (
-    <SectionCard title="Pillar performance" description="Achievement against the period plan, full-year progress, and where each pillar's initiatives stand." icon={<Layers className="h-4 w-4" />}>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {pillars.map(p => <PillarTile key={p.id} pillar={p} />)}
-      </div>
-      <StatusLegend className="mt-5" />
-    </SectionCard>
-  );
-}
-
-function PillarTile({ pillar }: { pillar: PillarSummary }) {
-  const { rollup, yearProgress, totalWeight, coverage } = pillar.summary;
-  const hasPlan = rollup.weightedPlan > 0;
-  return (
-    <div className="group flex flex-col rounded-2xl border bg-background/60 p-5 transition hover:border-primary/40 hover:shadow-md">
-      <div className="flex items-start justify-between gap-3">
-        <span className="rounded-lg bg-primary/15 px-2 py-1 text-xs font-bold text-primary">{pillar.code}</span>
-        <span className="text-xs text-muted-foreground">Weight {weightPct(totalWeight)}</span>
-      </div>
-      <h3 className="mt-3 line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-snug" title={pillar.title}>{pillar.title}</h3>
-
-      <div className="mt-4 flex items-baseline justify-between">
-        <span className="text-3xl font-bold tracking-tight">{hasPlan ? pct(rollup.achievedResult) : "—"}</span>
-        <span className="text-xs text-muted-foreground">{hasPlan ? "of period plan" : "No target this period"}</span>
-      </div>
-      <Tip
-        className="mt-2"
-        content={<div className="space-y-1"><TipRow label="Weighted plan" value={weightPct(rollup.weightedPlan)} /><TipRow label="Weighted actual" value={weightPct(rollup.weightedActual)} /><TipRow label="After delays" value={pct(rollup.achievedWithDelay)} /><TipRow label="Reports approved" value={`${coverage.approved} of ${coverage.planned}`} /></div>}
-      >
-        <MeterBar value={hasPlan ? rollup.achievedResult : null} />
-      </Tip>
-
-      <div className="mt-3 flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">Full-year progress</span>
-        <span className="font-medium">{pct(yearProgress)}</span>
-      </div>
-      <MeterBar value={yearProgress} tone="soft" className="mt-1.5 h-1.5" />
-
-      <div className="mt-4 border-t pt-4">
-        <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-          <span>{pillar.initiatives} initiatives</span>
-          <span>{pillar.objectives.length} objectives</span>
-        </div>
-        <Tip content={<StatusBreakdown counts={pillar.statusCounts} />}>
-          <StatusStack counts={pillar.statusCounts} order={INITIATIVE_STATUS_ORDER} />
-        </Tip>
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-          {INITIATIVE_STATUS_ORDER.filter(s => pillar.statusCounts[s] > 0).map(s => (
-            <span key={s} className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-              <span className="h-2 w-2 rounded-full" style={{ background: STATUS_COLOR[s] }} />
-              {pillar.statusCounts[s]} {INITIATIVE_STATUS_LABEL[s].toLowerCase()}
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatusBreakdown({ counts }: { counts: Record<InitiativeStatus, number> }) {
-  return (
-    <div className="space-y-1">
-      {INITIATIVE_STATUS_ORDER.map(s => <TipRow key={s} label={INITIATIVE_STATUS_LABEL[s]} value={String(counts[s])} />)}
-    </div>
-  );
-}
-
-function StatusLegend({ className }: { className?: string }) {
-  return (
-    <div className={cn("flex flex-wrap gap-x-5 gap-y-2 border-t pt-4", className)}>
-      {INITIATIVE_STATUS_ORDER.map(s => <StatusLabel key={s} status={s} />)}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Objectives
-// ---------------------------------------------------------------------------
-
-function ObjectiveSection({ objectives, className }: { objectives: ObjectiveSummary[]; className?: string }) {
-  return (
-    <SectionCard className={className} title="Objective performance" description="Each objective's achievement against its period plan, grouped by pillar." icon={<Target className="h-4 w-4" />}>
-      <ul className="space-y-1">
-        {objectives.map((o, i) => {
-          const { rollup, totalWeight, coverage } = o.summary;
-          const hasPlan = rollup.weightedPlan > 0;
-          const newPillar = i === 0 || objectives[i - 1].pillarCode !== o.pillarCode;
+    <section className={cn(CARD, "flex flex-col p-5 sm:p-6")}>
+      <h2 className="text-[15px] font-semibold tracking-tight">Initiative status</h2>
+      <p className="mt-0.5 text-xs text-muted-foreground">{total} initiatives this plan year</p>
+      <ul className="mt-5 space-y-4">
+        {INITIATIVE_STATUS_ORDER.filter(s => s !== "awaiting" || m.statusCounts.awaiting > 0).map(s => {
+          const share = total ? m.statusCounts[s] / total : 0;
           return (
-            <li key={o.id} className={cn(newPillar && i > 0 && "mt-3 border-t pt-3")}>
+            <li key={s}>
+              <div className="flex items-center justify-between text-sm">
+                <StatusLabel status={s} className="text-sm text-foreground" />
+                <span className="text-xs text-muted-foreground">{m.statusCounts[s]} · {pct(share, 0)}</span>
+              </div>
+              <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${share * 100}%`, background: STATUS_COLOR[s] }} />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="mt-auto grid grid-cols-2 gap-4 border-t pt-4">
+        <div>
+          <p className="text-xl font-bold tracking-tight">{dueActivities ? pct(m.activityDelays.onTime / dueActivities, 0) : "—"}</p>
+          <p className="text-[11px] text-muted-foreground">Due activities on time</p>
+        </div>
+        <div className="border-l pl-4">
+          <p className="text-xl font-bold tracking-tight">{m.issues.length}</p>
+          <p className="text-[11px] text-muted-foreground">Issues escalated</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Pillars & initiatives needing attention
+// ---------------------------------------------------------------------------
+
+function PillarList({ pillars, planId }: { pillars: PillarSummary[]; planId: string }) {
+  return (
+    <SectionCard
+      title="Pillars"
+      description="Achievement against the period plan"
+      action={<Link href={`/strategic-plan/${planId}`} className="text-xs text-muted-foreground transition hover:text-foreground">View plan</Link>}
+    >
+      <ul className="divide-y">
+        {pillars.map(p => {
+          const { rollup, yearProgress, totalWeight } = p.summary;
+          const hasPlan = rollup.weightedPlan > 0;
+          return (
+            <li key={p.id}>
               <Tip
-                className="rounded-xl px-2 py-2 transition hover:bg-muted/60"
-                content={<div className="space-y-1"><TipRow label="Weight" value={weightPct(totalWeight)} /><TipRow label="Weighted plan" value={weightPct(rollup.weightedPlan)} /><TipRow label="Weighted actual" value={weightPct(rollup.weightedActual)} /><TipRow label="Reports approved" value={`${coverage.approved} of ${coverage.planned}`} /></div>}
+                className="-mx-2 rounded-xl px-2 py-3 transition hover:bg-muted/50"
+                content={<div className="space-y-1"><TipRow label="Weight" value={weightPct(totalWeight)} /><TipRow label="Weighted plan" value={weightPct(rollup.weightedPlan)} /><TipRow label="Weighted actual" value={weightPct(rollup.weightedActual)} /><TipRow label="Full-year progress" value={pct(yearProgress)} /></div>}
               >
                 <div className="flex items-center gap-3">
-                  <span className="w-9 shrink-0 text-xs font-semibold text-muted-foreground">{o.code}</span>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-xs font-bold text-muted-foreground">{p.code}</span>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <p className="truncate text-sm" title={o.statement}>{o.statement}</p>
-                      <span className={cn("shrink-0 text-sm font-semibold", !hasPlan && "font-normal text-muted-foreground")}>
-                        {hasPlan ? pct(rollup.achievedResult) : "No target"}
-                      </span>
-                    </div>
-                    <MeterBar value={hasPlan ? rollup.achievedResult : null} className="mt-1.5 h-1.5" />
+                    <p className="truncate text-sm font-medium" title={p.title}>{p.title.replace(/^Pillar\s*\d+\s*:\s*/i, "")}</p>
+                    <p className="text-xs text-muted-foreground">{p.initiatives} initiatives · {weightPct(totalWeight, 1)} weight</p>
                   </div>
-                  <span className="hidden w-8 shrink-0 text-right text-[11px] font-medium text-muted-foreground sm:block">{o.pillarCode}</span>
+                  <div className="text-right">
+                    <p className={cn("text-sm font-semibold", !hasPlan && "font-normal text-muted-foreground")}>{hasPlan ? pct(rollup.achievedResult) : "—"}</p>
+                    <p className="text-[11px] text-muted-foreground">{hasPlan ? `${pct(yearProgress)} of year` : "no target"}</p>
+                  </div>
                 </div>
               </Tip>
             </li>
@@ -381,29 +309,162 @@ function ObjectiveSection({ objectives, className }: { objectives: ObjectiveSumm
   );
 }
 
+function AttentionTable({ initiatives, className }: { initiatives: InitiativeSummary[]; className?: string }) {
+  // Measured initiatives, weakest first — the ones management should look at.
+  const rows = initiatives
+    .filter(i => i.summary.rollup.weightedPlan > 0)
+    .sort((a, b) => (a.summary.rollup.achievedResult ?? 0) - (b.summary.rollup.achievedResult ?? 0))
+    .slice(0, 7);
+  return (
+    <SectionCard
+      className={className}
+      title="Initiatives to watch"
+      description="Initiatives with a plan this period, weakest first"
+      action={<Link href="/reports" className="inline-flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground">Performance report <ArrowRight className="h-3 w-3" /></Link>}
+    >
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No initiative has a plan for this period.</p>
+      ) : (
+        <div className="-mx-2 overflow-x-auto">
+          <table className="w-full min-w-[640px] text-sm">
+            <thead>
+              <tr className="text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                <th className="px-2 pb-3 font-medium">Code</th>
+                <th className="px-2 pb-3 font-medium">Initiative</th>
+                <th className="px-2 pb-3 font-medium">Lead owner</th>
+                <th className="px-2 pb-3 font-medium">Status</th>
+                <th className="px-2 pb-3 text-right font-medium">Achieved</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {rows.map(i => (
+                <tr key={i.id} className="transition hover:bg-muted/40">
+                  <td className="whitespace-nowrap px-2 py-3 text-xs text-muted-foreground">{i.code}</td>
+                  <td className="max-w-[260px] px-2 py-3">
+                    <p className="truncate font-medium" title={i.title}>{i.title}</p>
+                    <p className="text-xs text-muted-foreground">{i.pillarCode} · {i.objectiveCode} · {i.summary.coverage.approved}/{i.summary.coverage.planned} reports</p>
+                  </td>
+                  <td className="px-2 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">{initials(i.owner)}</span>
+                      <span className="max-w-[170px] truncate text-xs" title={i.owner}>{i.owner}</span>
+                    </div>
+                  </td>
+                  <td className="px-2 py-3"><StatusPill status={i.status} /></td>
+                  <td className="whitespace-nowrap px-2 py-3 text-right font-semibold">{pct(i.summary.rollup.achievedResult)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
 // ---------------------------------------------------------------------------
-// Initiative status & delays
+// Objectives & streams
 // ---------------------------------------------------------------------------
 
-function StatusSection({ m }: { m: DashboardMetrics }) {
-  const total = m.initiatives.length;
+function ObjectiveSection({ objectives }: { objectives: ObjectiveSummary[] }) {
   return (
-    <SectionCard title="Initiative status" description="All initiatives, by their result this period." icon={<ListChecks className="h-4 w-4" />}>
-      <Tip content={<StatusBreakdown counts={m.statusCounts} />}>
-        <StatusStack counts={m.statusCounts} order={INITIATIVE_STATUS_ORDER} height="h-4" />
-      </Tip>
-      <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
-        {INITIATIVE_STATUS_ORDER.map(s => (
-          <li key={s} className="flex items-center justify-between gap-2">
-            <StatusLabel status={s} />
-            <span className="text-sm font-semibold">
-              {m.statusCounts[s]}
-              <span className="ml-1 text-xs font-normal text-muted-foreground">{total ? pct(m.statusCounts[s] / total, 0) : ""}</span>
-            </span>
+    <SectionCard title="Objectives" description="Achievement against each objective's period plan">
+      <ul className="space-y-0.5">
+        {objectives.map((o, i) => {
+          const { rollup, totalWeight, coverage } = o.summary;
+          const hasPlan = rollup.weightedPlan > 0;
+          const newPillar = i > 0 && objectives[i - 1].pillarCode !== o.pillarCode;
+          return (
+            <li key={o.id} className={cn(newPillar && "mt-2 border-t pt-2")}>
+              <Tip
+                className="-mx-2 rounded-xl px-2 py-2 transition hover:bg-muted/50"
+                content={<div className="space-y-1"><TipRow label="Pillar" value={o.pillarCode} /><TipRow label="Weight" value={weightPct(totalWeight)} /><TipRow label="Weighted plan" value={weightPct(rollup.weightedPlan)} /><TipRow label="Weighted actual" value={weightPct(rollup.weightedActual)} /><TipRow label="Reports approved" value={`${coverage.approved} of ${coverage.planned}`} /></div>}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="w-8 shrink-0 text-xs font-semibold text-muted-foreground">{o.code}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="truncate text-sm" title={o.statement}>{o.statement.replace(/^Objective\s*\d+\s*:\s*/i, "")}</p>
+                      <span className={cn("shrink-0 text-sm font-semibold", !hasPlan && "text-xs font-normal text-muted-foreground")}>{hasPlan ? pct(rollup.achievedResult) : "No target"}</span>
+                    </div>
+                    <MeterBar value={hasPlan ? rollup.achievedResult : null} className="mt-1.5 h-1.5" />
+                  </div>
+                </div>
+              </Tip>
+            </li>
+          );
+        })}
+      </ul>
+    </SectionCard>
+  );
+}
+
+function StreamSection({ streams }: { streams: StreamSummary[] }) {
+  return (
+    <SectionCard title="Streams & departments" description="Ranked by achievement against their period plan">
+      {streams.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No activities have a lead owner yet.</p>
+      ) : (
+        <ol className="divide-y">
+          {streams.map((s, i) => {
+            const { rollup, coverage, totalWeight } = s.summary;
+            const hasPlan = rollup.weightedPlan > 0;
+            return (
+              <li key={s.name}>
+                <Tip
+                  className="-mx-2 rounded-xl px-2 py-2.5 transition hover:bg-muted/50"
+                  content={<div className="space-y-1"><TipRow label="Weight" value={weightPct(totalWeight)} /><TipRow label="Weighted plan" value={weightPct(rollup.weightedPlan)} /><TipRow label="Weighted actual" value={weightPct(rollup.weightedActual)} /><TipRow label="After delays" value={pct(rollup.achievedWithDelay)} /><TipRow label="Activities completed" value={`${s.activitiesCompleted} of ${s.activitiesDue} due`} /></div>}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold", i < 3 && hasPlan ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground")}>{i + 1}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="truncate text-sm font-medium" title={s.name}>{s.name}</p>
+                        <span className={cn("shrink-0 text-sm font-semibold", !hasPlan && "font-normal text-muted-foreground")}>{hasPlan ? pct(rollup.achievedResult) : "—"}</span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between gap-3">
+                        <p className="flex min-w-0 items-center gap-2 truncate text-xs text-muted-foreground">
+                          {s.initiatives} initiatives · {coverage.activities} activities
+                          {coverage.missing > 0 && (
+                            <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400">
+                              <FileWarning className="h-3 w-3" /> {coverage.missing} not approved
+                            </span>
+                          )}
+                        </p>
+                        <RatingChip rating={s.rating} />
+                      </div>
+                    </div>
+                  </div>
+                </Tip>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </SectionCard>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Story, delays, issues
+// ---------------------------------------------------------------------------
+
+function StoryCard({ lines }: { lines: string[] }) {
+  return (
+    <section className={cn(CARD, "bg-gradient-to-br from-primary/[0.07] via-card to-card p-5 sm:p-6")}>
+      <div className="flex items-center gap-2">
+        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/15 text-primary"><Sparkles className="h-4 w-4" /></span>
+        <h2 className="text-[15px] font-semibold tracking-tight">Story in brief</h2>
+      </div>
+      <ul className="mt-4 space-y-2.5">
+        {lines.map((line, i) => (
+          <li key={i} className="flex gap-2.5 text-sm leading-relaxed">
+            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+            <span>{line}</span>
           </li>
         ))}
       </ul>
-    </SectionCard>
+    </section>
   );
 }
 
@@ -412,7 +473,7 @@ const DELAY_ORDER: DelayBucket[] = ["onTime", "d1_30", "d31_60", "d61_90", "d90p
 
 function DelaySection({ m }: { m: DashboardMetrics }) {
   return (
-    <SectionCard title="Delays" description="Due items that finished late or are still open past their end date." icon={<CalendarClock className="h-4 w-4" />}>
+    <SectionCard title="Delays" description="Due items that finished late or are still open past their end date">
       <div className="space-y-5">
         <DelayBars label="Initiatives" counts={m.initiativeDelays} />
         <DelayBars label="Activities" counts={m.activityDelays} />
@@ -433,9 +494,9 @@ function DelayBars({ label, counts }: { label: string; counts: Record<DelayBucke
         {DELAY_ORDER.map(k => (
           <Tip key={k} content={<TipRow label={DELAY_BUCKET_LABEL[k]} value={String(counts[k])} />} className="flex flex-col items-center">
             <span className="mb-1 text-xs font-semibold">{counts[k]}</span>
-            <div className="flex h-16 w-full items-end rounded-md bg-muted/60">
+            <div className="flex h-14 w-full items-end rounded-lg bg-muted/60">
               <div
-                className={cn("w-full rounded-md transition-[height] duration-700", k === "onTime" ? "bg-primary/35" : "bg-primary")}
+                className={cn("w-full rounded-lg transition-[height] duration-700", k === "onTime" ? "bg-primary/35" : "bg-primary")}
                 style={{ height: `${(counts[k] / max) * 100}%`, minHeight: counts[k] > 0 ? 4 : 0 }}
               />
             </div>
@@ -447,78 +508,32 @@ function DelayBars({ label, counts }: { label: string; counts: Record<DelayBucke
   );
 }
 
-// ---------------------------------------------------------------------------
-// Streams & departments
-// ---------------------------------------------------------------------------
-
-function StreamSection({ streams }: { streams: StreamSummary[] }) {
-  return (
-    <SectionCard title="Streams & departments" description="Ranked by achievement against their period plan (lead owner of each activity)." icon={<Building2 className="h-4 w-4" />}>
-      {streams.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No activities have a lead owner yet.</p>
-      ) : (
-        <ol className="divide-y">
-          {streams.map((s, i) => {
-            const { rollup, coverage, totalWeight } = s.summary;
-            const hasPlan = rollup.weightedPlan > 0;
-            return (
-              <li key={s.name}>
-                <Tip
-                  className="rounded-xl px-2 py-3 transition hover:bg-muted/50"
-                  content={<div className="space-y-1"><TipRow label="Weight" value={weightPct(totalWeight)} /><TipRow label="Weighted plan" value={weightPct(rollup.weightedPlan)} /><TipRow label="Weighted actual" value={weightPct(rollup.weightedActual)} /><TipRow label="After delays" value={pct(rollup.achievedWithDelay)} /><TipRow label="Activities completed" value={`${s.activitiesCompleted} of ${s.activitiesDue} due`} /></div>}
-                >
-                  <div className="grid grid-cols-[2rem_1fr_auto] items-center gap-3 sm:grid-cols-[2rem_minmax(0,1.4fr)_minmax(0,1fr)_4rem_7.5rem]">
-                    <span className={cn("flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold", i < 3 && hasPlan ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground")}>{i + 1}</span>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium" title={s.name}>{s.name}</p>
-                      <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-                        <span>{s.initiatives} initiatives · {coverage.activities} activities</span>
-                        {coverage.missing > 0 && (
-                          <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400">
-                            <FileWarning className="h-3 w-3" /> {coverage.missing} report{coverage.missing === 1 ? "" : "s"} not approved
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                    <MeterBar value={hasPlan ? rollup.achievedResult : null} className="hidden sm:block" />
-                    <span className={cn("text-right text-sm font-semibold", !hasPlan && "font-normal text-muted-foreground")}>{hasPlan ? pct(rollup.achievedResult) : "—"}</span>
-                    <div className="col-span-3 flex sm:col-span-1 sm:justify-end"><RatingChip rating={s.rating} /></div>
-                  </div>
-                </Tip>
-              </li>
-            );
-          })}
-        </ol>
-      )}
-    </SectionCard>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Issues
-// ---------------------------------------------------------------------------
-
 function IssuesSection({ issues }: { issues: DashboardMetrics["issues"] }) {
   return (
-    <SectionCard title="Issues that need management attention" description="Escalations raised in approved reports for this period." icon={<TriangleAlert className="h-4 w-4" />}>
+    <SectionCard title="Needs management attention" description="Escalations raised in approved reports">
       {issues.length === 0 ? (
-        <div className="flex items-center gap-3 rounded-xl bg-muted/50 px-4 py-4 text-sm text-muted-foreground">
+        <div className="flex items-center gap-3 rounded-2xl bg-muted/50 px-4 py-4 text-sm text-muted-foreground">
           <CheckCircle2 className="h-5 w-5 text-emerald-600" /> No escalations in approved reports.
         </div>
       ) : (
-        <ul className="grid gap-3 md:grid-cols-2">
-          {issues.map(issue => (
-            <li key={issue.activityId} className="rounded-xl border border-l-4 border-l-amber-500 bg-background/60 p-4">
-              <p className="whitespace-pre-wrap text-sm leading-relaxed">{issue.text}</p>
-              <p className="mt-3 text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">{issue.activity}</span>
-                {" · "}{issue.initiativeCode} {issue.initiative}
-                {" · "}{issue.owner}
-              </p>
+        <ul className="space-y-3">
+          {issues.slice(0, 5).map(issue => (
+            <li key={issue.activityId} className="rounded-2xl bg-muted/40 p-4">
+              <div className="flex gap-2.5">
+                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <div className="min-w-0">
+                  <p className="line-clamp-3 text-sm leading-relaxed">{issue.text}</p>
+                  <p className="mt-2 truncate text-xs text-muted-foreground" title={`${issue.activity} · ${issue.initiative} · ${issue.owner}`}>
+                    {issue.initiativeCode} · {issue.activity} · {issue.owner}
+                  </p>
+                </div>
+              </div>
             </li>
           ))}
+          {issues.length > 5 && <li className="text-xs text-muted-foreground">+ {issues.length - 5} more in the performance report</li>}
         </ul>
       )}
     </SectionCard>
   );
 }
+
