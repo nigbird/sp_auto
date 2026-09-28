@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import Link from "next/link";
-import { LayoutDashboard, UserCheck, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, UserCheck, LogOut } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
 
@@ -155,12 +155,6 @@ export function Header({ pageTitle, headerActions }: { pageTitle: ReactNode, hea
                   <Link href="/profile">
                     <UserCheck className="mr-2 h-4 w-4" />
                     <span>Profile</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/settings">
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Configuration</span>
                   </Link>
                 </DropdownMenuItem>
               <DropdownMenuSeparator />

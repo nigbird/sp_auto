@@ -1,41 +1,39 @@
+import { format } from "date-fns";
+import { prisma } from "@/lib/prisma";
+import { requireUser } from "@/lib/auth/session";
+import { ProfileForms } from "@/components/profile/profile-forms";
 
-"use client";
+export default async function ProfilePage() {
+  const session = await requireUser();
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: session.id },
+    select: {
+      name: true,
+      email: true,
+      department: true,
+      lastLoginAt: true,
+      createdAt: true,
+      role: { select: { name: true } },
+      leadOwner: { select: { name: true } },
+    },
+  });
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+  const details = [
+    { label: "Email", value: user.email },
+    { label: "Role", value: user.role.name },
+    { label: "Office", value: user.leadOwner?.name },
+    { label: "Department", value: user.department },
+    { label: "Member since", value: format(user.createdAt, "PP") },
+    { label: "Last sign-in", value: user.lastLoginAt ? format(user.lastLoginAt, "PPp") : null },
+  ].filter((d): d is { label: string; value: string } => !!d.value);
 
-export default function ProfilePage() {
   return (
     <div className="flex-1 space-y-6">
-       <div className="space-y-2">
+      <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
-        <p className="text-muted-foreground">Manage your public profile information.</p>
+        <p className="text-muted-foreground">Your account details and password.</p>
       </div>
-       <Card>
-          <CardHeader>
-            <CardTitle>Profile</CardTitle>
-            <CardDescription>Manage your public profile information.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="full-name">Full Name</Label>
-              <Input id="full-name" defaultValue="Admin User" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" defaultValue="admin@corp-plan.com" disabled />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="avatar">Avatar URL</Label>
-              <Input id="avatar" defaultValue="https://picsum.photos/100" />
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button>Update Profile</Button>
-          </CardFooter>
-        </Card>
+      <ProfileForms name={user.name} details={details} />
     </div>
   );
 }

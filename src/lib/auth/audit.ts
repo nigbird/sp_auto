@@ -9,7 +9,8 @@ export type AuditAction =
   | 'SESSION_REVOKED'
   | 'INVITE_SENT'
   | 'PASSWORD_RESET_REQUEST'
-  | 'PASSWORD_SET';
+  | 'PASSWORD_SET'
+  | 'PASSWORD_CHANGE';
 
 export async function writeAuditLog(params: {
   action: AuditAction;

@@ -80,9 +80,9 @@ function LoginForm() {
 
   return (
     <form className="mt-6 space-y-4" onSubmit={handleLogin}>
-      {(passwordSet === "set" || passwordSet === "reset") && (
+      {(passwordSet === "set" || passwordSet === "reset" || passwordSet === "changed") && (
         <AuthNotice>
-          {passwordSet === "set" ? "Your password is set." : "Your password has been reset."} Sign in with your new password.
+          {passwordSet === "set" ? "Your password is set." : passwordSet === "changed" ? "Your password was changed." : "Your password has been reset."} Sign in with your new password.
         </AuthNotice>
       )}
 
