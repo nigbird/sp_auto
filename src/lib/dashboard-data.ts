@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/auth/session';
 import { monthKey } from '@/lib/monthly-breakdown';
 import { computeDashboard, type DashboardMetrics, type MetricEntry, type MetricPeriod, type MetricPillar } from '@/lib/dashboard-metrics';
+import { parseRatingThresholds } from '@/lib/rating-bands';
 
 export interface DashboardPlanOption { id: string; name: string; version: string; status: string }
 export interface DashboardPeriodOption extends MetricPeriod { reportRequested: boolean }
@@ -83,7 +84,7 @@ export async function loadDashboard(planId?: string, periodId?: string): Promise
   // The selected period and every period before it make up the trend.
   const history = periods.filter(p => new Date(p.endDate).getTime() <= new Date(period.endDate).getTime());
 
-  const [pillarRows, entryRows] = await Promise.all([
+  const [pillarRows, entryRows, config] = await Promise.all([
     prisma.pillar.findMany({
       where: { strategicPlanId: plan.id },
       orderBy: { createdAt: 'asc' },
@@ -132,6 +133,7 @@ export async function loadDashboard(planId?: string, periodId?: string): Promise
         comment: true, reasonForVariation: true, wayForward: true, escalationIssues: true,
       },
     }),
+    prisma.appConfig.findUnique({ where: { id: 'singleton' }, select: { ratingBands: true } }),
   ]);
 
   const pillars: MetricPillar[] = pillarRows.map(p => ({
@@ -166,6 +168,8 @@ export async function loadDashboard(planId?: string, periodId?: string): Promise
     })),
   }));
 
+  const ratingThresholds = parseRatingThresholds(config?.ratingBands);
+
   const entriesByPeriod = new Map<string, MetricEntry[]>();
   for (const e of entryRows) {
     const list = entriesByPeriod.get(e.reportingPeriodId) ?? [];
@@ -186,7 +190,7 @@ export async function loadDashboard(planId?: string, periodId?: string): Promise
   let previousMetrics: DashboardMetrics | null = null;
   const previousPeriodId = history.length > 1 ? history[history.length - 2].id : null;
   const trend: TrendPoint[] = history.map(p => {
-    const m = computeDashboard(pillars, entriesByPeriod.get(p.id) ?? [], p);
+    const m = computeDashboard(pillars, entriesByPeriod.get(p.id) ?? [], p, ratingThresholds);
     if (p.id === period.id) metrics = m;
     if (p.id === previousPeriodId) previousMetrics = m;
     const { rollup, coverage, yearProgress } = m.overall;
@@ -212,7 +216,7 @@ export async function loadDashboard(planId?: string, periodId?: string): Promise
     periods,
     period,
     periodOpen: new Date(period.endDate).getTime() > now,
-    metrics: metrics ?? computeDashboard(pillars, entriesByPeriod.get(period.id) ?? [], period),
+    metrics: metrics ?? computeDashboard(pillars, entriesByPeriod.get(period.id) ?? [], period, ratingThresholds),
     trend,
     previousMetrics,
     ...context,

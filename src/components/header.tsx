@@ -160,7 +160,7 @@ export function Header({ pageTitle, headerActions }: { pageTitle: ReactNode, hea
                 <DropdownMenuItem asChild>
                   <Link href="/settings">
                     <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
+                    <span>Configuration</span>
                   </Link>
                 </DropdownMenuItem>
               <DropdownMenuSeparator />

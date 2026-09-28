@@ -16,6 +16,7 @@
 
 import { computeReportRow, rollUp, type ReportRollup, type ReportRow } from './report-calculations';
 import type { TargetAggregation, TargetType } from './monthly-breakdown';
+import { DEFAULT_RATING_THRESHOLDS, type RatingThresholds } from './rating-bands';
 
 // ---------------------------------------------------------------------------
 // Inputs
@@ -79,17 +80,6 @@ export const INITIATIVE_STATUS_LABEL: Record<InitiativeStatus, string> = {
 
 export type Rating = 'Outstanding' | 'Very Good' | 'Good' | 'Fair' | 'Unsatisfactory' | 'No Target';
 
-/**
- * The Excel's "Weighted Performance Range" legend (Streams & Departments sheet).
- * The workbook's own rating cells don't always follow it; this legend is the source of truth here.
- */
-export const RATING_BANDS: { min: number; rating: Rating }[] = [
-  { min: 0.9, rating: 'Outstanding' },
-  { min: 0.8, rating: 'Very Good' },
-  { min: 0.7, rating: 'Good' },
-  { min: 0.5, rating: 'Fair' },
-  { min: -Infinity, rating: 'Unsatisfactory' },
-];
 
 export type DelayBucket = 'onTime' | 'd1_30' | 'd31_60' | 'd61_90' | 'd90plus' | 'notElapsed';
 
@@ -231,6 +221,8 @@ export interface DashboardMetrics {
   weakestInitiative: Highlight | null;
   issues: IssueItem[];
   story: string[];
+  /** The rating thresholds (percent) used for every rating above. */
+  ratingThresholds: RatingThresholds;
 }
 
 // ---------------------------------------------------------------------------
@@ -253,9 +245,15 @@ interface ActivityResult {
   delayDays: number | null;
 }
 
-export function ratingFor(achieved: number | null, hasPlan: boolean): Rating {
+/** Rating for an achievement ratio (1 = 100%), using the configured thresholds (in percent). */
+export function ratingFor(achieved: number | null, hasPlan: boolean, t: RatingThresholds = DEFAULT_RATING_THRESHOLDS): Rating {
   if (!hasPlan || achieved == null) return 'No Target';
-  return RATING_BANDS.find(b => achieved >= b.min)!.rating;
+  const p = achieved * 100;
+  if (p >= t.outstanding) return 'Outstanding';
+  if (p >= t.veryGood) return 'Very Good';
+  if (p >= t.good) return 'Good';
+  if (p >= t.fair) return 'Fair';
+  return 'Unsatisfactory';
 }
 
 function bucketFor(result: { dueByPeriodEnd: boolean; delayDays: number | null }): DelayBucket {
@@ -406,7 +404,12 @@ function tallyQuarters(items: { due: Date | null; completed: boolean }[], fyStar
 
 // --- Main ------------------------------------------------------------------------
 
-export function computeDashboard(pillars: MetricPillar[], entries: MetricEntry[], period: MetricPeriod): DashboardMetrics {
+export function computeDashboard(
+  pillars: MetricPillar[],
+  entries: MetricEntry[],
+  period: MetricPeriod,
+  ratingThresholds: RatingThresholds = DEFAULT_RATING_THRESHOLDS
+): DashboardMetrics {
   const periodEnd = new Date(period.endDate);
   const entryByActivity = new Map(entries.map(e => [e.activityId, e]));
 
@@ -467,7 +470,7 @@ export function computeDashboard(pillars: MetricPillar[], entries: MetricEntry[]
           owner,
           summary,
           status,
-          rating: ratingFor(summary.rollup.achievedResult, summary.rollup.weightedPlan > 0 && summary.coverage.approved > 0),
+          rating: ratingFor(summary.rollup.achievedResult, summary.rollup.weightedPlan > 0 && summary.coverage.approved > 0, ratingThresholds),
           startDate: starts.length ? new Date(Math.min(...starts)).toISOString() : null,
           dueDate: due ? due.toISOString() : null,
           dueByPeriodEnd,
@@ -566,7 +569,7 @@ export function computeDashboard(pillars: MetricPillar[], entries: MetricEntry[]
     return {
       name,
       summary,
-      rating: ratingFor(summary.rollup.achievedResult, hasPlan),
+      rating: ratingFor(summary.rollup.achievedResult, hasPlan, ratingThresholds),
       score30: hasPlan && summary.rollup.achievedResult != null ? summary.rollup.achievedResult * 30 : null,
       initiatives: initiatives.size,
       initiativesDue: inits.filter(i => i.dueByPeriodEnd).length,
@@ -624,6 +627,7 @@ export function computeDashboard(pillars: MetricPillar[], entries: MetricEntry[]
     weakestInitiative: wI && wI !== sI ? toHighlight(wI.code, wI.title, wI.summary.rollup.achievedResult) : null,
     issues,
     story: [],
+    ratingThresholds,
   };
   metrics.story = writeStory(metrics, period);
   return metrics;

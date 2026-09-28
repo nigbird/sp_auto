@@ -204,7 +204,7 @@ export function UserForm({ user, onSubmit, onCancel, initialValues, fixedLeadOwn
                       {leadOwners.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <FormDescription>The office they hold, e.g. Chief Strategy Officer. Manage the list in Settings → Departments & Lead Owners.</FormDescription>
+                  <FormDescription>The office they hold, e.g. Chief Strategy Officer. Manage the list in Configuration → Departments & Lead Owners.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

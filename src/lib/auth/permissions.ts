@@ -38,9 +38,9 @@ export const PERMISSION_GROUPS = [
     ],
   },
   {
-    title: 'Settings',
+    title: 'Configuration',
     permissions: [
-      { id: 'settings:view', label: 'View Settings' },
+      { id: 'settings:view', label: 'View Configuration' },
       { id: 'settings:users:manage', label: 'Manage Users' },
       { id: 'settings:roles:manage', label: 'Manage Roles' },
     ],

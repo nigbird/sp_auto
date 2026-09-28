@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getRules, updateRule, createRule, deleteRule } from "@/actions/rules";
 import { getAppConfig, updateAchievementCap } from "@/actions/app-config";
 import type { Rule } from "@/lib/types";
+import { RatingBandsCard } from "@/components/settings/rating-bands-card";
 
 export default function RulesPage() {
   const [rules, setRules] = useState<Rule[]>([]);
@@ -155,6 +156,8 @@ export default function RulesPage() {
           )}
         </CardContent>
       </Card>
+
+      <RatingBandsCard />
       <Card>
         <CardHeader>
           <CardTitle>Status Definitions</CardTitle>

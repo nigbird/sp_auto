@@ -1,6 +1,7 @@
 import { FileWarning } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DashboardMetrics, Rating } from "@/lib/dashboard-metrics";
+import { describeRatingBands } from "@/lib/rating-bands";
 import { StreamAchievementChart, StreamDeliveryChart } from "./charts";
 import { DeltaChip, MeterBar, RatingChip, SectionCard, pct, weightPct } from "./primitives";
 import { MiniStat } from "./tab-initiatives";
@@ -20,13 +21,14 @@ export function StreamsTab({ m, previous }: { m: DashboardMetrics; previous: Das
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MiniStat label="Streams & departments" value={String(m.streams.length)} note={`${measured.length} measured this period`} />
         <MiniStat label="Average score" value={avgScore == null ? "—" : `${avgScore.toFixed(1)} / 30`} note="achievement × 30, measured streams" />
-        <MiniStat label="Rated Outstanding" value={String(m.streams.filter(s => s.rating === "Outstanding").length)} note="90% or more of their period plan" />
+        <MiniStat label="Rated Outstanding" value={String(m.streams.filter(s => s.rating === "Outstanding").length)} note={`${m.ratingThresholds.outstanding}% or more of their period plan`} />
         <MiniStat label="Reports not approved" value={String(missingReports)} note="planned activities counting as zero" />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-2">
-        <SectionCard title="Achievement by stream" description="Weighted actual ÷ weighted plan for the period; the line marks 80% (Very Good)">
+        <SectionCard title="Achievement by stream" description={`Weighted actual ÷ weighted plan for the period; the line marks ${m.ratingThresholds.veryGood}% (Very Good)`}>
           <StreamAchievementChart
+            marker={m.ratingThresholds.veryGood}
             data={m.streams.map(s => ({
               name: s.name,
               achieved: s.summary.rollup.weightedPlan > 0 && s.summary.coverage.approved > 0 ? s.summary.rollup.achievedResult : null,
@@ -111,7 +113,7 @@ export function StreamsTab({ m, previous }: { m: DashboardMetrics; previous: Das
           </table>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          Streams are the lead-owner offices on each activity. Score /30 = achievement × 30, as in the Excel. Ratings: Outstanding ≥ 90%, Very Good 80–89.9%, Good 70–79.9%, Fair 50–69.9%, Unsatisfactory below 50%.
+          Streams are the lead-owner offices on each activity. Score /30 = achievement × 30, as in the Excel. Ratings (set in Configuration): {describeRatingBands(m.ratingThresholds)}.
         </p>
       </SectionCard>
     </div>

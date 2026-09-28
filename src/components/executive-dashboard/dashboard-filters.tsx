@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, ChevronDown, FileSpreadsheet, FileText, Loader2, Upload } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { DashboardPeriodOption, DashboardPlanOption } from "@/lib/dashboard-data";
 
 /** Plan and period pickers plus export. Changing a picker reloads the dashboard for that selection from the server. */
@@ -26,6 +26,7 @@ export function DashboardFilters({ plans, planId, periods, periodId, tab }: {
   };
 
   const exportBase = planId ? `/api/export/plan/${planId}${periodId ? `?period=${periodId}` : ""}` : null;
+  const dashboardQuery = new URLSearchParams({ ...(planId ? { plan: planId } : {}), ...(periodId ? { period: periodId } : {}) }).toString();
   const now = Date.now();
 
   return (
@@ -77,12 +78,24 @@ export function DashboardFilters({ plans, planId, periods, periodId, tab }: {
               <Upload className="h-4 w-4" /> Export <ChevronDown className="h-3.5 w-3.5 opacity-80" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuContent align="end" className="w-72">
+            <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">Dashboard (all tabs, with charts)</DropdownMenuLabel>
             <DropdownMenuItem asChild>
-              <a href={exportBase}><FileSpreadsheet className="mr-2 h-4 w-4" /> Excel workbook</a>
+              <a href={`/api/export/dashboard?${dashboardQuery}`}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                <span className="flex flex-col"><span>Excel workbook</span><span className="text-[11px] text-muted-foreground">One sheet per tab, charts included</span></span>
+              </a>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <a href={`${exportBase}${exportBase.includes("?") ? "&" : "?"}format=pdf`}><FileText className="mr-2 h-4 w-4" /> PDF report</a>
+              <a href={`/api/export/dashboard?${dashboardQuery}&format=pdf`}>
+                <FileText className="mr-2 h-4 w-4" />
+                <span className="flex flex-col"><span>PDF report</span><span className="text-[11px] text-muted-foreground">Every section with its charts</span></span>
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">Plan</DropdownMenuLabel>
+            <DropdownMenuItem asChild>
+              <a href={exportBase}><FileSpreadsheet className="mr-2 h-4 w-4" /> Cascaded plan workbook</a>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

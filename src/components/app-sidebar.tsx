@@ -63,7 +63,7 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
     label: "Administration",
     items: [
       { href: "/users", label: "Users & Roles", icon: Users, anyOf: ["settings:users:manage", "settings:roles:manage"] },
-      { href: "/settings", label: "Settings", icon: Settings, anyOf: ["settings:view"] },
+      { href: "/settings", label: "Configuration", icon: Settings, anyOf: ["settings:view"] },
     ],
   },
 ];

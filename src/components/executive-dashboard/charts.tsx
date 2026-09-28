@@ -243,7 +243,7 @@ function NameTick({ x, y, payload }: { x?: number; y?: number; payload?: { value
   );
 }
 
-export function StreamAchievementChart({ data }: { data: { name: string; achieved: number | null; withDelay: number | null; plan: number; actual: number; rating: string }[] }) {
+export function StreamAchievementChart({ data, marker = 80 }: { data: { name: string; achieved: number | null; withDelay: number | null; plan: number; actual: number; rating: string }[]; /** Reference line, in percent (the Very Good threshold). */ marker?: number }) {
   const rows = data.filter(d => d.achieved != null).map(d => ({ ...d, value: (d.achieved ?? 0) * 100 }));
   if (rows.length === 0) return <p className="text-sm text-muted-foreground">No stream has a measured plan this period.</p>;
   return (
@@ -253,7 +253,7 @@ export function StreamAchievementChart({ data }: { data: { name: string; achieve
           <CartesianGrid horizontal={false} stroke={GRID} />
           <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} tickLine={false} axisLine={false} tick={AXIS_TICK} />
           <YAxis type="category" dataKey="name" width={210} tickLine={false} axisLine={false} tick={<NameTick />} />
-          <ReferenceLine x={80} stroke={GOLD} strokeOpacity={0.5} />
+          <ReferenceLine x={marker} stroke={GOLD} strokeOpacity={0.5} />
           <Tooltip
             cursor={{ fill: "rgba(120,110,100,0.08)" }}
             content={({ active, payload }) => {

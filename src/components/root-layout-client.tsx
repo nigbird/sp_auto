@@ -6,15 +6,18 @@ import { AppLayout } from "@/components/app-layout";
 import { Toaster } from "@/components/ui/toaster";
 import { ClientOnly } from './client-only';
 
+const AUTH_PAGES = ["/login", "/forgot-password", "/set-password"];
+
 export function RootLayoutClient({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   const pathname = usePathname();
-  const isLoginPage = pathname === "/login";
+  // Sign-in screens are full-page: no sidebar, header or session keep-alive.
+  const isAuthPage = AUTH_PAGES.includes(pathname);
 
-  if (isLoginPage) {
+  if (isAuthPage) {
     return (
       <>
         {children}

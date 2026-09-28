@@ -23,31 +23,13 @@ export function shortDate(iso: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Status palette — validated for CVD separation (dataviz validate_palette.js).
+// Status and pillar palettes live in lib/dashboard-colors (shared with the exports).
 // Status colours are reserved for status; magnitude bars use the brand gold.
 // Every status mark ships with an icon + label, never colour alone.
 // ---------------------------------------------------------------------------
 
-export const STATUS_COLOR: Record<InitiativeStatus, string> = {
-  achieved: "#0c6e3a",
-  onTrack: "#34a37a",
-  behind: "#e8a33d",
-  notStarted: "#c0392b",
-  awaiting: "#d6cfc4",
-  noTarget: "#a8a29a",
-};
-
-/**
- * Pillar identity colours, in fixed order (P1…P6), validated with the dataviz
- * palette validator in light and dark mode (adjacent CVD ΔE ≥ 10, all ≥ 3:1 contrast).
- * Colour follows the pillar, never its rank; a 7th+ pillar folds to neutral grey.
- */
-export const PILLAR_COLORS = ["#b8862b", "#2f6ea3", "#c0573e", "#2a9d8f", "#8a5aa8", "#5f8a2c"];
-
-export function pillarColor(code: string): string {
-  const index = Number(code.replace(/\D/g, "")) - 1;
-  return PILLAR_COLORS[index] ?? "#9a948a";
-}
+import { PILLAR_COLORS, STATUS_COLOR, pillarColor } from "@/lib/dashboard-colors";
+export { PILLAR_COLORS, STATUS_COLOR, pillarColor };
 
 const STATUS_ICON: Record<InitiativeStatus, typeof CheckCircle2> = {
   achieved: CheckCircle2,

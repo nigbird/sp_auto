@@ -17,6 +17,9 @@ datasource db {
 model AppConfig {
   id                    String @id @default("singleton")
   achievementCapPercent Float  @default(120)
+  // Dashboard rating thresholds in percent: { outstanding, veryGood, good, fair }.
+  // Null = the Excel legend (90 / 80 / 70 / 50).
+  ratingBands           Json?
 
   updatedAt DateTime @updatedAt
 }

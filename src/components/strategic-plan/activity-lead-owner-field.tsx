@@ -11,7 +11,7 @@ const NONE = "__none__";
 export type PlanPerson = { id: string; name: string; leadOwner?: string | null; department?: string | null };
 
 let cached: Promise<string[]> | null = null;
-/** The Settings → Departments & Lead Owners list, loaded once per page. */
+/** The Configuration → Departments & Lead Owners list, loaded once per page. */
 function useLeadOwnerNames() {
   const [names, setNames] = React.useState<string[]>([]);
   React.useEffect(() => {

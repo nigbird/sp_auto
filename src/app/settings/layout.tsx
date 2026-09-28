@@ -4,7 +4,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   return (
     <div className="flex-1 space-y-6">
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Configuration</h1>
         <p className="text-muted-foreground">
           System-wide configuration for planning and reporting.
         </p>
