@@ -106,16 +106,12 @@ export default function LeadOwnersPage() {
 
   return (
     <div className="flex-1 space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold tracking-tight">Lead Owners</h2>
-        <p className="text-muted-foreground">
-          The offices that lead plan activities, such as &ldquo;Chief Strategy Officer&rdquo;. Link each person to their office when registering or editing them under Users &amp; Roles — plan imports then match offices to people automatically.
-        </p>
-      </div>
-
       <Card>
         <CardHeader>
-          <CardTitle>Lead Owner List</CardTitle>
+          <CardTitle>Lead Owners</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Link each person to their office under Users &amp; Roles — plan imports then match offices to people automatically.
+          </p>
           <div className="mt-2 flex flex-wrap gap-2">
               <Input
                 placeholder="New lead owner, e.g. Chief Finance Officer"
