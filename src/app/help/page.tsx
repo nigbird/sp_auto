@@ -26,7 +26,7 @@ export default function HelpPage() {
                 <AccordionItem value="item-1">
                   <AccordionTrigger>How do I create a new activity?</AccordionTrigger>
                   <AccordionContent>
-                    Go to Planning → "My Plan" and click the "Create Activity" button. This will open a form where you can enter the details of the activity.
+                    Open My Plan → Monthly Breakdown and use "Add another activity". This will open a form where you can enter the details of the activity.
                   </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="item-2">
@@ -38,13 +38,13 @@ export default function HelpPage() {
                 <AccordionItem value="item-3">
                   <AccordionTrigger>Can I export reports?</AccordionTrigger>
                   <AccordionContent>
-                    Yes. On Reporting → "Performance Report", pick the plan and reporting period, then use Export to download it as PDF or Excel.
+                    Yes — use Export on the Performance Report page.
                   </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="item-4">
                   <AccordionTrigger>Where do I submit and approve progress reports?</AccordionTrigger>
                   <AccordionContent>
-                    Activity owners submit their period reports under Reporting → "My Reports". Approvers review them under Reporting → "Report Approvals". New activities and monthly breakdowns are approved under Planning → "Plan Approvals".
+                    Owners submit under My Reports; approvers review under Report Approvals.
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>

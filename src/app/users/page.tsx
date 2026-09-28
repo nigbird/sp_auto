@@ -176,7 +176,7 @@ export default function UsersPage() {
           <div className="space-y-1.5">
             <CardTitle>Users</CardTitle>
             <CardDescription>
-              Register new users, and edit, deactivate or remove existing ones.
+              Everyone who can sign in.
             </CardDescription>
           </div>
           <Button onClick={() => setIsRegisterDialogOpen(true)}>

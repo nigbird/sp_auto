@@ -10,35 +10,22 @@ import { calculateActivityStatus, calculateDelayDays } from '@/lib/utils';
 import { isCutOffPassed } from '@/lib/reporting-period';
 import { isWithinDeadlineWindow, type NotificationType } from '@/lib/notifications';
 
-async function createNotificationIfMissing(params: {
+type PendingNotification = {
     type: NotificationType;
     userId: string;
     message: string;
     activityId?: string;
     reportingPeriodId?: string;
-}): Promise<void> {
-    const existing = await prisma.notification.findFirst({
-        where: {
-            type: params.type,
-            userId: params.userId,
-            activityId: params.activityId ?? null,
-            reportingPeriodId: params.reportingPeriodId ?? null,
-        },
-    });
-    if (existing) return;
+};
 
-    await prisma.notification.create({
-        data: {
-            type: params.type,
-            message: params.message,
-            date: new Date(),
-            read: false,
-            userId: params.userId,
-            activityId: params.activityId,
-            reportingPeriodId: params.reportingPeriodId,
-        },
-    });
-}
+const SYNCED_TYPES: NotificationType[] = ['DEADLINE_APPROACHING', 'ACTIVITY_DELAYED', 'EVIDENCE_MISSING', 'PERIOD_CLOSED'];
+
+const dedupeKey = (n: { type: string; userId: string; activityId?: string | null; reportingPeriodId?: string | null }) =>
+    `${n.type}|${n.userId}|${n.activityId ?? ''}|${n.reportingPeriodId ?? ''}`;
+
+// Guards against the background timer and a bell-open sync overlapping in the
+// same process, which would otherwise both see a notification as missing.
+let inFlight: Promise<void> | null = null;
 
 /**
  * Evaluates time-based notification conditions (deadline approaching, delayed,
@@ -46,22 +33,51 @@ async function createNotificationIfMissing(params: {
  * Called two ways: on a background interval from src/instrumentation.ts (this
  * app runs as a persistent `next start` process, so an in-process timer works
  * without any external scheduler), and again from getNotifications() for
- * immediate freshness right when a user opens the bell. createNotificationIfMissing
- * dedupes so a condition only ever creates one notification per entity, not one
- * per tick/page load.
+ * immediate freshness right when a user opens the bell. Existing notifications
+ * are loaded once up front and used to dedupe, so a condition only ever creates
+ * one notification per entity, not one per tick/page load — and the whole sync
+ * costs a fixed handful of queries rather than one per activity.
  */
-export async function syncTimeBasedNotifications(): Promise<void> {
+export function syncTimeBasedNotifications(): Promise<void> {
+    if (!inFlight) {
+        inFlight = runSync().finally(() => {
+            inFlight = null;
+        });
+    }
+    return inFlight;
+}
+
+async function runSync(): Promise<void> {
     const now = new Date();
 
-    const [activities, statusRules] = await Promise.all([
+    const [activities, statusRules, evidenceCounts, openPeriods, existing] = await Promise.all([
         prisma.activity.findMany({ where: { approvalStatus: { not: 'DECLINED' } } }),
         prisma.rule.findMany({ select: { status: true, min: true, max: true } }),
+        prisma.evidence.groupBy({ by: ['activityId'], _count: { _all: true } }),
+        prisma.reportingPeriod.findMany({
+            where: { status: 'OPEN' },
+            include: { activities: { select: { responsibleId: true } } },
+        }),
+        prisma.notification.findMany({
+            where: { type: { in: SYNCED_TYPES } },
+            select: { type: true, userId: true, activityId: true, reportingPeriodId: true },
+        }),
     ]);
+
+    const activitiesWithEvidence = new Set(evidenceCounts.filter((e) => e._count._all > 0).map((e) => e.activityId));
+    const seen = new Set(existing.map(dedupeKey));
+    const pending: PendingNotification[] = [];
+    const add = (n: PendingNotification) => {
+        const key = dedupeKey(n);
+        if (seen.has(key)) return;
+        seen.add(key);
+        pending.push(n);
+    };
 
     for (const activity of activities) {
         if (activity.progress < 100) {
             if (isWithinDeadlineWindow(activity.endDate, now)) {
-                await createNotificationIfMissing({
+                add({
                     type: 'DEADLINE_APPROACHING',
                     userId: activity.responsibleId,
                     activityId: activity.id,
@@ -77,36 +93,28 @@ export async function syncTimeBasedNotifications(): Promise<void> {
             if (liveStatus === 'Delayed' || liveStatus === 'Overdue') {
                 const delayDays = calculateDelayDays(activity, now);
                 const delaySuffix = delayDays > 0 ? ` (${delayDays} day${delayDays === 1 ? '' : 's'} past deadline)` : '';
-                await createNotificationIfMissing({
+                add({
                     type: 'ACTIVITY_DELAYED',
                     userId: activity.responsibleId,
                     activityId: activity.id,
                     message: `"${activity.title}" is now ${liveStatus.toLowerCase()}${delaySuffix}.`,
                 });
             }
-        } else {
-            const evidenceCount = await prisma.evidence.count({ where: { activityId: activity.id } });
-            if (evidenceCount === 0) {
-                await createNotificationIfMissing({
-                    type: 'EVIDENCE_MISSING',
-                    userId: activity.responsibleId,
-                    activityId: activity.id,
-                    message: `"${activity.title}" is marked complete but has no supporting evidence attached.`,
-                });
-            }
+        } else if (!activitiesWithEvidence.has(activity.id)) {
+            add({
+                type: 'EVIDENCE_MISSING',
+                userId: activity.responsibleId,
+                activityId: activity.id,
+                message: `"${activity.title}" is marked complete but has no supporting evidence attached.`,
+            });
         }
     }
-
-    const openPeriods = await prisma.reportingPeriod.findMany({
-        where: { status: 'OPEN' },
-        include: { activities: { select: { responsibleId: true } } },
-    });
 
     for (const period of openPeriods) {
         if (!isCutOffPassed(period)) continue;
         const responsibleIds = new Set(period.activities.map((a) => a.responsibleId));
         for (const userId of responsibleIds) {
-            await createNotificationIfMissing({
+            add({
                 type: 'PERIOD_CLOSED',
                 userId,
                 reportingPeriodId: period.id,
@@ -114,4 +122,9 @@ export async function syncTimeBasedNotifications(): Promise<void> {
             });
         }
     }
+
+    if (pending.length === 0) return;
+    await prisma.notification.createMany({
+        data: pending.map((n) => ({ ...n, date: now, read: false })),
+    });
 }

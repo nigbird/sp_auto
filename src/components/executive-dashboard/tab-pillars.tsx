@@ -89,7 +89,7 @@ export function PillarsTab({ m }: { m: DashboardMetrics }) {
         </SectionCard>
       </div>
 
-      <SectionCard title="Pillar & objective performance" description="The Excel's pillar and objective summary in one table. Status columns count initiatives.">
+      <SectionCard title="Pillar & objective performance" description="Status columns count initiatives.">
         <div className="-mx-2 overflow-x-auto">
           <table className="w-full min-w-[980px] text-sm">
             <thead>

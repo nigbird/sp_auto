@@ -299,7 +299,7 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
         <h2 className="flex items-center gap-2 text-xl font-bold"><ClipboardList className="text-muted-foreground" /> Period Reports</h2>
         <p className="text-sm text-muted-foreground">
           {entries.length === 0
-            ? 'No reports have been requested from you yet. They appear here when a reporting period is opened for reporting.'
+            ? 'No reports have been requested from you yet.'
             : toFill > 0 ? `${toFill} ${toFill === 1 ? 'report needs' : 'reports need'} to be filled in.` : 'Nothing is waiting on you right now.'}
         </p>
       </div>

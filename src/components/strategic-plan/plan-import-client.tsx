@@ -167,13 +167,13 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
         </Button>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Import Strategic Plan</h1>
-          <p className="text-muted-foreground">Create a plan from the cascaded initiatives workbook (pillars, objectives, initiatives, activities and monthly targets).</p>
+          <p className="text-muted-foreground">Create a plan from an .xlsx file.</p>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><FileSpreadsheet className="h-5 w-5" /> 1. Choose the workbook</CardTitle>
+          <CardTitle className="flex items-center gap-2"><FileSpreadsheet className="h-5 w-5" /> 1. Choose the file</CardTitle>
           <CardDescription>
             The sheet needs the columns Code, Pillar, Objective, Initiatives, Major Activities, Deliverables, Activity Weight, Lead/ Owner, Start Date, End Date, Target and one column per month. Rows are placed by their code (1 → 1.1 → 1.1.1 → 1.1.1.1).
           </CardDescription>
@@ -217,7 +217,7 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
               {errors.length > 0 && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>{errors.length} row{errors.length === 1 ? "" : "s"} must be fixed in the workbook before importing</AlertTitle>
+                  <AlertTitle>{errors.length} row{errors.length === 1 ? "" : "s"} must be fixed in the file before importing</AlertTitle>
                   <AlertDescription><IssueList issues={errors} /></AlertDescription>
                 </Alert>
               )}
@@ -443,7 +443,7 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
                   <AlertTitle>Can't import yet</AlertTitle>
                   <AlertDescription>
                     <ul className="list-disc pl-4">
-                      {errors.length > 0 && <li>Fix the {errors.length} row error{errors.length === 1 ? "" : "s"} listed above in the workbook, then choose the file again.</li>}
+                      {errors.length > 0 && <li>Fix the {errors.length} row error{errors.length === 1 ? "" : "s"} listed above in the file, then choose the file again.</li>}
                       {clientProblems.map(p => <li key={p}>{p}</li>)}
                     </ul>
                   </AlertDescription>

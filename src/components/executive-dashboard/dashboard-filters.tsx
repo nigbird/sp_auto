@@ -95,7 +95,7 @@ export function DashboardFilters({ plans, planId, periods, periodId, tab }: {
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">Plan</DropdownMenuLabel>
             <DropdownMenuItem asChild>
-              <a href={exportBase}><FileSpreadsheet className="mr-2 h-4 w-4" /> Cascaded plan workbook</a>
+              <a href={exportBase}><FileSpreadsheet className="mr-2 h-4 w-4" /> Full plan (Excel)</a>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

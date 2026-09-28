@@ -97,7 +97,7 @@ export default function RolesPage() {
           <div className="space-y-1.5">
             <CardTitle>Roles & Permissions</CardTitle>
             <CardDescription>
-              Create roles and choose which permissions each one grants. Built-in roles can be edited but not deleted.
+              Built-in roles can be edited but not deleted.
             </CardDescription>
           </div>
           <Button onClick={() => setEditingRole(null)}>

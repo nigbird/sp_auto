@@ -304,6 +304,43 @@ export function StreamDeliveryChart({ data }: { data: { name: string; due: numbe
   );
 }
 
+const INITIATIVE_COLOR = "#b8862b";
+const ACTIVITY_COLOR = "#2f6ea3";
+
+/** How many initiatives and activities each lead owner is involved in. */
+export function StreamWorkloadChart({ data }: { data: { name: string; initiatives: number; activities: number; planned: number }[] }) {
+  const rows = [...data].filter(d => d.initiatives > 0 || d.activities > 0).sort((a, b) => b.activities - a.activities || b.initiatives - a.initiatives);
+  if (rows.length === 0) return <p className="text-sm text-muted-foreground">No activities have a lead owner yet.</p>;
+  return (
+    <div>
+      <SeriesLegend items={[{ label: "Initiatives involved in", color: INITIATIVE_COLOR }, { label: "Activities led", color: ACTIVITY_COLOR }]} className="mb-3" />
+      <div className="w-full text-muted-foreground" style={{ height: Math.max(160, rows.length * 44 + 24) }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 32, left: 8, bottom: 0 }} barGap={2} barCategoryGap="24%">
+            <CartesianGrid horizontal={false} stroke={GRID} />
+            <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} tick={AXIS_TICK} />
+            <YAxis type="category" dataKey="name" width={210} tickLine={false} axisLine={false} tick={<NameTick />} />
+            <Tooltip
+              cursor={{ fill: "rgba(120,110,100,0.08)" }}
+              content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const d = payload[0].payload as (typeof rows)[number];
+                return <TipBox title={d.name} rows={[["Initiatives involved in", String(d.initiatives)], ["Activities led", String(d.activities)], ["With a plan this period", String(d.planned)]]} />;
+              }}
+            />
+            <Bar dataKey="initiatives" fill={INITIATIVE_COLOR} radius={[0, 4, 4, 0]} maxBarSize={14}>
+              <LabelList dataKey="initiatives" position="right" style={{ fontSize: 11, fill: "currentColor" }} />
+            </Bar>
+            <Bar dataKey="activities" fill={ACTIVITY_COLOR} radius={[0, 4, 4, 0]} maxBarSize={14}>
+              <LabelList dataKey="activities" position="right" style={{ fontSize: 11, fontWeight: 600, fill: "currentColor" }} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Initiatives: achievement vs planned weight (one hue — pillar is in the tooltip)
 // ---------------------------------------------------------------------------

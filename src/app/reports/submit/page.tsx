@@ -9,7 +9,7 @@ export default async function MyReportsPage() {
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">My Reports</h1>
         <p className="text-muted-foreground">
-          Report actual progress on your activities for each open reporting period.
+          Submit your period reports.
         </p>
       </div>
       <MyActivityReportList initialEntries={entries as PeriodReportEntry[]} />

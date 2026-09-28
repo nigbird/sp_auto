@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
@@ -30,7 +31,14 @@ export interface SessionUser {
  * a stale token (from before a forced logout) is rejected even if the JWT
  * itself hasn't expired yet.
  */
-export async function getCurrentUser(): Promise<SessionUser | null> {
+const LAST_SEEN_THROTTLE_MS = 60_000;
+
+// Wrapped in React's cache() so the layout, page and any nested server
+// components that each call this share one lookup per request instead of
+// re-running the session/user/role queries every time.
+export const getCurrentUser = cache(resolveCurrentUser);
+
+async function resolveCurrentUser(): Promise<SessionUser | null> {
   const cookieStore = await cookies();
   const cookieValue = cookieStore.get(ACCESS_COOKIE_NAME)?.value;
   if (!cookieValue) return null;
@@ -51,9 +59,13 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   if (session.user.sessionVersion !== claims.sessionVersion) return null;
 
   // Best-effort activity heartbeat; not critical to the auth decision itself.
-  prisma.activeSession
-    .update({ where: { id: session.id }, data: { lastSeenAt: new Date() } })
-    .catch(() => {});
+  // Throttled so a burst of requests doesn't turn every read into a write.
+  const now = new Date();
+  if (!session.lastSeenAt || now.getTime() - session.lastSeenAt.getTime() > LAST_SEEN_THROTTLE_MS) {
+    prisma.activeSession
+      .update({ where: { id: session.id }, data: { lastSeenAt: now } })
+      .catch(() => {});
+  }
 
   return {
     id: session.user.id,

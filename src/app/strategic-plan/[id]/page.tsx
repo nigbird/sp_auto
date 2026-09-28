@@ -178,7 +178,7 @@ export default async function StrategicPlanDetailPage({ params }: { params: Prom
                         {
                             kind: "excel",
                             label: "Plan (Excel)",
-                            description: "Structure, weights and monthly targets in the cascaded-initiatives layout. Can be imported again.",
+                            description: "Structure, weights and monthly targets. Can be imported again.",
                             href: `/api/export/plan/${plan.id}?period=none`,
                         },
                     ]} />

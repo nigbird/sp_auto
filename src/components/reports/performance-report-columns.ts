@@ -57,7 +57,7 @@ export const REPORT_VIEWS: { id: ColumnGroup | 'all'; label: string; hint: strin
   { id: 'progress', label: 'Progress', hint: 'Plan vs. actual and delay' },
   { id: 'narrative', label: 'Narrative', hint: 'Achievements, variation, way forward, escalation' },
   { id: 'weighted', label: 'Weighted results', hint: 'Weighted values, achieved result and status' },
-  { id: 'all', label: 'All columns', hint: 'The full Excel layout; scroll sideways' },
+  { id: 'all', label: 'All columns', hint: 'Every column; scroll sideways' },
 ];
 
 export function statusClass(status: string) {

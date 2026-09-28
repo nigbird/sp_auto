@@ -46,7 +46,7 @@ export type DashboardData =
  * Loads one plan and one reporting period and computes the dashboard, plus the
  * same headline numbers for every earlier period (the trend). Defaults: the
  * published plan (else the newest), and the latest period whose report request
- * has been sent (else the latest period that has ended).
+ * has been sent, else the latest period that has ended, else the one in progress).
  * Only the fields the calculation needs are selected — no user records leave the server.
  */
 export async function loadDashboard(planId?: string, periodId?: string): Promise<DashboardData> {
@@ -78,6 +78,9 @@ export async function loadDashboard(planId?: string, periodId?: string): Promise
     periods.find(p => p.id === periodId) ??
     [...periods].reverse().find(p => p.reportRequested) ??
     [...periods].reverse().find(p => new Date(p.endDate).getTime() <= now) ??
+    // Only periods still in progress: show the one under way (approved reports so far).
+    [...periods].reverse().find(p => new Date(p.startDate).getTime() <= now) ??
+    periods[periods.length - 1] ??
     null;
   if (!period) return { state: 'no-period', plans, plan, periods, ...context };
 

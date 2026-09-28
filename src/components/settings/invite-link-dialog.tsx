@@ -55,7 +55,7 @@ export function InviteLinkDialog({
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          To email invitations automatically, set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD and MAIL_FROM on the server.
+          To email invitations automatically, set SMTP_HOST, SMTP_PORT, SMTP_EMAIL_USER and SMTP_EMAIL_PASS on the server.
         </p>
         <DialogFooter>
           <Button type="button" onClick={onClose}>Done</Button>

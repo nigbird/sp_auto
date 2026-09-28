@@ -13,7 +13,7 @@ export type ChartKey =
   | 'contribution' | 'planActual' | 'pillarStatus'
   | 'scatter'
   | 'quartersInitiatives' | 'quartersActivities' | 'deliveryInitiatives' | 'deliveryActivities' | 'delays'
-  | 'streamAchievement' | 'streamDelivery';
+  | 'streamAchievement' | 'streamDelivery' | 'streamWorkload';
 
 const pct = (v: number | null | undefined, d = 1) => (v == null || !Number.isFinite(v) ? '—' : `${(v * 100).toFixed(d)}%`);
 const w = (v: number) => `${v.toFixed(2)}%`;
@@ -116,6 +116,15 @@ export function dashboardChartSvgs(m: DashboardMetrics, trend: TrendPoint[]): Re
       m.streams.filter(s => s.activitiesDue > 0 || s.activitiesCompleted > 0).map(s => ({ label: s.name, a: s.activitiesDue, b: s.activitiesCompleted })),
       ['Due by period end', 'Completed'],
       'Activities due vs completed by stream'
+    ),
+    streamWorkload: hPairsSvg(
+      m.streams
+        .filter(s => s.initiatives > 0 || s.summary.coverage.activities > 0)
+        .sort((a, b) => b.summary.coverage.activities - a.summary.coverage.activities || b.initiatives - a.initiatives)
+        .map(s => ({ label: s.name, a: s.initiatives, b: s.summary.coverage.activities })),
+      ['Initiatives involved in', 'Activities led'],
+      'Lead owner involvement: initiatives and activities',
+      ['#b8862b', '#2f6ea3']
     ),
   };
 }

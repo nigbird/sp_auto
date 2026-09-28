@@ -244,12 +244,12 @@ function TodoRow({ icon, text, action }: { icon: React.ReactNode; text: React.Re
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-const FILTERS: { id: OverviewFilter; label: string; short: string; hint: string; icon: React.ReactNode }[] = [
-  { id: 'all', label: 'All activities', short: 'Assigned to you', icon: <List className="h-4 w-4 text-muted-foreground" />, hint: 'every activity you are responsible for in this plan.' },
-  { id: 'todo', label: 'Needs your action', short: 'Breakdown or report to fill in', icon: <ClipboardList className="h-4 w-4 text-amber-600" />, hint: 'a breakdown or report to fill in, or a declined activity to fix.' },
-  { id: 'waiting', label: 'Waiting for approval', short: 'With an approver', icon: <Hourglass className="h-4 w-4 text-blue-600" />, hint: "you submitted something (activity, breakdown or report) and an approver hasn't decided yet." },
-  { id: 'behind', label: 'Behind schedule', short: 'Delayed or overdue', icon: <AlertTriangle className="h-4 w-4 text-destructive" />, hint: 'delayed according to your approved reports, or past the end date and not complete.' },
-  { id: 'completed', label: 'Completed', short: 'Reported as done', icon: <CheckCircle2 className="h-4 w-4 text-green-600" />, hint: 'reported as done in an approved report.' },
+const FILTERS: { id: OverviewFilter; label: string; short: string; icon: React.ReactNode }[] = [
+  { id: 'all', label: 'All activities', short: 'Assigned to you', icon: <List className="h-4 w-4 text-muted-foreground" /> },
+  { id: 'todo', label: 'Needs your action', short: 'Breakdown or report to fill in', icon: <ClipboardList className="h-4 w-4 text-amber-600" /> },
+  { id: 'waiting', label: 'Waiting for approval', short: 'With an approver', icon: <Hourglass className="h-4 w-4 text-blue-600" /> },
+  { id: 'behind', label: 'Behind schedule', short: 'Delayed or overdue', icon: <AlertTriangle className="h-4 w-4 text-destructive" /> },
+  { id: 'completed', label: 'Completed', short: 'Reported as done', icon: <CheckCircle2 className="h-4 w-4 text-green-600" /> },
 ];
 
 /**
@@ -316,7 +316,6 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
   }
 
   const shown = groups[filter];
-  const activeMeta = FILTERS.find(f => f.id === filter)!;
   const hasTodos = groups.todo.length > 0;
 
   return (
@@ -389,9 +388,6 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
             </button>
           ))}
         </div>
-        <p className="text-sm text-muted-foreground">
-          Showing <span className="font-medium text-foreground">{activeMeta.label.toLowerCase()}</span> ({shown.length}): {activeMeta.hint}
-        </p>
       </div>
 
       <div className="space-y-4">
@@ -413,9 +409,6 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
             />
           ))
         )}
-        <p className="text-xs text-muted-foreground">
-          Progress comes from your approved period reports. Supporting evidence is attached to each report under Reporting → My Reports.
-        </p>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import type { DashboardData } from '@/lib/dashboard-data';
-import { DELAY_BUCKET_LABEL, INITIATIVE_STATUS_LABEL, INITIATIVE_STATUS_ORDER, type DelayBucket, type Summary } from '@/lib/dashboard-metrics';
+import { DELAY_BUCKET_LABEL, INITIATIVE_STATUS_LABEL, INITIATIVE_STATUS_ORDER, streamTotals, type DelayBucket, type Summary } from '@/lib/dashboard-metrics';
 import { describeRatingBands } from '@/lib/rating-bands';
 import type { ChartImage, ChartKey } from './dashboard-charts';
 import { SheetBuilder, writeStyledWorkbook, type StyleRole, type StyledCell } from './xlsx-styling';
@@ -222,9 +222,18 @@ export function buildDashboardWorkbook(data: Ready, charts: Record<ChartKey, Cha
     ]);
   });
   st.autoFilter = `A${stHeader + 1}:T${stHeader + 1 + m.streams.length}`;
+  // The Excel's totals: an initiative shared by several lead owners counts once per owner "with duplication".
+  const totals = streamTotals(m);
+  const totalRow = (label: string, values: (number | '')[]) =>
+    st.row([cell('', 'total'), cell(label, 'total'), ...values.map(v => cell(v, 'totalInt')), ...Array.from({ length: 20 - 2 - values.length }, () => cell('', 'total'))]);
+  totalRow('Total, with duplication', [totals.initiativesWithDuplication, totals.activities, totals.activitiesPlanned]);
+  totalRow('Total, without duplication', [totals.initiativesWithoutDuplication, totals.activities, '']);
+  totalRow('Duplicated (shared initiatives)', [totals.initiativesDuplicated, 0, '']);
   st.blank();
   st.row([{ v: `Score /30 = achievement × 30. Ratings (Configuration): ${describeRatingBands(m.ratingThresholds)}. "vs last period" is the change in achievement since ${data.previousMetrics ? 'the previous reporting period' : '— (no previous period)'}.`, role: 'label' }]);
-  st.stackImages([chart('streamAchievement', 'Achievement by stream'), chart('streamDelivery', 'Activities due vs completed')], 21, stHeader, 0.75);
+  st.stackImages([
+    chart('streamWorkload', 'Lead owner involvement'), chart('streamAchievement', 'Achievement by stream'), chart('streamDelivery', 'Activities due vs completed'),
+  ], 21, stHeader, 0.75);
 
   return writeStyledWorkbook([ov, po, ini, dl, st]);
 }

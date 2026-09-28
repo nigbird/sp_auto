@@ -256,6 +256,31 @@ export function ratingFor(achieved: number | null, hasPlan: boolean, t: RatingTh
   return 'Unsatisfactory';
 }
 
+/**
+ * The Excel's stream totals. An initiative whose activities are led by several
+ * offices counts once per office ("with duplication"); each activity has one lead owner.
+ */
+export interface StreamTotals {
+  initiativesWithDuplication: number;
+  initiativesWithoutDuplication: number;
+  /** Initiatives shared by more than one lead owner, counted per extra owner. */
+  initiativesDuplicated: number;
+  activities: number;
+  activitiesPlanned: number;
+}
+
+export function streamTotals(m: Pick<DashboardMetrics, 'streams' | 'initiatives'>): StreamTotals {
+  const withDup = m.streams.reduce((s, x) => s + x.initiatives, 0);
+  const unique = m.initiatives.filter(i => i.activities > 0).length;
+  return {
+    initiativesWithDuplication: withDup,
+    initiativesWithoutDuplication: unique,
+    initiativesDuplicated: withDup - unique,
+    activities: m.streams.reduce((s, x) => s + x.summary.coverage.activities, 0),
+    activitiesPlanned: m.streams.reduce((s, x) => s + x.summary.coverage.planned, 0),
+  };
+}
+
 function bucketFor(result: { dueByPeriodEnd: boolean; delayDays: number | null }): DelayBucket {
   if (!result.dueByPeriodEnd) return 'notElapsed';
   const d = result.delayDays ?? 0;

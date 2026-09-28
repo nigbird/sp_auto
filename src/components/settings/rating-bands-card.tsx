@@ -28,7 +28,7 @@ const fromDraft = (d: Draft): RatingThresholds => ({
   outstanding: Number(d.outstanding), veryGood: Number(d.veryGood), good: Number(d.good), fair: Number(d.fair),
 });
 
-/** Configuration → Performance Rules: the dashboard's rating bands (the Excel's "Weighted Performance Range"). */
+/** Configuration → Performance Rules: the dashboard's rating bands ("Weighted Performance Range"). */
 export function RatingBandsCard() {
   const [saved, setSaved] = useState<RatingThresholds | null>(null);
   const [draft, setDraft] = useState<Draft>(toDraft(DEFAULT_RATING_THRESHOLDS));
@@ -60,7 +60,7 @@ export function RatingBandsCard() {
       const t = await resetRatingThresholds();
       setSaved(t);
       setDraft(toDraft(t));
-      toast({ title: "Rating bands reset", description: "Back to the Excel legend (90 / 80 / 70 / 50)." });
+      toast({ title: "Rating bands reset", description: "Back to the defaults (90 / 80 / 70 / 50)." });
     } catch (e) {
       toast({ title: "Could not reset rating bands", description: e instanceof Error ? e.message : "Unexpected error.", variant: "destructive" });
     }
@@ -138,7 +138,7 @@ export function RatingBandsCard() {
         <p className="text-xs text-muted-foreground">{saved ? `Saved: ${describeRatingBands(saved)}.` : "Loading…"}</p>
         <div className="flex gap-2">
           <Button variant="outline" onClick={reset} disabled={pending || saved == null || isDefault}>
-            <RotateCcw className="mr-2 h-4 w-4" /> Reset to Excel legend
+            <RotateCcw className="mr-2 h-4 w-4" /> Reset to defaults
           </Button>
           <Button onClick={save} disabled={pending || !dirty || problem != null}>
             {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save bands

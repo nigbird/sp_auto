@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable, { type CellHookData, type RowInput } from 'jspdf-autotable';
 import { cleanPdfCell, pdfText } from '@/lib/pdf-text';
 import type { DashboardData } from '@/lib/dashboard-data';
-import { DELAY_BUCKET_LABEL, INITIATIVE_STATUS_LABEL, INITIATIVE_STATUS_ORDER, type DelayBucket } from '@/lib/dashboard-metrics';
+import { DELAY_BUCKET_LABEL, INITIATIVE_STATUS_LABEL, INITIATIVE_STATUS_ORDER, streamTotals, type DelayBucket } from '@/lib/dashboard-metrics';
 import { describeRatingBands } from '@/lib/rating-bands';
 import type { ChartImage, ChartKey } from './dashboard-charts';
 
@@ -87,7 +87,7 @@ export function buildDashboardPdf(data: Ready, charts: Record<ChartKey, ChartIma
     y += 8;
   };
 
-  const table = (head: string[], body: RowInput[], opts: { columnStyles?: Record<number, object>; fontSize?: number; groupRows?: Set<number>; totalRow?: number } = {}) => {
+  const table = (head: string[], body: RowInput[], opts: { columnStyles?: Record<number, object>; fontSize?: number; groupRows?: Set<number>; totalRow?: number; totalRows?: Set<number> } = {}) => {
     autoTable(doc, {
       startY: y,
       margin: { left: M, right: M, bottom: M + 6 },
@@ -102,7 +102,7 @@ export function buildDashboardPdf(data: Ready, charts: Record<ChartKey, ChartIma
         cleanPdfCell(hook);
         if (hook.section !== 'body') return;
         if (opts.groupRows?.has(hook.row.index)) { hook.cell.styles.fillColor = GROUP; hook.cell.styles.fontStyle = 'bold'; }
-        if (opts.totalRow === hook.row.index) { hook.cell.styles.fillColor = [234, 223, 203]; hook.cell.styles.fontStyle = 'bold'; }
+        if (opts.totalRow === hook.row.index || opts.totalRows?.has(hook.row.index)) { hook.cell.styles.fillColor = [234, 223, 203]; hook.cell.styles.fontStyle = 'bold'; }
       },
     });
     y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
@@ -244,21 +244,37 @@ export function buildDashboardPdf(data: Ready, charts: Record<ChartKey, ChartIma
 
   // --- Streams & Departments --------------------------------------------------------
   sectionHeader('Streams & Departments');
-  imagePair('streamAchievement', 'streamDelivery');
+  const totals = streamTotals(m);
+  kpiTiles([
+    { label: 'Initiatives, with duplication', value: String(totals.initiativesWithDuplication), note: "sum of every lead owner's count" },
+    { label: 'Initiatives, without duplication', value: String(totals.initiativesWithoutDuplication), note: 'each initiative counted once' },
+    { label: 'Shared initiatives (duplicates)', value: String(totals.initiativesDuplicated), note: 'led by more than one office' },
+    { label: 'Activities', value: String(totals.activities), note: 'each has one lead owner' },
+    { label: 'Planned this period', value: String(totals.activitiesPlanned), note: 'activities with a period plan' },
+  ]);
+  imagePair('streamWorkload', 'streamAchievement');
+  imageFull('streamDelivery', (PW - 2 * M - 6) / 2);
   sub('Streams & departments performance');
   const prevByName = new Map(data.previousMetrics?.streams.map(s => [s.name, s]) ?? []);
+  const streamRows: RowInput[] = m.streams.map((s, k) => {
+    const hasPlan = s.summary.rollup.weightedPlan > 0 && s.summary.coverage.approved > 0;
+    const prev = prevByName.get(s.name);
+    const prevHas = prev && prev.summary.rollup.weightedPlan > 0 && prev.summary.coverage.approved > 0;
+    const delta = hasPlan && prevHas ? (s.summary.rollup.achievedResult ?? 0) - (prev!.summary.rollup.achievedResult ?? 0) : null;
+    return [String(k + 1), s.name, String(s.initiatives), String(s.summary.coverage.activities), String(s.summary.coverage.planned), w(s.summary.totalWeight), w(s.summary.rollup.weightedPlan), w(s.summary.rollup.weightedActual),
+      hasPlan ? pct(s.summary.rollup.achievedResult) : '—', hasPlan ? pct(s.summary.rollup.achievedWithDelay) : '—', s.score30 == null ? '—' : s.score30.toFixed(1), s.rating,
+      delta == null ? '—' : `${delta >= 0 ? '+' : ''}${(delta * 100).toFixed(1)} pts`, String(s.activitiesDue), String(s.activitiesCompleted), String(s.summary.coverage.missing)];
+  });
+  const blanks = (n: number) => Array.from({ length: n }, () => '');
+  streamRows.push(
+    ['', 'Total, with duplication', String(totals.initiativesWithDuplication), String(totals.activities), String(totals.activitiesPlanned), ...blanks(11)],
+    ['', 'Total, without duplication', String(totals.initiativesWithoutDuplication), String(totals.activities), ...blanks(12)],
+    ['', 'Duplicated (shared initiatives)', String(totals.initiativesDuplicated), '0', ...blanks(12)],
+  );
   table(
-    ['#', 'Stream / director', 'Init.', 'Act.', 'Weight', 'Plan', 'Actual', 'Achievement', 'After delays', 'Score /30', 'Rating', 'vs last', 'Act. due', 'Act. done', 'Not approved'],
-    m.streams.map((s, k) => {
-      const hasPlan = s.summary.rollup.weightedPlan > 0 && s.summary.coverage.approved > 0;
-      const prev = prevByName.get(s.name);
-      const prevHas = prev && prev.summary.rollup.weightedPlan > 0 && prev.summary.coverage.approved > 0;
-      const delta = hasPlan && prevHas ? (s.summary.rollup.achievedResult ?? 0) - (prev!.summary.rollup.achievedResult ?? 0) : null;
-      return [String(k + 1), s.name, String(s.initiatives), String(s.summary.coverage.activities), w(s.summary.totalWeight), w(s.summary.rollup.weightedPlan), w(s.summary.rollup.weightedActual),
-        hasPlan ? pct(s.summary.rollup.achievedResult) : '—', hasPlan ? pct(s.summary.rollup.achievedWithDelay) : '—', s.score30 == null ? '—' : s.score30.toFixed(1), s.rating,
-        delta == null ? '—' : `${delta >= 0 ? '+' : ''}${(delta * 100).toFixed(1)} pts`, String(s.activitiesDue), String(s.activitiesCompleted), String(s.summary.coverage.missing)];
-    }),
-    { fontSize: 7.5, columnStyles: { 0: { cellWidth: 7 }, 1: { cellWidth: 62 }, ...Object.fromEntries([2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14].map(i => [i, { halign: 'right' }])) } }
+    ['#', 'Stream / director', 'Init.', 'Act.', 'Planned', 'Weight', 'Plan', 'Actual', 'Achievement', 'After delays', 'Score /30', 'Rating', 'vs last', 'Act. due', 'Act. done', 'Not approved'],
+    streamRows,
+    { fontSize: 7.5, totalRows: new Set([m.streams.length, m.streams.length + 1, m.streams.length + 2]), columnStyles: { 0: { cellWidth: 7 }, 1: { cellWidth: 58 }, ...Object.fromEntries([2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15].map(i => [i, { halign: 'right' }])) } }
   );
   doc.setFontSize(8); setColor(MUTED);
   const note = doc.splitTextToSize(pdfText(`Score /30 = achievement × 30. Ratings (set in Configuration): ${describeRatingBands(m.ratingThresholds)}. Achievement = weighted actual ÷ weighted plan for the period, from approved reports only; planned activities without an approved report count as zero.`), PW - 2 * M) as string[];

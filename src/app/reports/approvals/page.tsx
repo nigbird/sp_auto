@@ -10,7 +10,7 @@ export default async function ReportApprovalsPage() {
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Report Approvals</h1>
         <p className="text-muted-foreground">
-          Approve submitted period reports, or return them to the owner with a reason.
+          Review submitted period reports.
         </p>
       </div>
       <ReportApprovalList reports={pendingReports as PeriodReportEntry[]} />

@@ -116,7 +116,7 @@ export function PerformanceReportTable({ planId, pillars, periods, selected, ent
       <PerformanceReportGrid pillars={grid} />
 
       <p className="text-xs text-muted-foreground">
-        Blue columns are filled in by activity owners; the rest are calculated. Totals and initiative results count approved reports only. Delay penalty: −10% after 30 days, −20% after 60, −50% after 90, measured from the end of the last planned month.
+        Totals count approved reports only.
         {' '}Period: {format(new Date(selected.startDate), 'PP')} – {format(new Date(selected.endDate), 'PP')}.
       </p>
     </div>

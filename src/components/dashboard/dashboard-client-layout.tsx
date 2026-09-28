@@ -126,7 +126,7 @@ export function DashboardClientLayout({ initialPillars, initialActivities, allPl
                     {
                         kind: "excel",
                         label: "Full plan & latest report (Excel)",
-                        description: "The plan in the cascaded-initiatives layout with the report columns.",
+                        description: "Plan with the latest report values.",
                         href: selectedPlanId ? `/api/export/plan/${selectedPlanId}` : undefined,
                         disabled: !selectedPlanId,
                     },

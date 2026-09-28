@@ -23,7 +23,7 @@ export default async function PerformanceReportsPage({ searchParams }: { searchP
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Performance Report</h1>
           <p className="text-muted-foreground">
-            Plan vs. actual for each reporting period, calculated from approved reports.
+            Plan vs. actual by reporting period.
           </p>
         </div>
         {plan && (
@@ -38,7 +38,7 @@ export default async function PerformanceReportsPage({ searchParams }: { searchP
             {
               kind: "excel",
               label: selectedPeriod ? `Plan & ${selectedPeriod.name} report (Excel)` : "Plan & report (Excel)",
-              description: "Cascaded-initiatives layout with monthly targets and live report formulas.",
+              description: "Plan with monthly targets and report values.",
               href: selectedPeriod ? `/api/export/plan/${plan.id}?period=${selectedPeriod.id}` : undefined,
               disabled: !selectedPeriod,
             },

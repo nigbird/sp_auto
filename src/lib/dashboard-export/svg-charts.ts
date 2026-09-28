@@ -228,12 +228,12 @@ export function hBarsSvg(rows: { label: string; value: number | null; text: stri
 }
 
 /** Horizontal paired bars (e.g. due vs completed) per row. */
-export function hPairsSvg(rows: { label: string; a: number; b: number }[], names: [string, string], title: string): ChartSvg {
+export function hPairsSvg(rows: { label: string; a: number; b: number }[], names: [string, string], title: string, colors: [string, string] = [C.neutral, C.gold]): ChartSvg {
   const W = 760, rowH = 38, T = 72, L = 250, R = 50;
   const H = T + Math.max(1, rows.length) * rowH + 34;
   const pw = W - L - R;
   const max = Math.max(4, Math.ceil(Math.max(1, ...rows.flatMap(r => [r.a, r.b])) / 4) * 4); // counts: whole-number ticks
-  let body = legend(16, 52, [{ label: names[0], color: C.neutral }, { label: names[1], color: C.gold }]);
+  let body = legend(16, 52, [{ label: names[0], color: colors[0] }, { label: names[1], color: colors[1] }]);
   for (let k = 0; k <= 4; k++) {
     const v = (max * k) / 4, gx = L + (v / max) * pw;
     body += `<line x1="${gx}" x2="${gx}" y1="${T - 6}" y2="${T + rows.length * rowH}" stroke="${C.grid}"/>` + text(gx, H - 12, String(Math.round(v * 10) / 10), { size: 10.5, fill: C.muted, anchor: 'middle' });
@@ -241,8 +241,8 @@ export function hPairsSvg(rows: { label: string; a: number; b: number }[], names
   rows.forEach((r, k) => {
     const y = T + k * rowH;
     body += text(L - 10, y + 20, cut(r.label, 38), { size: 12, anchor: 'end' });
-    body += hBar(L, y + 4, (r.a / max) * pw, 13, C.neutral) + text(L + (r.a / max) * pw + 5, y + 15, String(r.a), { size: 10.5 });
-    body += hBar(L, y + 19, (r.b / max) * pw, 13, C.gold) + text(L + (r.b / max) * pw + 5, y + 30, String(r.b), { size: 10.5, weight: 700 });
+    body += hBar(L, y + 4, (r.a / max) * pw, 13, colors[0]) + text(L + (r.a / max) * pw + 5, y + 15, String(r.a), { size: 10.5 });
+    body += hBar(L, y + 19, (r.b / max) * pw, 13, colors[1]) + text(L + (r.b / max) * pw + 5, y + 30, String(r.b), { size: 10.5, weight: 700 });
   });
   return frame(W, H, body, title);
 }
