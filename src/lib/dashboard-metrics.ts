@@ -1,7 +1,9 @@
 /**
  * The executive dashboard's numbers: the Excel's summary sheets ("Overall
  * DashBoard", "Pillar Achievement", "Objective Level Achievement",
- * "Initiatives Summary", "Streams & Departments") computed from live plan data.
+ * "Initiatives Summary", "Initiatives/Activity Summary @GRAPH", "Summary
+ * Streams & Department", "Streams & Depart's Performance") computed from live
+ * plan data.
  *
  * Every activity-level figure comes from computeReportRow (the Excel's
  * AG…AW columns); everything above that is a roll-up of those rows. Plan
@@ -28,6 +30,7 @@ export interface MetricActivity {
   countsTowardWeight: boolean;
   leadOwner: string | null;
   department: string;
+  startDate: string;
   /** Planned end date on the activity itself; used when there is no approved breakdown. */
   endDate: string;
   /** Monthly targets only count once the breakdown is approved. */
@@ -48,6 +51,9 @@ export interface MetricEntry {
   reportStatus: EntryStatus;
   actualToDate: number | null;
   completionDate: string | null;
+  comment?: string | null;
+  reasonForVariation?: string | null;
+  wayForward?: string | null;
   escalationIssues: string | null;
 }
 
@@ -119,6 +125,8 @@ export interface Summary {
   coverage: Coverage;
 }
 
+export interface NarrativeItem { activity: string; text: string }
+
 export interface InitiativeSummary {
   id: string;
   code: string;
@@ -130,10 +138,20 @@ export interface InitiativeSummary {
   summary: Summary;
   status: InitiativeStatus;
   rating: Rating;
+  /** Earliest activity start and latest planned finish — the Excel's Start Date / End Date. */
+  startDate: string | null;
   dueDate: string | null;
   dueByPeriodEnd: boolean;
   completed: boolean;
   delay: DelayBucket | null;
+  activities: number;
+  /** The Excel's four narrative columns, gathered from approved reports this period. */
+  narratives: {
+    accomplished: NarrativeItem[];
+    variation: NarrativeItem[];
+    wayForward: NarrativeItem[];
+    escalation: NarrativeItem[];
+  };
 }
 
 export interface ObjectiveSummary {
@@ -160,14 +178,28 @@ export interface StreamSummary {
   name: string;
   summary: Summary;
   rating: Rating;
+  /** Achievement × 30 — the Excel's "Result out of 30". */
+  score30: number | null;
   initiatives: number;
+  initiativesDue: number;
+  initiativesCompleted: number;
   activitiesDue: number;
   activitiesCompleted: number;
+}
+
+/** Expected vs completed by due quarter of the fiscal year (Jul–Jun) that contains the period end. */
+export interface QuarterBucket {
+  key: 'earlier' | 'q1' | 'q2' | 'q3' | 'q4' | 'later';
+  label: string;
+  expected: number;
+  completed: number;
 }
 
 export interface IssueItem { activityId: string; activity: string; initiative: string; initiativeCode: string; owner: string; text: string }
 
 export interface Highlight { code: string; title: string; value: number }
+
+export interface ListItem { id: string; code: string; title: string; owner: string; note: string }
 
 export interface DashboardMetrics {
   overall: Summary;
@@ -178,10 +210,19 @@ export interface DashboardMetrics {
   statusCounts: Record<InitiativeStatus, number>;
   initiativeDelays: Record<DelayBucket, number>;
   activityDelays: Record<DelayBucket, number>;
+  initiativeQuarters: QuarterBucket[];
+  activityQuarters: QuarterBucket[];
+  fiscalYearLabel: string;
+  activitiesTotal: number;
   activitiesDue: number;
   activitiesCompleted: number;
   initiativesDue: number;
   initiativesCompleted: number;
+  /** Due by the period end and not completed. */
+  initiativesOverdue: number;
+  activitiesOverdue: number;
+  completedInitiatives: ListItem[];
+  activitiesWithoutTarget: ListItem[];
   objectivesAtLeast80: { count: number; of: number };
   strongestPillarPeriod: Highlight | null;
   strongestPillarYear: Highlight | null;
@@ -200,6 +241,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 interface ActivityResult {
   activity: MetricActivity;
+  entry: MetricEntry | undefined;
   row: ReportRow | null;
   noDupWeight: number;
   hasPlan: boolean;
@@ -232,13 +274,15 @@ function emptyCounts<K extends string>(keys: readonly K[]): Record<K, number> {
 
 const DELAY_KEYS: DelayBucket[] = ['onTime', 'd1_30', 'd31_60', 'd61_90', 'd90plus', 'notElapsed'];
 
+const streamOf = (a: MetricActivity) => a.leadOwner?.trim() || a.department?.trim() || 'Unassigned';
+
 function evaluateActivity(activity: MetricActivity, entry: MetricEntry | undefined, periodEnd: Date): ActivityResult {
   const approved = entry?.reportStatus === 'APPROVED';
   const hasTarget = activity.breakdownApproved && (activity.annualTarget ?? 0) > 0;
   // Unapproved reports are scored as a blank actual: the plan still counts, the actual is 0.
   const row = hasTarget
     ? computeReportRow(
-        { ...activity, targetDirection: activity.targetDirection },
+        activity,
         approved ? { actualToDate: entry!.actualToDate, completionDate: entry!.completionDate } : { actualToDate: null, completionDate: null },
         periodEnd
       )
@@ -252,11 +296,13 @@ function evaluateActivity(activity: MetricActivity, entry: MetricEntry | undefin
   if (dueByPeriodEnd && dueDate) {
     delayDays = completed
       ? Math.max(0, row?.daysDelayed ?? 0)
-      : Math.round((periodEnd.getTime() - dueDate.getTime()) / DAY_MS);
+      // Due but not reported complete is late, even if it fell due on the period's last day.
+      : Math.max(1, Math.round((periodEnd.getTime() - dueDate.getTime()) / DAY_MS));
   }
 
   return {
     activity,
+    entry,
     row,
     noDupWeight: activity.countsTowardWeight ? activity.weight : 0,
     hasPlan: (row?.weightedPlan ?? 0) > 0,
@@ -318,6 +364,48 @@ function best<T>(items: T[], score: (t: T) => number | null, pick: 'max' | 'min'
   return chosen;
 }
 
+// --- Fiscal quarters (Jul–Sep, Oct–Dec, Jan–Mar, Apr–Jun) --------------------
+
+const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** The July-start fiscal year containing a date. */
+function fiscalYearStart(d: Date): number {
+  return d.getUTCMonth() >= 6 ? d.getUTCFullYear() : d.getUTCFullYear() - 1;
+}
+
+function quarterKey(due: Date, fyStart: number): QuarterBucket['key'] {
+  const fy = fiscalYearStart(due);
+  if (fy < fyStart) return 'earlier';
+  if (fy > fyStart) return 'later';
+  const m = due.getUTCMonth();
+  return m >= 6 && m <= 8 ? 'q1' : m >= 9 ? 'q2' : m <= 2 ? 'q3' : 'q4';
+}
+
+function quarterBuckets(fyStart: number): QuarterBucket[] {
+  const range = (a: number, b: number, y: number) => `${MONTH[a]}–${MONTH[b]} ${String(y).slice(2)}`;
+  return [
+    { key: 'earlier', label: 'Earlier years', expected: 0, completed: 0 },
+    { key: 'q1', label: `Q1 · ${range(6, 8, fyStart)}`, expected: 0, completed: 0 },
+    { key: 'q2', label: `Q2 · ${range(9, 11, fyStart)}`, expected: 0, completed: 0 },
+    { key: 'q3', label: `Q3 · ${range(0, 2, fyStart + 1)}`, expected: 0, completed: 0 },
+    { key: 'q4', label: `Q4 · ${range(3, 5, fyStart + 1)}`, expected: 0, completed: 0 },
+    { key: 'later', label: 'Later years', expected: 0, completed: 0 },
+  ];
+}
+
+function tallyQuarters(items: { due: Date | null; completed: boolean }[], fyStart: number): QuarterBucket[] {
+  const buckets = quarterBuckets(fyStart);
+  for (const item of items) {
+    if (!item.due) continue;
+    const b = buckets.find(x => x.key === quarterKey(item.due!, fyStart))!;
+    b.expected++;
+    if (item.completed) b.completed++;
+  }
+  return buckets;
+}
+
+// --- Main ------------------------------------------------------------------------
+
 export function computeDashboard(pillars: MetricPillar[], entries: MetricEntry[], period: MetricPeriod): DashboardMetrics {
   const periodEnd = new Date(period.endDate);
   const entryByActivity = new Map(entries.map(e => [e.activityId, e]));
@@ -327,6 +415,7 @@ export function computeDashboard(pillars: MetricPillar[], entries: MetricEntry[]
   const objectiveSummaries: ObjectiveSummary[] = [];
   const initiativeSummaries: InitiativeSummary[] = [];
   const issues: IssueItem[] = [];
+  const activitiesWithoutTarget: ListItem[] = [];
   const byStream = new Map<string, { results: ActivityResult[]; initiatives: Set<string> }>();
 
   let objectiveNo = 0;
@@ -355,16 +444,19 @@ export function computeDashboard(pillars: MetricPillar[], entries: MetricEntry[]
         // An initiative is due when its last activity is; complete when every activity with a target is.
         const dueDates = results.map(r => r.dueDate).filter((d): d is Date => d !== null);
         const due = dueDates.length ? new Date(Math.max(...dueDates.map(d => d.getTime()))) : null;
+        const starts = initiative.activities.map(a => new Date(a.startDate).getTime()).filter(Number.isFinite);
         const dueByPeriodEnd = due != null && due.getTime() <= periodEnd.getTime();
         const targeted = results.filter(r => r.row !== null);
         const completed = targeted.length > 0 && targeted.every(r => r.completed);
-        const ownerCounts = new Map<string, number>();
-        for (const r of results) {
-          const name = r.activity.leadOwner?.trim() || r.activity.department?.trim() || "Unassigned";
-          ownerCounts.set(name, (ownerCounts.get(name) ?? 0) + 1);
-        }
-        const owner = [...ownerCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "Unassigned";
         const worstDelay = results.reduce<number | null>((m, r) => (r.delayDays == null ? m : Math.max(m ?? 0, r.delayDays)), null);
+
+        const ownerCounts = new Map<string, number>();
+        for (const r of results) ownerCounts.set(streamOf(r.activity), (ownerCounts.get(streamOf(r.activity)) ?? 0) + 1);
+        const owner = [...ownerCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'Unassigned';
+
+        // Narratives come from approved reports only, like every other reported figure.
+        const narrative = (pick: (e: MetricEntry) => string | null | undefined): NarrativeItem[] =>
+          results.filter(r => r.approved && r.entry && pick(r.entry)?.trim()).map(r => ({ activity: r.activity.title, text: pick(r.entry!)!.trim() }));
 
         initiativeSummaries.push({
           id: initiative.id,
@@ -376,10 +468,18 @@ export function computeDashboard(pillars: MetricPillar[], entries: MetricEntry[]
           summary,
           status,
           rating: ratingFor(summary.rollup.achievedResult, summary.rollup.weightedPlan > 0 && summary.coverage.approved > 0),
+          startDate: starts.length ? new Date(Math.min(...starts)).toISOString() : null,
           dueDate: due ? due.toISOString() : null,
           dueByPeriodEnd,
           completed,
           delay: due ? bucketFor({ dueByPeriodEnd, delayDays: worstDelay }) : null,
+          activities: results.length,
+          narratives: {
+            accomplished: narrative(e => e.comment),
+            variation: narrative(e => e.reasonForVariation),
+            wayForward: narrative(e => e.wayForward),
+            escalation: narrative(e => e.escalationIssues),
+          },
         });
 
         objectiveCounts[status]++;
@@ -388,21 +488,30 @@ export function computeDashboard(pillars: MetricPillar[], entries: MetricEntry[]
         objectiveResults.push(...results);
 
         for (const r of results) {
-          const stream = r.activity.leadOwner?.trim() || r.activity.department?.trim() || 'Unassigned';
+          const stream = streamOf(r.activity);
           const bucket = byStream.get(stream) ?? { results: [], initiatives: new Set<string>() };
           bucket.results.push(r);
           bucket.initiatives.add(initiative.id);
           byStream.set(stream, bucket);
 
-          const issue = entryByActivity.get(r.activity.id);
-          if (r.approved && issue?.escalationIssues?.trim()) {
+          if (r.row === null) {
+            activitiesWithoutTarget.push({
+              id: r.activity.id,
+              code,
+              title: r.activity.title,
+              owner: stream,
+              note: r.activity.breakdownApproved ? 'No annual target' : 'Monthly breakdown not approved',
+            });
+          }
+
+          if (r.approved && r.entry?.escalationIssues?.trim()) {
             issues.push({
               activityId: r.activity.id,
               activity: r.activity.title,
               initiative: initiative.title,
               initiativeCode: code,
               owner: stream,
-              text: issue.escalationIssues.trim(),
+              text: r.entry.escalationIssues.trim(),
             });
           }
         }
@@ -445,14 +554,23 @@ export function computeDashboard(pillars: MetricPillar[], entries: MetricEntry[]
   const activityDelays = emptyCounts(DELAY_KEYS);
   for (const r of all) if (r.dueDate) activityDelays[bucketFor(r)]++;
 
+  const fyStart = fiscalYearStart(periodEnd);
+  const initiativeQuarters = tallyQuarters(initiativeSummaries.map(i => ({ due: i.dueDate ? new Date(i.dueDate) : null, completed: i.completed })), fyStart);
+  const activityQuarters = tallyQuarters(all.map(r => ({ due: r.dueDate, completed: r.completed })), fyStart);
+
+  const initiativeById = new Map(initiativeSummaries.map(i => [i.id, i]));
   const streams: StreamSummary[] = [...byStream.entries()].map(([name, { results, initiatives }]) => {
     const summary = summarize(results);
     const hasPlan = summary.rollup.weightedPlan > 0 && summary.coverage.approved > 0;
+    const inits = [...initiatives].map(id => initiativeById.get(id)!).filter(Boolean);
     return {
       name,
       summary,
       rating: ratingFor(summary.rollup.achievedResult, hasPlan),
+      score30: hasPlan && summary.rollup.achievedResult != null ? summary.rollup.achievedResult * 30 : null,
       initiatives: initiatives.size,
+      initiativesDue: inits.filter(i => i.dueByPeriodEnd).length,
+      initiativesCompleted: inits.filter(i => i.completed).length,
       activitiesDue: results.filter(r => r.dueByPeriodEnd).length,
       activitiesCompleted: results.filter(r => r.completed).length,
     };
@@ -475,11 +593,6 @@ export function computeDashboard(pillars: MetricPillar[], entries: MetricEntry[]
     of: scoredObjectives.length,
   };
 
-  const initiativesDue = initiativeSummaries.filter(i => i.dueByPeriodEnd).length;
-  const initiativesCompleted = initiativeSummaries.filter(i => i.completed).length;
-  const activitiesDue = all.filter(r => r.dueByPeriodEnd).length;
-  const activitiesCompleted = all.filter(r => r.completed).length;
-
   const metrics: DashboardMetrics = {
     overall,
     pillars: pillarSummaries,
@@ -489,10 +602,20 @@ export function computeDashboard(pillars: MetricPillar[], entries: MetricEntry[]
     statusCounts,
     initiativeDelays,
     activityDelays,
-    activitiesDue,
-    activitiesCompleted,
-    initiativesDue,
-    initiativesCompleted,
+    initiativeQuarters,
+    activityQuarters,
+    fiscalYearLabel: `FY ${fyStart}/${String(fyStart + 1).slice(2)}`,
+    activitiesTotal: all.length,
+    activitiesDue: all.filter(r => r.dueByPeriodEnd).length,
+    activitiesCompleted: all.filter(r => r.completed).length,
+    initiativesDue: initiativeSummaries.filter(i => i.dueByPeriodEnd).length,
+    initiativesCompleted: initiativeSummaries.filter(i => i.completed).length,
+    initiativesOverdue: initiativeSummaries.filter(i => i.dueByPeriodEnd && !i.completed).length,
+    activitiesOverdue: all.filter(r => r.dueByPeriodEnd && !r.completed).length,
+    completedInitiatives: initiativeSummaries.filter(i => i.completed).map(i => ({
+      id: i.id, code: i.code, title: i.title, owner: i.owner, note: i.dueDate ? `Due ${i.dueDate.slice(0, 10)}` : '',
+    })),
+    activitiesWithoutTarget,
     objectivesAtLeast80,
     strongestPillarPeriod: sPP && toHighlight(sPP.code, sPP.title, sPP.summary.rollup.achievedResult),
     strongestPillarYear: sPY && toHighlight(sPY.code, sPY.title, sPY.summary.yearProgress),

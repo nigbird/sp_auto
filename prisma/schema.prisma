@@ -345,6 +345,9 @@ model User {
   status         UserStatus
   passwordHash   String       @default("")
   sessionVersion Int          @default(0)
+  /// Null until the user signs in for the first time; while null an admin can resend the invite.
+  lastLoginAt    DateTime?
+  passwordTokens PasswordToken[]
   notifications  Notification[]
   activities     Activity[]
   sessions       ActiveSession[]
@@ -387,6 +390,26 @@ model RefreshToken {
 
   @@index([sessionId])
   @@index([familyId])
+}
+
+enum PasswordTokenPurpose {
+  INVITE
+  RESET
+}
+
+/// Single-use link for setting a password: the invite sent on registration, or a forgot-password reset.
+/// Only a SHA-256 hash of the token is stored; the raw token lives in the emailed link.
+model PasswordToken {
+  id        String               @id @default(cuid())
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  tokenHash String               @unique
+  purpose   PasswordTokenPurpose
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime             @default(now())
+
+  @@index([userId, purpose])
 }
 
 model AuditLog {

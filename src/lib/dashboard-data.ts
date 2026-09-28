@@ -35,6 +35,8 @@ export type DashboardData =
       /** The selected period hasn't ended yet: numbers show what has been approved so far. */
       periodOpen: boolean;
       metrics: DashboardMetrics;
+      /** The period before the selected one, for "change since last period". */
+      previousMetrics: DashboardMetrics | null;
       /** Every period up to and including the selected one, oldest first. */
       trend: TrendPoint[];
     } & Context);
@@ -107,6 +109,7 @@ export async function loadDashboard(planId?: string, periodId?: string): Promise
                     countsTowardWeight: true,
                     leadOwner: true,
                     department: true,
+                    startDate: true,
                     endDate: true,
                     planSubmissionStatus: true,
                     targetType: true,
@@ -124,7 +127,10 @@ export async function loadDashboard(planId?: string, periodId?: string): Promise
     }),
     prisma.activityPeriodEntry.findMany({
       where: { reportingPeriodId: { in: history.map(p => p.id) } },
-      select: { reportingPeriodId: true, activityId: true, reportStatus: true, actualToDate: true, completionDate: true, escalationIssues: true },
+      select: {
+        reportingPeriodId: true, activityId: true, reportStatus: true, actualToDate: true, completionDate: true,
+        comment: true, reasonForVariation: true, wayForward: true, escalationIssues: true,
+      },
     }),
   ]);
 
@@ -146,6 +152,7 @@ export async function loadDashboard(planId?: string, periodId?: string): Promise
             countsTowardWeight: a.countsTowardWeight,
             leadOwner: a.leadOwner,
             department: a.department,
+            startDate: a.startDate.toISOString(),
             endDate: a.endDate.toISOString(),
             breakdownApproved,
             targetType: a.targetType,
@@ -167,15 +174,21 @@ export async function loadDashboard(planId?: string, periodId?: string): Promise
       reportStatus: e.reportStatus,
       actualToDate: e.actualToDate,
       completionDate: e.completionDate ? e.completionDate.toISOString() : null,
+      comment: e.comment,
+      reasonForVariation: e.reasonForVariation,
+      wayForward: e.wayForward,
       escalationIssues: e.escalationIssues,
     });
     entriesByPeriod.set(e.reportingPeriodId, list);
   }
 
   let metrics: DashboardMetrics | null = null;
+  let previousMetrics: DashboardMetrics | null = null;
+  const previousPeriodId = history.length > 1 ? history[history.length - 2].id : null;
   const trend: TrendPoint[] = history.map(p => {
     const m = computeDashboard(pillars, entriesByPeriod.get(p.id) ?? [], p);
     if (p.id === period.id) metrics = m;
+    if (p.id === previousPeriodId) previousMetrics = m;
     const { rollup, coverage, yearProgress } = m.overall;
     return {
       periodId: p.id,
@@ -201,6 +214,7 @@ export async function loadDashboard(planId?: string, periodId?: string): Promise
     periodOpen: new Date(period.endDate).getTime() > now,
     metrics: metrics ?? computeDashboard(pillars, entriesByPeriod.get(period.id) ?? [], period),
     trend,
+    previousMetrics,
     ...context,
   };
 }

@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
     userAgent: userAgent ?? '',
   });
 
+  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await writeAuditLog({ action: 'LOGIN_SUCCESS', success: true, identifier, userId: user.id, ip, userAgent });
 
   const response = NextResponse.json({

@@ -8,18 +8,20 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import type { DashboardPeriodOption, DashboardPlanOption } from "@/lib/dashboard-data";
 
 /** Plan and period pickers plus export. Changing a picker reloads the dashboard for that selection from the server. */
-export function DashboardFilters({ plans, planId, periods, periodId }: {
+export function DashboardFilters({ plans, planId, periods, periodId, tab }: {
   plans: DashboardPlanOption[];
   planId?: string;
   periods: DashboardPeriodOption[];
   periodId?: string;
+  /** The active dashboard tab, kept when the plan or period changes. */
+  tab?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   const go = (params: Record<string, string | undefined>) => {
     const search = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) if (v) search.set(k, v);
+    for (const [k, v] of Object.entries({ ...params, tab: tab && tab !== "overview" ? tab : undefined })) if (v) search.set(k, v);
     startTransition(() => router.push(`/?${search.toString()}`));
   };
 

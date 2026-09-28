@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { importStrategicPlan, previewPlanImport, type LeadOwnerMapping } from "@/actions/plan-import";
 import { registerLeadOwnerUser } from "@/actions/users";
 import { UserForm } from "@/components/settings/user-form";
+import { InviteLinkDialog } from "@/components/settings/invite-link-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { ParsedWorkbook } from "@/lib/plan-import/parse-workbook";
 
@@ -31,6 +32,7 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
   const { toast } = useToast();
   const [users, setUsers] = React.useState<Person[]>(initialUsers);
   const [registeringTitle, setRegisteringTitle] = React.useState<string | null>(null);
+  const [manualInvite, setManualInvite] = React.useState<{ name: string; email: string; link: string } | null>(null);
   const [file, setFile] = React.useState<File | null>(null);
   const [preview, setPreview] = React.useState<ParsedWorkbook | null>(null);
   const [sheet, setSheet] = React.useState<string>("");
@@ -127,11 +129,11 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
     return { owned, initiatives: Array.from(initiatives), collaborators };
   };
 
-  const handleRegistered = (title: string, person: Person) => {
+  const handleRegistered = (title: string, person: Person, invited: boolean) => {
     setUsers(prev => [...prev, person].sort((a, b) => a.name.localeCompare(b.name)));
     setOwner(title, { userId: person.id, department: person.department || mapping[title]?.department || title });
     setRegisteringTitle(null);
-    toast({ title: "User registered", description: `${person.name} was created as ${title} and assigned to its ${activitiesPerOwner(title)} activities.` });
+    toast({ title: "User registered", description: `${person.name} was created as ${title} and assigned to its ${activitiesPerOwner(title)} activities.${invited ? " They've been emailed a link to set their password." : ""}` });
   };
 
   const handleImport = async () => {
@@ -420,7 +422,10 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
                           email: result.user.email,
                           leadOwner: result.user.leadOwner ?? registeringTitle,
                           department: result.user.department ?? null,
-                        });
+                        }, result.invite.emailed);
+                        if (!result.invite.emailed && result.invite.link) {
+                          setManualInvite({ name: result.user.name, email: result.user.email, link: result.invite.link });
+                        }
                       }}
                     />
                   </>
@@ -428,6 +433,7 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
               })()}
             </DialogContent>
           </Dialog>
+          <InviteLinkDialog invite={manualInvite} onClose={() => setManualInvite(null)} />
 
           <Card>
             <CardContent className="space-y-3 pt-6">

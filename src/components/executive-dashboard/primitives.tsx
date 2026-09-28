@@ -37,6 +37,18 @@ export const STATUS_COLOR: Record<InitiativeStatus, string> = {
   noTarget: "#a8a29a",
 };
 
+/**
+ * Pillar identity colours, in fixed order (P1…P6), validated with the dataviz
+ * palette validator in light and dark mode (adjacent CVD ΔE ≥ 10, all ≥ 3:1 contrast).
+ * Colour follows the pillar, never its rank; a 7th+ pillar folds to neutral grey.
+ */
+export const PILLAR_COLORS = ["#b8862b", "#2f6ea3", "#c0573e", "#2a9d8f", "#8a5aa8", "#5f8a2c"];
+
+export function pillarColor(code: string): string {
+  const index = Number(code.replace(/\D/g, "")) - 1;
+  return PILLAR_COLORS[index] ?? "#9a948a";
+}
+
 const STATUS_ICON: Record<InitiativeStatus, typeof CheckCircle2> = {
   achieved: CheckCircle2,
   onTrack: TrendingUp,

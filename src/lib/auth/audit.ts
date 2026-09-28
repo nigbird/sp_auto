@@ -1,7 +1,15 @@
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
 
-export type AuditAction = 'LOGIN_SUCCESS' | 'LOGIN_FAILURE' | 'LOGOUT' | 'TOKEN_REFRESH' | 'SESSION_REVOKED';
+export type AuditAction =
+  | 'LOGIN_SUCCESS'
+  | 'LOGIN_FAILURE'
+  | 'LOGOUT'
+  | 'TOKEN_REFRESH'
+  | 'SESSION_REVOKED'
+  | 'INVITE_SENT'
+  | 'PASSWORD_RESET_REQUEST'
+  | 'PASSWORD_SET';
 
 export async function writeAuditLog(params: {
   action: AuditAction;

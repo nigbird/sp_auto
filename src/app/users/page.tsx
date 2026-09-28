@@ -1,6 +1,6 @@
 "use client";
 
-import { MoreHorizontal, UserPlus, Trash2 } from "lucide-react";
+import { MoreHorizontal, UserPlus, Trash2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -38,10 +38,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
-import { getUsers, createUser, updateUser, deleteUser } from "@/actions/users";
+import { getUsers, createUser, updateUser, deleteUser, resendInvite, type InviteOutcome } from "@/actions/users";
 import type { User } from "@/lib/types";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { UserForm, UserFormValues } from "@/components/settings/user-form";
+import { InviteLinkDialog } from "@/components/settings/invite-link-dialog";
 import { useToast } from "@/hooks/use-toast";
 
 export default function UsersPage() {
@@ -51,7 +52,33 @@ export default function UsersPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [manualInvite, setManualInvite] = useState<{ name: string; email: string; link: string } | null>(null);
+  const [resendingId, setResendingId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  /** Tells the admin the invite went out, or hands them the link when it couldn't be emailed. */
+  const reportInvite = (user: { name: string; email: string }, invite: InviteOutcome, verb: string) => {
+    if (invite.emailed) {
+      toast({ title: `Invitation ${verb}`, description: `${user.name} has been emailed a link to set their password.` });
+    } else if (invite.link) {
+      setManualInvite({ name: user.name, email: user.email, link: invite.link });
+    }
+  };
+
+  const handleResendInvite = async (user: User) => {
+    setResendingId(user.id);
+    try {
+      const result = await resendInvite(user.id);
+      if (!result.success) {
+        toast({ title: "Could Not Resend Invitation", description: result.message, variant: "destructive" });
+        return;
+      }
+      setUsers(await getUsers());
+      reportInvite(user, result.invite, "resent");
+    } finally {
+      setResendingId(null);
+    }
+  };
 
   useEffect(() => {
     async function fetchData() {
@@ -96,10 +123,14 @@ export default function UsersPage() {
     }
     setUsers(await getUsers());
     setIsRegisterDialogOpen(false);
-    toast({
-      title: "User Registered",
-      description: `${values.name} has been successfully registered.`,
-    });
+    if (result.invite.emailed) {
+      toast({
+        title: "User Registered",
+        description: `${values.name} has been registered and emailed a link to set their password.`,
+      });
+    } else {
+      reportInvite(result.user, result.invite, "created");
+    }
   };
 
   const handleUpdateUser = async (values: UserFormValues) => {
@@ -194,6 +225,7 @@ export default function UsersPage() {
                     <Badge variant={user.status === 'Active' ? 'default' : 'secondary'} className={user.status === 'Active' ? 'bg-green-500/20 text-green-700 border-green-400' : ''}>
                       {user.status}
                     </Badge>
+                    <InviteStatus user={user} />
                   </TableCell>
                   <TableCell>{format(new Date(user.createdAt), "PP")}</TableCell>
                   <TableCell>
@@ -208,6 +240,12 @@ export default function UsersPage() {
                         <DropdownMenuItem onClick={() => handleEditClick(user)}>
                             Edit
                         </DropdownMenuItem>
+                        {user.invitePending && (
+                          <DropdownMenuItem onClick={() => handleResendInvite(user)} disabled={resendingId === user.id}>
+                            <Mail className="mr-2 h-4 w-4" />
+                            {resendingId === user.id ? "Sending…" : "Resend invitation"}
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={() => handleToggleStatus(user)}>
                           {user.status === 'Active' ? 'Deactivate' : 'Activate'}
                         </DropdownMenuItem>
@@ -279,6 +317,26 @@ export default function UsersPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <InviteLinkDialog invite={manualInvite} onClose={() => setManualInvite(null)} />
     </div>
+  );
+}
+
+/** Under the status badge, until the person first signs in: whether their invitation is still usable. */
+function InviteStatus({ user }: { user: User }) {
+  if (!user.invitePending) return null;
+  if (!user.inviteSentAt || !user.inviteExpiresAt) {
+    return <p className="mt-1 text-xs text-muted-foreground">Never signed in</p>;
+  }
+  const expired = new Date(user.inviteExpiresAt).getTime() < Date.now();
+  return (
+    <p
+      className={expired ? "mt-1 text-xs text-amber-600" : "mt-1 text-xs text-muted-foreground"}
+      title={`Invitation sent ${format(new Date(user.inviteSentAt), "PPp")}`}
+    >
+      {expired
+        ? "Invite expired — resend"
+        : `Invite sent ${formatDistanceToNow(new Date(user.inviteSentAt), { addSuffix: true })}`}
+    </p>
   );
 }
