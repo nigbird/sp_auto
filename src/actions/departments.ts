@@ -40,7 +40,7 @@ export async function getDepartmentOverview() {
 const clean = (name: string) => (name ?? '').replace(/\s+/g, ' ').trim();
 
 export async function createDepartment(name: string): Promise<DepartmentResult> {
-  await requirePermission('settings:view');
+  await requirePermission('settings:manage');
 
   const trimmed = clean(name);
   if (!trimmed) return { success: false, message: 'Department name is required.' };
@@ -58,7 +58,7 @@ export async function createDepartment(name: string): Promise<DepartmentResult> 
  * the old one (a plan with the old name would otherwise fail to save).
  */
 export async function updateDepartment(id: string, name: string): Promise<DepartmentResult> {
-  await requirePermission('settings:view');
+  await requirePermission('settings:manage');
 
   const trimmed = clean(name);
   if (!trimmed) return { success: false, message: 'Department name is required.' };
@@ -81,7 +81,7 @@ export async function updateDepartment(id: string, name: string): Promise<Depart
 
 /** Refused while activities still use the department; people and lead owners just lose it. */
 export async function deleteDepartment(id: string): Promise<DepartmentResult> {
-  await requirePermission('settings:view');
+  await requirePermission('settings:manage');
 
   const current = await prisma.department.findUnique({ where: { id } });
   if (!current) return { success: true };

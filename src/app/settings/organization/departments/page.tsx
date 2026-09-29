@@ -1,5 +1,6 @@
 "use client";
 
+import { usePermissions } from "@/components/permissions-provider";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Building2, Check, Pencil, PlusCircle, Trash2, X } from "lucide-react";
@@ -28,6 +29,7 @@ export default function DepartmentsPage() {
   const [renaming, setRenaming] = useState<{ row: DepartmentRow; to: string } | null>(null);
   const [deleting, setDeleting] = useState<DepartmentRow | null>(null);
   const { toast } = useToast();
+  const canManage = usePermissions().can("settings:manage");
 
   const refresh = () => getDepartmentOverview().then(setDepartments);
 
@@ -95,7 +97,7 @@ export default function DepartmentsPage() {
       <CardHeader>
         <CardTitle>Departments</CardTitle>
         <p className="text-sm text-muted-foreground">Activities can only be assigned to a department on this list.</p>
-        <div className="mt-2 flex flex-wrap gap-2">
+        {canManage && <div className="mt-2 flex flex-wrap gap-2">
           <Input
             placeholder="New department name"
             value={newName}
@@ -106,7 +108,7 @@ export default function DepartmentsPage() {
           <Button onClick={handleAdd} disabled={!newName.trim()}>
             <PlusCircle className="mr-2 h-4 w-4" /> Add
           </Button>
-        </div>
+        </div>}
       </CardHeader>
       <CardContent>
         <Table>
@@ -134,7 +136,7 @@ export default function DepartmentsPage() {
             {departments?.map((department) => (
               <TableRow key={department.id}>
                 <TableCell className="font-medium">
-                  {editingId === department.id ? (
+                  {!canManage ? null : editingId === department.id ? (
                     <Input
                       value={editingName}
                       onChange={(e) => setEditingName(e.target.value)}

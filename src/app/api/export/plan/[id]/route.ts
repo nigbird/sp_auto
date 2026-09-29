@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/auth/session';
-import { hasPermission } from '@/lib/auth/permissions-server';
+import { userCan } from '@/lib/auth/permissions-server';
 import { buildPlanWorkbook } from '@/lib/plan-export/build-plan-workbook';
 import { buildPerformancePdf } from '@/lib/plan-export/build-performance-pdf';
 
@@ -14,9 +14,13 @@ import { buildPerformancePdf } from '@/lib/plan-export/build-performance-pdf';
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
-  const allowed = (await hasPermission(user.roleId, 'reports:export')) || (await hasPermission(user.roleId, 'strategic-plan:view'));
+  // The plan alone needs plan access; anything with report values needs export rights.
+  const planOnly = request.nextUrl.searchParams.get('period') === 'none' && request.nextUrl.searchParams.get('format') !== 'pdf';
+  const allowed = planOnly
+    ? userCan(user, 'strategic-plan:view', 'reports:export')
+    : userCan(user, 'reports:export');
   if (!allowed) {
-    return NextResponse.json({ error: "You don't have permission to export plans." }, { status: 403 });
+    return NextResponse.json({ error: "You don't have permission to export this." }, { status: 403 });
   }
 
   const { id } = await params;

@@ -108,13 +108,20 @@ async function validatePlanSubmission(formData: FormData): Promise<{ ok: true; d
 
 const TRANSACTION_OPTIONS = { timeout: 60_000, maxWait: 10_000 };
 
-export async function listStrategicPlans() {
+/**
+ * Every plan list/selector in the app calls this and gets active plans only —
+ * a deactivated plan should never surface outside the Strategic Plans workspace.
+ * Pass `includeInactive` only from that workspace, where deactivated plans still
+ * need to be visible so they can be reactivated.
+ */
+export async function listStrategicPlans({ includeInactive = false }: { includeInactive?: boolean } = {}) {
     await requireUser();
 
     return await prisma.strategicPlan.findMany({
-        orderBy: {
-            updatedAt: 'desc',
-        },
+        where: includeInactive ? undefined : { isActive: true },
+        // Active plans first (deactivating one bumps its updatedAt, which would
+        // otherwise float it above the plans people actually still use).
+        orderBy: includeInactive ? [{ isActive: 'desc' }, { updatedAt: 'desc' }] : { updatedAt: 'desc' },
     });
 }
 
@@ -236,8 +243,19 @@ export async function publishStrategicPlan(id: string) {
     revalidatePath(`/strategic-plan/${id}`);
 }
 
-export async function deleteStrategicPlan(id: string) {
+export async function setStrategicPlanActive(id: string, isActive: boolean) {
     await requirePermission('strategic-plan:edit');
+
+    await prisma.strategicPlan.update({
+        where: { id },
+        data: { isActive },
+    });
+    revalidatePath('/strategic-plan');
+    revalidatePath(`/strategic-plan/${id}`);
+}
+
+export async function deleteStrategicPlan(id: string) {
+    await requirePermission('strategic-plan:delete');
 
     // Make sure to delete related records in the correct order if cascading delete is not set up
     const plan = await prisma.strategicPlan.findUnique({

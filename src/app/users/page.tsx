@@ -1,5 +1,6 @@
 "use client";
 
+import { usePermissions } from "@/components/permissions-provider";
 import { MoreHorizontal, UserPlus, Trash2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -57,6 +58,7 @@ export default function UsersPage() {
   const [manualInvite, setManualInvite] = useState<{ name: string; email: string; link: string } | null>(null);
   const [resendingId, setResendingId] = useState<string | null>(null);
   const { toast } = useToast();
+  const canManage = usePermissions().can("users:manage");
   const [query, setQuery] = useState("");
   const [range, setRange] = useState<DateRangeValue>({});
   const narrowed = query.trim() !== "" || isRangeSet(range);
@@ -188,9 +190,11 @@ export default function UsersPage() {
               Everyone who can sign in.
             </CardDescription>
           </div>
-          <Button onClick={() => setIsRegisterDialogOpen(true)}>
+          {canManage && (
+            <Button onClick={() => setIsRegisterDialogOpen(true)}>
             <UserPlus className="mr-2 h-4 w-4" /> Register User
           </Button>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           <ListToolbar count={narrowed ? `${matchingUsers.length} of ${users.length} users match` : `${users.length} users`}>
@@ -250,6 +254,7 @@ export default function UsersPage() {
                   </TableCell>
                   <TableCell>{format(new Date(user.createdAt), "PP")}</TableCell>
                   <TableCell>
+                    {canManage && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button aria-haspopup="true" size="icon" variant="ghost">
@@ -277,6 +282,7 @@ export default function UsersPage() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    )}
                   </TableCell>
                 </TableRow>
               ))

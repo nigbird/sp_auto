@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth/session';
-import { hasPermission } from '@/lib/auth/permissions-server';
+import { userCan } from '@/lib/auth/permissions-server';
 import { detectEvidenceType, sanitizeFileName } from '@/lib/evidence-files';
 
 /**
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!meta) return notFound();
   const allowed = meta.activity.responsibleId === user.id
     || meta.uploadedById === user.id
-    || await hasPermission(user.roleId, 'activities:edit');
+    || userCan(user, 'report-approvals:view');
   if (!allowed) return notFound();
 
   const evidence = await prisma.evidence.findUnique({ where: { id }, select: { fileName: true, data: true } });

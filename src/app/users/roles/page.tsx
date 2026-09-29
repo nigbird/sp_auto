@@ -1,7 +1,8 @@
 "use client";
 
+import { usePermissions } from "@/components/permissions-provider";
 import { useEffect, useState } from "react";
-import { Edit, Plus, Trash2 } from "lucide-react";
+import { Edit, Eye, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -36,6 +37,7 @@ export default function RolesPage() {
   const [deletingRole, setDeletingRole] = useState<RoleRow | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+  const canManage = usePermissions().can("roles:manage");
 
   const loadRoles = async () => {
     setRoles(await getRoles());
@@ -100,9 +102,11 @@ export default function RolesPage() {
               Built-in roles can be edited but not deleted.
             </CardDescription>
           </div>
-          <Button onClick={() => setEditingRole(null)}>
+          {canManage && (
+            <Button onClick={() => setEditingRole(null)}>
             <Plus className="mr-2 h-4 w-4" /> Create Role
           </Button>
+          )}
         </CardHeader>
         <CardContent>
           <Table>
@@ -135,10 +139,10 @@ export default function RolesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <Button size="icon" variant="ghost" onClick={() => setEditingRole(role)}>
-                        <Edit className="h-4 w-4" />
-                        <span className="sr-only">Edit {role.name}</span>
+                        {canManage ? <Edit className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        <span className="sr-only">{canManage ? "Edit" : "View"} {role.name}</span>
                       </Button>
-                      {!role.isSystem && (
+                      {canManage && !role.isSystem && (
                         <Button size="icon" variant="ghost" className="text-destructive" onClick={() => setDeletingRole(role)}>
                           <Trash2 className="h-4 w-4" />
                           <span className="sr-only">Delete {role.name}</span>
@@ -156,9 +160,9 @@ export default function RolesPage() {
       <Dialog open={editingRole !== undefined} onOpenChange={(open) => !open && setEditingRole(undefined)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingRole ? `Edit ${editingRole.name}` : "Create Role"}</DialogTitle>
+            <DialogTitle>{editingRole ? `${canManage ? "Edit" : "View"} ${editingRole.name}` : "Create Role"}</DialogTitle>
             <DialogDescription>
-              {editingRole ? "Change which permissions this role grants." : "Name the role and select the permissions it grants."}
+              {!canManage ? "What this role is allowed to do." : editingRole ? "Change which permissions this role grants." : "Name the role and select the permissions it grants."}
             </DialogDescription>
           </DialogHeader>
           {editingRole !== undefined && (
@@ -168,6 +172,7 @@ export default function RolesPage() {
               isSaving={isSaving}
               onSubmit={handleSubmit}
               onCancel={() => setEditingRole(undefined)}
+              readOnly={!canManage}
             />
           )}
         </DialogContent>

@@ -22,6 +22,7 @@ import {
 import type { StrategicPlan, ReportingPeriod } from "@/lib/types";
 import { getReportSummaries } from "@/actions/period-reports";
 import { ReportRequestButton, ReportSummaryBadges, type ReportSummary } from "@/components/reporting-periods/report-request-dialog";
+import { usePermissions } from "@/components/permissions-provider";
 import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
 
 type EditableFields = { name: string; startDate: string; endDate: string; cutOffDate: string };
@@ -47,6 +48,9 @@ export default function ReportingPeriodsPage() {
   const [editError, setEditError] = useState<string | null>(null);
   const [summaries, setSummaries] = useState<Record<string, ReportSummary>>({});
   const { toast } = useToast();
+  const { can } = usePermissions();
+  const canManage = can("settings:manage");
+  const canRequestReports = can("report-approvals:request");
   const selectedPlan = plans.find((p) => p.id === selectedPlanId);
 
   useEffect(() => {
@@ -140,9 +144,11 @@ export default function ReportingPeriodsPage() {
             </p>
           </div>
         </div>
-        <Button onClick={handleAddPeriod} disabled={!selectedPlanId}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add Period
-        </Button>
+        {canManage && (
+          <Button onClick={handleAddPeriod} disabled={!selectedPlanId}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Period
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -232,7 +238,7 @@ export default function ReportingPeriodsPage() {
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex flex-col items-center gap-2">
-                        <ReportRequestButton
+                        {canRequestReports && <ReportRequestButton
                           period={period}
                           disabledReason={
                             selectedPlan?.status !== "PUBLISHED"
@@ -244,12 +250,12 @@ export default function ReportingPeriodsPage() {
                                   : undefined
                           }
                           onSent={() => selectedPlanId && loadPeriods(selectedPlanId)}
-                        />
+                        />}
                         <ReportSummaryBadges summary={summaries[period.id]} />
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      {isEditing ? (
+                      {!canManage ? null : isEditing ? (
                         <div className="flex justify-center gap-2">
                           <Button size="icon" variant="ghost" onClick={handleSaveEdit}><Save className="h-4 w-4 text-green-600" /></Button>
                           <Button size="icon" variant="ghost" onClick={handleCancelEdit}><X className="h-4 w-4 text-red-600" /></Button>

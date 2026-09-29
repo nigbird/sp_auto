@@ -18,7 +18,7 @@ export async function getAppConfig() {
 }
 
 export async function updateAchievementCap(value: number) {
-  await requireUser();
+  await requirePermission('settings:manage');
 
   if (!Number.isFinite(value) || value < 100) {
     throw new Error("The achievement cap must be a number of at least 100.");
@@ -41,7 +41,7 @@ export async function getRatingThresholds(): Promise<RatingThresholds> {
 }
 
 export async function updateRatingThresholds(input: RatingThresholds): Promise<RatingThresholds> {
-  await requirePermission('settings:view');
+  await requirePermission('settings:manage');
   const thresholds: RatingThresholds = {
     outstanding: Number(input.outstanding),
     veryGood: Number(input.veryGood),
@@ -62,7 +62,7 @@ export async function updateRatingThresholds(input: RatingThresholds): Promise<R
 }
 
 export async function resetRatingThresholds(): Promise<RatingThresholds> {
-  await requirePermission('settings:view');
+  await requirePermission('settings:manage');
   await prisma.appConfig.upsert({
     where: { id: 'singleton' },
     update: { ratingBands: Prisma.DbNull },

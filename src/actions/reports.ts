@@ -8,6 +8,7 @@ import { getActivities } from './activities';
 import { getUsers } from './users';
 import { listStrategicPlans } from './strategic-plan';
 import { requireUser } from '@/lib/auth/session';
+import { requirePermission } from '@/lib/auth/permissions-server';
 
 export interface ReportData {
     plans: StrategicPlan[];
@@ -18,7 +19,7 @@ export interface ReportData {
 }
 
 export async function getReportData(approvedOnly?: boolean): Promise<ReportData> {
-    await requireUser();
+    await requirePermission('dashboard:view', 'reports:view');
 
     const plans = await listStrategicPlans();
     const activities = await getActivities(undefined, approvedOnly);

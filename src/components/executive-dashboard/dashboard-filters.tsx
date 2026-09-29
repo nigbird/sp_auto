@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CalendarDays, ChevronDown, FileSpreadsheet, FileText, Loader2, Upload } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { usePermissions } from "@/components/permissions-provider";
 import type { DashboardPeriodOption, DashboardPlanOption } from "@/lib/dashboard-data";
 
 /** Plan and period pickers plus export. Changing a picker reloads the dashboard for that selection from the server. */
@@ -17,6 +18,7 @@ export function DashboardFilters({ plans, planId, periods, periodId, tab }: {
   tab?: string;
 }) {
   const router = useRouter();
+  const { can } = usePermissions();
   const [pending, startTransition] = useTransition();
 
   const go = (params: Record<string, string | undefined>) => {
@@ -68,7 +70,7 @@ export function DashboardFilters({ plans, planId, periods, periodId, tab }: {
         </Select>
       )}
 
-      {exportBase && (
+      {exportBase && can("reports:export") && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button

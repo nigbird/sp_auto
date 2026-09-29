@@ -1,5 +1,6 @@
 "use client";
 
+import { usePermissions } from "@/components/permissions-provider";
 import { useState, useEffect } from "react";
 import { Check, Pencil, PlusCircle, Trash2, UserCog, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ export default function LeadOwnersPage() {
   const [editingDepartment, setEditingDepartment] = useState("");
   const [deleting, setDeleting] = useState<LeadOwnerRow | null>(null);
   const { toast } = useToast();
+  const canManage = usePermissions().can("settings:manage");
 
   const refresh = () => getLeadOwners().then(setLeadOwners);
 
@@ -112,7 +114,7 @@ export default function LeadOwnersPage() {
           <p className="text-sm text-muted-foreground">
             Link each person to their office under Users &amp; Roles — plan imports then match offices to people automatically.
           </p>
-          <div className="mt-2 flex flex-wrap gap-2">
+          {canManage && <div className="mt-2 flex flex-wrap gap-2">
               <Input
                 placeholder="New lead owner, e.g. Chief Finance Officer"
                 value={newName}
@@ -124,7 +126,7 @@ export default function LeadOwnersPage() {
               <Button onClick={handleAdd} disabled={!newName.trim()}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Add
               </Button>
-          </div>
+          </div>}
         </CardHeader>
         <CardContent>
           <Table>
@@ -148,7 +150,7 @@ export default function LeadOwnersPage() {
               {leadOwners.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell className="font-medium">
-                    {editingId === row.id ? (
+                    {!canManage ? null : editingId === row.id ? (
                       <Input
                         value={editingName}
                         onChange={(e) => setEditingName(e.target.value)}

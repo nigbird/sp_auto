@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma';
 import type { Rule } from '@/lib/types';
 import { requireUser } from '@/lib/auth/session';
+import { requirePermission } from '@/lib/auth/permissions-server';
 
 export async function getRules(): Promise<Rule[]> {
     await requireUser();
@@ -19,7 +20,7 @@ export async function getRules(): Promise<Rule[]> {
 }
 
 export async function updateRule(id: string, data: Partial<Omit<Rule, 'id' | 'isSystem'>>) {
-    await requireUser();
+    await requirePermission('settings:manage');
 
     const updatedRule = await prisma.rule.update({
         where: { id },
@@ -30,7 +31,7 @@ export async function updateRule(id: string, data: Partial<Omit<Rule, 'id' | 'is
 }
 
 export async function createRule(data: Omit<Rule, 'id' | 'isSystem'>) {
-    await requireUser();
+    await requirePermission('settings:manage');
 
     const newRule = await prisma.rule.create({
         data: {
@@ -43,7 +44,7 @@ export async function createRule(data: Omit<Rule, 'id' | 'isSystem'>) {
 }
 
 export async function deleteRule(id: string) {
-    await requireUser();
+    await requirePermission('settings:manage');
 
     await prisma.rule.delete({ where: { id } });
     revalidatePath('/settings/rules');

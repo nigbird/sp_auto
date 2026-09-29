@@ -4,6 +4,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./app-sidebar";
 import { Header } from "./header";
 import { SessionKeepAlive } from "./session-keepalive";
+import { PermissionsProvider } from "./permissions-provider";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +12,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   return (
+    <PermissionsProvider>
     <SidebarProvider>
       <SessionKeepAlive />
       <div className="flex h-full">
@@ -26,5 +28,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
     </SidebarProvider>
+    </PermissionsProvider>
   );
 }

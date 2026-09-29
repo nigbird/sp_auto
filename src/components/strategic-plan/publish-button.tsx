@@ -30,7 +30,7 @@ export function PublishButton({ planId }: { planId: string }) {
   };
 
   return (
-    <Button onClick={handlePublish} disabled={isPublishing}>
+    <Button size="sm" onClick={handlePublish} disabled={isPublishing}>
       {isPublishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
       Publish
     </Button>

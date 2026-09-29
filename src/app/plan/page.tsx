@@ -1,3 +1,4 @@
+import { guardPage } from "@/lib/auth/page-guard";
 import { requireUser } from "@/lib/auth/session";
 import { getActivities } from "@/actions/activities";
 import { getMyPeriodReports } from "@/actions/period-reports";
@@ -9,6 +10,8 @@ import type { LatestReport } from "@/components/my-activity/my-activity-overview
 import type { ReportingPeriod, StrategicPlan, User } from "@/lib/types";
 
 export default async function MyPlanPage({ searchParams }: { searchParams: Promise<{ plan?: string }> }) {
+  const { denied } = await guardPage('my-plan:view');
+  if (denied) return denied;
   const { plan: planParam } = await searchParams;
   const [user, allPlans] = await Promise.all([requireUser(), listStrategicPlans()]);
 

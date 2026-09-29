@@ -1,6 +1,9 @@
+import { guardPage } from "@/lib/auth/page-guard";
 import { PageTabs } from "@/components/page-tabs";
 
-export default function UsersLayout({ children }: { children: React.ReactNode }) {
+export default async function UsersLayout({ children }: { children: React.ReactNode }) {
+  const { denied } = await guardPage("users:view");
+  if (denied) return denied;
   return (
     <div className="flex-1 space-y-6">
       <div className="space-y-2">

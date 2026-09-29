@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma';
-import { hasPermission, requirePermission } from '@/lib/auth/permissions-server';
+import { requirePermission, userCan } from '@/lib/auth/permissions-server';
 import { requireUser } from '@/lib/auth/session';
 import { isPeriodClosedForSubmissions } from '@/lib/reporting-period';
 import { EVIDENCE_MAX_BYTES, EVIDENCE_MAX_FILES, detectEvidenceType, sanitizeFileName } from '@/lib/evidence-files';
@@ -48,7 +48,7 @@ async function loadEditableEntry(entryId: string, userId: string) {
 }
 
 export async function uploadReportEvidence(entryId: string, formData: FormData): Promise<EvidenceActionResult> {
-  const user = await requirePermission('my-activity:update');
+  const user = await requirePermission('my-reports:submit');
 
   const loaded = await loadEditableEntry(entryId, user.id);
   if ('error' in loaded) return fail(loaded.error!);
@@ -82,7 +82,7 @@ export async function uploadReportEvidence(entryId: string, formData: FormData):
 }
 
 export async function deleteReportEvidence(evidenceId: string): Promise<EvidenceActionResult> {
-  const user = await requirePermission('my-activity:update');
+  const user = await requirePermission('my-reports:submit');
 
   const evidence = await prisma.evidence.findUnique({ where: { id: evidenceId }, select: { id: true, periodEntryId: true } });
   if (!evidence?.periodEntryId) return fail('This file no longer exists.');
@@ -104,7 +104,7 @@ export async function getActivityEvidence(activityId: string): Promise<EvidenceM
   const user = await requireUser();
   const activity = await prisma.activity.findUnique({ where: { id: activityId }, select: { responsibleId: true } });
   if (!activity) return [];
-  if (activity.responsibleId !== user.id && !(await hasPermission(user.roleId, 'activities:edit'))) return [];
+  if (activity.responsibleId !== user.id && !userCan(user, 'report-approvals:view')) return [];
 
   return prisma.evidence.findMany({
     where: { activityId },

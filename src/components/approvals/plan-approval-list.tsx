@@ -1,5 +1,6 @@
 "use client"
 
+import { Can } from "@/components/permissions-provider";
 import * as React from "react"
 import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
@@ -147,12 +148,14 @@ export function PlanApprovalList({ plans: initialPlans }: { plans: PendingActivi
             ) : (
               <p className="text-sm text-muted-foreground">No breakdown values were saved.</p>
             )}
+            <Can anyOf={["plan-approvals:approve"]}>
             <div className="flex justify-end gap-2">
               <Button variant="destructive" disabled={busyId === plan.id} onClick={() => { setDeclining(plan); setDeclineError(null); }}>Return</Button>
               <Button className="bg-green-600 hover:bg-green-700" disabled={busyId === plan.id} onClick={() => handleApprove(plan)}>
                 {busyId === plan.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Approve
               </Button>
             </div>
+            </Can>
           </CardContent>
         </Card>
       ))}

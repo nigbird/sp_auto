@@ -12,6 +12,7 @@ import { getRules, updateRule, createRule, deleteRule } from "@/actions/rules";
 import { getAppConfig, updateAchievementCap } from "@/actions/app-config";
 import type { Rule } from "@/lib/types";
 import { RatingBandsCard } from "@/components/settings/rating-bands-card";
+import { usePermissions } from "@/components/permissions-provider";
 
 export default function RulesPage() {
   const [rules, setRules] = useState<Rule[]>([]);
@@ -21,6 +22,7 @@ export default function RulesPage() {
   const [isEditingCap, setIsEditingCap] = useState(false);
   const [capDraft, setCapDraft] = useState("120");
   const { toast } = useToast();
+  const canManage = usePermissions().can("settings:manage");
 
   useEffect(() => {
     getRules().then(setRules);
@@ -123,9 +125,11 @@ export default function RulesPage() {
             </p>
             </div>
         </div>
+        {canManage && (
         <Button onClick={handleAddRule}>
             <PlusCircle className="mr-2 h-4 w-4" /> Add New Status
         </Button>
+        )}
       </div>
       <Card>
         <CardHeader>
@@ -151,7 +155,7 @@ export default function RulesPage() {
           ) : (
             <>
               <span className="text-2xl font-bold">{achievementCap}%</span>
-              <Button size="icon" variant="ghost" onClick={handleEditCap}><Edit className="h-4 w-4" /></Button>
+              {canManage && <Button size="icon" variant="ghost" onClick={handleEditCap}><Edit className="h-4 w-4" /></Button>}
             </>
           )}
         </CardContent>
@@ -219,7 +223,7 @@ export default function RulesPage() {
                         <TableCell className="text-center">
                             {rule.isSystem ? (
                                 <span className="text-xs text-muted-foreground">System Rule</span>
-                            ) : isEditing ? (
+                            ) : !canManage ? null : isEditing ? (
                                 <div className="flex justify-center gap-2">
                                     <Button size="icon" variant="ghost" onClick={handleSaveEdit}><Save className="h-4 w-4 text-green-600"/></Button>
                                     <Button size="icon" variant="ghost" onClick={handleCancelEdit}><X className="h-4 w-4 text-red-600"/></Button>
@@ -237,11 +241,11 @@ export default function RulesPage() {
             </TableBody>
           </Table>
         </CardContent>
-        <CardFooter className="justify-end border-t pt-6">
+        {canManage && <CardFooter className="justify-end border-t pt-6">
             <Button onClick={handleSaveChanges}>
                 <Gavel className="mr-2 h-4 w-4" /> Save All Changes
             </Button>
-        </CardFooter>
+        </CardFooter>}
       </Card>
     </div>
   );

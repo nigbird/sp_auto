@@ -39,7 +39,7 @@ function reportableActivitiesWhere(strategicPlanId: string, periodEnd: Date) {
 
 /** Counts per reporting period for the Reporting Periods page. */
 export async function getReportSummaries(strategicPlanId: string) {
-    await requireUser();
+    await requirePermission('settings:view', 'report-approvals:view');
     const grouped = await prisma.activityPeriodEntry.groupBy({
         by: ['reportingPeriodId', 'reportStatus'],
         where: { reportingPeriod: { strategicPlanId }, reportStatus: { not: 'NOT_REQUESTED' } },
@@ -66,7 +66,7 @@ export async function getReportSummaries(strategicPlanId: string) {
  * are already submitted or approved.
  */
 export async function sendReportRequest(periodId: string, message: string): Promise<ReportActionResult> {
-    const sender = await requirePermission('activities:edit');
+    const sender = await requirePermission('report-approvals:request');
 
     const period = await prisma.reportingPeriod.findUnique({ where: { id: periodId }, include: { strategicPlan: true } });
     if (!period) return fail('This reporting period no longer exists.');
@@ -142,7 +142,7 @@ const reportEntryInclude = {
 
 /** Report rows the current user has to fill in (or has filled in) — Reporting → My Reports. */
 export async function getMyPeriodReports() {
-    const user = await requireUser();
+    const user = await requirePermission('my-reports:view', 'my-plan:view');
     const entries = await prisma.activityPeriodEntry.findMany({
         where: { reportStatus: { not: 'NOT_REQUESTED' }, activity: { responsibleId: user.id } },
         include: reportEntryInclude,
@@ -170,7 +170,7 @@ async function previousApprovedActual(activityId: string, beforeDate: Date) {
 }
 
 export async function submitPeriodReport(entryId: string, input: PeriodReportInput): Promise<ReportActionResult> {
-    const user = await requirePermission('my-activity:update');
+    const user = await requirePermission('my-reports:submit');
 
     const entry = await prisma.activityPeriodEntry.findUnique({ where: { id: entryId }, include: reportEntryInclude });
     if (!entry) return fail('This report no longer exists.');
@@ -266,7 +266,7 @@ export async function submitPeriodReport(entryId: string, input: PeriodReportInp
 }
 
 export async function getPendingPeriodReports() {
-    await requirePermission('activities:edit');
+    await requirePermission('report-approvals:view');
     const entries = await prisma.activityPeriodEntry.findMany({
         where: { reportStatus: 'SUBMITTED' },
         include: reportEntryInclude,
@@ -276,7 +276,7 @@ export async function getPendingPeriodReports() {
 }
 
 export async function approvePeriodReport(entryId: string): Promise<ReportActionResult> {
-    const approver = await requirePermission('activities:edit');
+    const approver = await requirePermission('report-approvals:approve');
 
     const entry = await prisma.activityPeriodEntry.findUnique({ where: { id: entryId }, include: reportEntryInclude });
     if (!entry) return fail('This report no longer exists.');
@@ -340,7 +340,7 @@ export async function approvePeriodReport(entryId: string): Promise<ReportAction
 }
 
 export async function returnPeriodReport(entryId: string, reason: string): Promise<ReportActionResult> {
-    await requirePermission('activities:edit');
+    await requirePermission('report-approvals:approve');
 
     const trimmed = (reason ?? '').trim();
     if (!trimmed) return fail('Please give a reason so the owner knows what to change.');
@@ -372,7 +372,7 @@ export async function returnPeriodReport(entryId: string, reason: string): Promi
 
 /** Periods of a plan plus every report row in the chosen one, for the strategic plan page. */
 export async function getPlanPerformance(strategicPlanId: string, periodId?: string) {
-    await requireUser();
+    await requirePermission('reports:view');
     const periods = await prisma.reportingPeriod.findMany({
         where: { strategicPlanId },
         orderBy: { startDate: 'asc' },

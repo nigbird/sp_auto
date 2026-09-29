@@ -14,13 +14,7 @@ export interface SessionUser {
   role: string;
   roleId: string;
   status: 'ACTIVE' | 'INACTIVE';
-  /**
-   * UI-level hint only, sourced from the access token's embedded snapshot
-   * (taken at login/refresh time) — not re-checked against the DB on every
-   * render. Use it to show/hide controls; the authoritative check for any
-   * actual mutation is requirePermission() (src/lib/auth/permissions.ts),
-   * which reads live DB state.
-   */
+  /** The role's permissions, read from the DB on each request, so a role change applies immediately. */
   permissions: string[];
 }
 
@@ -51,7 +45,7 @@ async function resolveCurrentUser(): Promise<SessionUser | null> {
 
   const session = await prisma.activeSession.findUnique({
     where: { id: claims.sid },
-    include: { user: { include: { role: true } } },
+    include: { user: { include: { role: { include: { permissions: { select: { permission: true } } } } } } },
   });
 
   if (!session || session.revokedAt || session.userId !== claims.sub) return null;
@@ -75,7 +69,7 @@ async function resolveCurrentUser(): Promise<SessionUser | null> {
     role: session.user.role.name,
     roleId: session.user.roleId,
     status: session.user.status,
-    permissions: claims.permissions ?? [],
+    permissions: session.user.role.permissions.map((p) => p.permission),
   };
 }
 

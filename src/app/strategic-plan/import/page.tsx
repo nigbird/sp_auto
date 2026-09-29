@@ -1,15 +1,18 @@
+import { guardPage } from "@/lib/auth/page-guard";
 import { getUsers } from "@/actions/users";
 import { getDepartments } from "@/actions/departments";
 import { requireUser } from "@/lib/auth/session";
-import { hasPermission } from "@/lib/auth/permissions-server";
+import { userCan } from "@/lib/auth/permissions-server";
 import { PlanImportClient } from "@/components/strategic-plan/plan-import-client";
 
 export default async function ImportStrategicPlanPage() {
+  const { denied } = await guardPage('strategic-plan:edit');
+  if (denied) return denied;
     const currentUser = await requireUser();
     const [userList, departmentList, canRegister] = await Promise.all([
         getUsers(),
         getDepartments(),
-        hasPermission(currentUser.roleId, 'settings:users:manage'),
+        userCan(currentUser, 'users:manage'),
     ]);
     const users = userList
         .map(u => ({ id: u.id, name: u.name, email: u.email, leadOwner: u.leadOwner ?? null, department: u.department ?? null }))

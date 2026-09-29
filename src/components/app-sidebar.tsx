@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -27,61 +26,27 @@ import {
   Users,
 } from "lucide-react";
 import { Logo } from "./icons";
-import { getCurrentUserAction } from "@/actions/auth";
+import { usePermissions } from "./permissions-provider";
+import { NAV_GROUPS, canSeeNavItem, type NavItemDef } from "@/lib/navigation";
 
-type NavItem = {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  /** Hidden unless the user holds at least one of these (UI hint only — pages/actions enforce access themselves). */
-  anyOf?: string[];
-  /** Match only the exact path, not sub-paths (for items whose sub-paths are other menu items). */
-  exact?: boolean;
+const ICONS: Record<NavItemDef["icon"], LucideIcon> = {
+  dashboard: LayoutDashboard,
+  plans: Network,
+  myPlan: UserCheck,
+  planApprovals: ClipboardCheck,
+  myReports: FileText,
+  reportApprovals: FileCheck2,
+  performance: BarChart3,
+  users: Users,
+  settings: Settings,
 };
-
-const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
-  {
-    items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard, exact: true }],
-  },
-  {
-    label: "Planning",
-    items: [
-      { href: "/strategic-plan", label: "Strategic Plans", icon: Network },
-      { href: "/plan", label: "My Plan", icon: UserCheck, exact: true },
-      { href: "/plan/approvals", label: "Plan Approvals", icon: ClipboardCheck },
-    ],
-  },
-  {
-    label: "Reporting",
-    items: [
-      { href: "/reports/submit", label: "My Reports", icon: FileText },
-      { href: "/reports/approvals", label: "Report Approvals", icon: FileCheck2 },
-      { href: "/reports", label: "Performance Report", icon: BarChart3, exact: true },
-    ],
-  },
-  {
-    label: "Administration",
-    items: [
-      { href: "/users", label: "Users & Roles", icon: Users, anyOf: ["settings:users:manage", "settings:roles:manage"] },
-      { href: "/settings", label: "Configuration", icon: Settings, anyOf: ["settings:view"] },
-    ],
-  },
-];
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const [permissions, setPermissions] = useState<string[] | null>(null);
+  const { permissions } = usePermissions();
 
-  useEffect(() => {
-    getCurrentUserAction().then((user) => setPermissions(user?.permissions ?? []));
-  }, []);
-
-  const isActive = (item: NavItem) =>
+  const isActive = (item: NavItemDef) =>
     item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
-
-  // Permission-gated items stay hidden until permissions have loaded, so they don't flash in and out.
-  const canSee = (item: NavItem) =>
-    !item.anyOf || (permissions !== null && item.anyOf.some((p) => permissions.includes(p)));
 
   return (
     <Sidebar>
@@ -96,21 +61,25 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent className="flex-1">
-        {NAV_GROUPS.map((group, i) => {
-          const items = group.items.filter(canSee);
+        {/* Nothing is shown until permissions load, so items never flash in and out. */}
+        {permissions && NAV_GROUPS.map((group, i) => {
+          const items = group.items.filter((item) => canSeeNavItem(item, permissions));
           if (items.length === 0) return null;
           return (
             <SidebarGroup key={group.label ?? i}>
               {group.label && <SidebarGroupLabel>{group.label}</SidebarGroupLabel>}
               <SidebarMenu>
-                {items.map((item) => (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton href={item.href} isActive={isActive(item)} tooltip={item.label}>
-                      <item.icon />
-                      {item.label}
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {items.map((item) => {
+                  const Icon = ICONS[item.icon];
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton href={item.href} isActive={isActive(item)} tooltip={item.label}>
+                        <Icon />
+                        {item.label}
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
               </SidebarMenu>
             </SidebarGroup>
           );

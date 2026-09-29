@@ -1,5 +1,6 @@
 "use client"
 
+import { Can } from "@/components/permissions-provider";
 import * as React from "react";
 import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
@@ -148,12 +149,14 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
                 <Field label="Weighted actual with delay">{formatWeight(row.weightedActualWithDelay)}</Field>
                 <Field label="Achieved result">{formatRatio(row.achievedResult)}</Field>
               </div>
+              <Can anyOf={["report-approvals:approve"]}>
               <div className="flex justify-end gap-2">
                 <Button variant="destructive" disabled={busyId === entry.id} onClick={() => { setReturning(entry); setReasonError(null); }}>Return</Button>
                 <Button className="bg-green-600 hover:bg-green-700" disabled={busyId === entry.id} onClick={() => handleApprove(entry)}>
                   {busyId === entry.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Approve
                 </Button>
               </div>
+              </Can>
             </CardContent>
           </Card>
         );

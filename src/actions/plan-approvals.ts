@@ -74,9 +74,10 @@ function stageOf(a: {
 
 /** Every activity of one plan (default: the published plan) with its approval stage. */
 export async function getPlanApprovalOverview(planId?: string): Promise<PlanApprovalOverview> {
-  await requirePermission('activities:edit');
+  await requirePermission('plan-approvals:view');
 
   const plans = await prisma.strategicPlan.findMany({
+    where: { isActive: true },
     select: { id: true, name: true, version: true, status: true },
     orderBy: { updatedAt: 'desc' },
   });
@@ -145,7 +146,7 @@ function revalidate() {
 
 /** Approves a new activity that someone without approval rights added to the plan. */
 export async function approveNewActivity(activityId: string): Promise<PlanApprovalResult> {
-  await requirePermission('activities:edit');
+  await requirePermission('plan-approvals:approve');
   const activity = await prisma.activity.findUnique({ where: { id: activityId }, select: { id: true, title: true, approvalStatus: true, responsibleId: true } });
   if (!activity) return { success: false, message: 'This activity no longer exists.' };
   if (activity.approvalStatus !== 'PENDING') return { success: false, message: "This activity isn't waiting for approval any more; it may already have been handled." };
@@ -160,7 +161,7 @@ export async function approveNewActivity(activityId: string): Promise<PlanApprov
 
 /** Sends a new activity back to its owner with a reason. */
 export async function returnNewActivity(activityId: string, reason: string): Promise<PlanApprovalResult> {
-  await requirePermission('activities:edit');
+  await requirePermission('plan-approvals:approve');
   const trimmed = (reason ?? '').trim();
   if (!trimmed) return { success: false, message: 'Please give a reason so the owner knows what to change.' };
   if (trimmed.length > 2000) return { success: false, message: 'The reason must be 2000 characters or less.' };

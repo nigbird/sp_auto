@@ -1,8 +1,11 @@
+import { guardPage } from "@/lib/auth/page-guard";
 import { getPendingPeriodReports } from "@/actions/period-reports";
 import { ReportApprovalList } from "@/components/approvals/report-approval-list";
 import type { PeriodReportEntry } from "@/components/my-activity/my-activity-report-list";
 
 export default async function ReportApprovalsPage() {
+  const { denied } = await guardPage('report-approvals:view');
+  if (denied) return denied;
   const pendingReports = await getPendingPeriodReports();
 
   return (

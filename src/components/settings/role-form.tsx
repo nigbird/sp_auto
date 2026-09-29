@@ -16,9 +16,11 @@ interface RoleFormProps {
   isSaving: boolean;
   onSubmit: (values: RoleFormValues) => void;
   onCancel: () => void;
+  /** Show the permissions without letting them be changed. */
+  readOnly?: boolean;
 }
 
-export function RoleForm({ role, isSaving, onSubmit, onCancel }: RoleFormProps) {
+export function RoleForm({ role, isSaving, onSubmit, onCancel, readOnly = false }: RoleFormProps) {
   const [name, setName] = useState(role?.name ?? "");
   const [selected, setSelected] = useState<Set<string>>(new Set(role?.permissions ?? []));
 
@@ -74,6 +76,7 @@ export function RoleForm({ role, isSaving, onSubmit, onCancel }: RoleFormProps) 
                   <Checkbox
                     id={`select-all-${group.title}`}
                     checked={allSelected}
+                    disabled={readOnly}
                     onCheckedChange={() => toggleGroup(ids)}
                   />
                   <Label htmlFor={`select-all-${group.title}`} className="text-sm font-normal">
@@ -87,6 +90,7 @@ export function RoleForm({ role, isSaving, onSubmit, onCancel }: RoleFormProps) 
                     <Checkbox
                       id={permission.id}
                       checked={selected.has(permission.id)}
+                      disabled={readOnly}
                       onCheckedChange={() => toggle(permission.id)}
                     />
                     <Label htmlFor={permission.id} className="cursor-pointer text-sm font-normal">
@@ -102,11 +106,13 @@ export function RoleForm({ role, isSaving, onSubmit, onCancel }: RoleFormProps) 
 
       <div className="flex justify-end gap-2">
         <Button variant="outline" type="button" onClick={onCancel}>
-          Cancel
+          {readOnly ? "Close" : "Cancel"}
         </Button>
-        <Button type="submit" disabled={isSaving}>
-          {isSaving ? "Saving..." : role ? "Save Changes" : "Create Role"}
-        </Button>
+        {!readOnly && (
+          <Button type="submit" disabled={isSaving}>
+            {isSaving ? "Saving..." : role ? "Save Changes" : "Create Role"}
+          </Button>
+        )}
       </div>
     </form>
   );

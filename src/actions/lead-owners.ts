@@ -27,7 +27,7 @@ function clean(name: string) {
 }
 
 export async function createLeadOwner(name: string, department?: string | null): Promise<LeadOwnerResult<{ id: string }>> {
-  await requirePermission('settings:view');
+  await requirePermission('settings:manage');
   const trimmed = clean(name);
   if (!trimmed) return { success: false, message: 'Lead owner name is required.' };
   const existing = await prisma.leadOwner.findFirst({ where: { name: { equals: trimmed, mode: 'insensitive' } } });
@@ -38,7 +38,7 @@ export async function createLeadOwner(name: string, department?: string | null):
 }
 
 export async function updateLeadOwner(id: string, name: string, department?: string | null): Promise<LeadOwnerResult> {
-  await requirePermission('settings:view');
+  await requirePermission('settings:manage');
   const trimmed = clean(name);
   if (!trimmed) return { success: false, message: 'Lead owner name is required.' };
   const clash = await prisma.leadOwner.findFirst({ where: { id: { not: id }, name: { equals: trimmed, mode: 'insensitive' } } });
@@ -50,7 +50,7 @@ export async function updateLeadOwner(id: string, name: string, department?: str
 
 /** People who held this office keep their account; they just no longer have a lead-owner title. */
 export async function deleteLeadOwner(id: string): Promise<LeadOwnerResult> {
-  await requirePermission('settings:view');
+  await requirePermission('settings:manage');
   await prisma.leadOwner.delete({ where: { id } });
   revalidate();
   return { success: true };

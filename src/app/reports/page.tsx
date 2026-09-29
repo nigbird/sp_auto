@@ -1,3 +1,5 @@
+import { userCan } from "@/lib/auth/permissions-server";
+import { guardPage } from "@/lib/auth/page-guard";
 import { listStrategicPlans, getStrategicPlanById } from "@/actions/strategic-plan";
 import { getPlanPerformance } from "@/actions/period-reports";
 import { PerformanceReportTable, type PerformanceEntry, type PerformancePeriod } from "@/components/reports/performance-report-table";
@@ -6,6 +8,8 @@ import { ExportMenu } from "@/components/export-menu";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default async function PerformanceReportsPage({ searchParams }: { searchParams: Promise<{ plan?: string; period?: string }> }) {
+  const { user, denied } = await guardPage('reports:view');
+  if (denied) return denied;
   const { plan: planParam, period: periodId } = await searchParams;
   const plans = await listStrategicPlans();
   const planId = (planParam && plans.find(p => p.id === planParam)?.id)
@@ -26,7 +30,7 @@ export default async function PerformanceReportsPage({ searchParams }: { searchP
             Plan vs. actual by reporting period.
           </p>
         </div>
-        {plan && (
+        {plan && userCan(user, "reports:export") && (
           <ExportMenu options={[
             {
               kind: "pdf",

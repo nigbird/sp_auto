@@ -54,6 +54,9 @@ model StrategicPlan {
   endYear   Int
   version   String
   status    PlanStatus @default(DRAFT)
+  // Deactivated plans are hidden from every plan list/selector in the app;
+  // only the Strategic Plans workspace itself still shows them, so they can be reactivated.
+  isActive  Boolean   @default(true)
   pillars   Pillar[]
   activities Activity[]
   reportingPeriods ReportingPeriod[]

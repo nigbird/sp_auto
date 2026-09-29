@@ -1,7 +1,10 @@
+import { guardPage } from "@/lib/auth/page-guard";
 import { getMyPeriodReports } from "@/actions/period-reports";
 import { MyActivityReportList, type PeriodReportEntry } from "@/components/my-activity/my-activity-report-list";
 
 export default async function MyReportsPage() {
+  const { denied } = await guardPage('my-reports:view');
+  if (denied) return denied;
   const entries = await getMyPeriodReports();
 
   return (

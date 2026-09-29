@@ -1,5 +1,6 @@
 "use client";
 
+import { Can } from "@/components/permissions-provider";
 import * as React from "react";
 import { format } from "date-fns";
 import { Loader2, X } from "lucide-react";
@@ -321,12 +322,14 @@ export function NewActivityApprovalList({ activities: initial }: { activities: P
             <StageBadge stage={a.stage} />
           </CardHeader>
           <CardContent>
+            <Can anyOf={["plan-approvals:approve"]}>
             <div className="flex justify-end gap-2">
               <Button variant="destructive" disabled={busyId === a.id} onClick={() => { setReturning(a); setReasonError(null); }}>Return</Button>
               <Button className="bg-green-600 hover:bg-green-700" disabled={busyId === a.id} onClick={() => handleApprove(a)}>
                 {busyId === a.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Approve
               </Button>
             </div>
+            </Can>
           </CardContent>
         </Card>
       ))}

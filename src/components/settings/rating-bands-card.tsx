@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { getRatingThresholds, resetRatingThresholds, updateRatingThresholds } from "@/actions/app-config";
+import { usePermissions } from "@/components/permissions-provider";
 import {
   DEFAULT_RATING_THRESHOLDS, RATING_THRESHOLD_FIELDS, describeRatingBands, validateRatingThresholds, type RatingThresholds,
 } from "@/lib/rating-bands";
@@ -34,6 +35,7 @@ export function RatingBandsCard() {
   const [draft, setDraft] = useState<Draft>(toDraft(DEFAULT_RATING_THRESHOLDS));
   const [pending, startTransition] = useTransition();
   const { toast } = useToast();
+  const canManage = usePermissions().can("settings:manage");
 
   useEffect(() => {
     getRatingThresholds().then(t => { setSaved(t); setDraft(toDraft(t)); });
@@ -104,7 +106,7 @@ export function RatingBandsCard() {
                   value={draft[f.key]}
                   onChange={e => setDraft(d => ({ ...d, [f.key]: e.target.value }))}
                   className="pr-8"
-                  disabled={saved == null || pending}
+                  disabled={!canManage || saved == null || pending}
                   aria-label={`${f.label} minimum achievement in percent`}
                 />
                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">%</span>
@@ -136,6 +138,7 @@ export function RatingBandsCard() {
       </CardContent>
       <CardFooter className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
         <p className="text-xs text-muted-foreground">{saved ? `Saved: ${describeRatingBands(saved)}.` : "Loading…"}</p>
+        {canManage && (
         <div className="flex gap-2">
           <Button variant="outline" onClick={reset} disabled={pending || saved == null || isDefault}>
             <RotateCcw className="mr-2 h-4 w-4" /> Reset to defaults
@@ -144,6 +147,7 @@ export function RatingBandsCard() {
             {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Save bands
           </Button>
         </div>
+        )}
       </CardFooter>
     </Card>
   );

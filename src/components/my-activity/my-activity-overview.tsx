@@ -14,6 +14,7 @@ import { monthKey, monthsBetween, type TargetAggregation, type TargetType } from
 import { formatWeight } from "@/lib/report-calculations";
 import { toggleDeliverableDelivered } from "@/actions/deliverables";
 import { useToast } from "@/hooks/use-toast";
+import { usePermissions } from "../permissions-provider";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
 import { Badge } from "../ui/badge";
@@ -127,7 +128,9 @@ function ActionButton({ action, onOpenBreakdown, onEdit }: { action: NextAction;
   return null;
 }
 
-function ActivityCard({ activity, initiativeTitle, report, onOpenBreakdown, onEdit }: {
+function ActivityCard({ activity, initiativeTitle, report, action, canTickDeliverables, onOpenBreakdown, onEdit }: {
+  action: NextAction;
+  canTickDeliverables: boolean;
   activity: Activity;
   initiativeTitle?: string;
   report?: LatestReport;
@@ -148,7 +151,6 @@ function ActivityCard({ activity, initiativeTitle, report, onOpenBreakdown, onEd
     }
   };
 
-  const action = nextAction(activity, report);
   // Finished steps stay quiet: a chip appears only while a step still needs something.
   const steps = [
     { name: "Activity", step: activityStep(activity) },
@@ -225,7 +227,7 @@ function ActivityCard({ activity, initiativeTitle, report, onOpenBreakdown, onEd
                 <ul className="space-y-2">
                   {deliverables.map(d => (
                     <li key={d.id} className="flex items-center gap-2">
-                      <Checkbox checked={d.isDelivered} onCheckedChange={checked => handleToggleDeliverable(d.id, checked === true)} />
+                      <Checkbox checked={d.isDelivered} disabled={!canTickDeliverables} onCheckedChange={checked => handleToggleDeliverable(d.id, checked === true)} />
                       <span className={cn("text-sm", d.isDelivered && "text-muted-foreground line-through")}>{d.title}</span>
                       {d.dueDate && <span className="text-xs text-muted-foreground">(due {format(new Date(d.dueDate), "PP")})</span>}
                     </li>
@@ -273,6 +275,14 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
   onEdit: (activity: Activity) => void;
 }) {
   const [filter, setFilter] = React.useState<OverviewFilter>('all');
+  const { can } = usePermissions();
+  // An action only counts (and gets a button) if the user is allowed to do it.
+  const actionFor = React.useCallback((a: Activity, r: LatestReport | undefined): NextAction => {
+    const action = nextAction(a, r);
+    if (action === 'report') return can('my-reports:submit') ? action : null;
+    if (action === 'breakdown' || action === 'resubmit') return can('my-plan:update') ? action : null;
+    return action;
+  }, [can]);
   const [query, setQuery] = React.useState('');
   const [range, setRange] = React.useState<DateRangeValue>({});
 
@@ -287,12 +297,12 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
     const report = (a: Activity) => latestByActivity.get(a.id);
     return {
       all: list,
-      todo: list.filter(a => nextAction(a, report(a)) !== null),
+      todo: list.filter(a => actionFor(a, report(a)) !== null),
       waiting: list.filter(a => isWaiting(a, report(a))),
       behind: list.filter(a => a.approvalStatus === 'APPROVED' && isBehind(a)),
       completed: list.filter(a => a.approvalStatus === 'APPROVED' && isCompleted(a)),
     } satisfies Record<OverviewFilter, Activity[]>;
-  }, [latestByActivity]);
+  }, [latestByActivity, actionFor]);
 
   // The to-do box always covers everything; the tiles and list follow the search and dates.
   const groups = React.useMemo(() => groupsOf(activities), [groupsOf, activities]);
@@ -311,7 +321,7 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
     const reportsByPeriod = new Map<string, { name: string; cutOff: string; count: number }>();
     let returnedReports = 0, breakdowns = 0, declined = 0;
     for (const a of groups.todo) {
-      const action = nextAction(a, latestByActivity.get(a.id));
+      const action = actionFor(a, latestByActivity.get(a.id));
       if (action === 'resubmit') declined++;
       else if (action === 'breakdown') breakdowns++;
       else if (action === 'report') {
@@ -325,7 +335,7 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
       }
     }
     return { reportsByPeriod: Array.from(reportsByPeriod.values()), returnedReports, breakdowns, declined };
-  }, [groups.todo, latestByActivity]);
+  }, [groups.todo, latestByActivity, actionFor]);
 
   if (activities.length === 0) {
     return (
@@ -433,6 +443,8 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
               activity={a}
               initiativeTitle={initiativeTitles.get(a.initiativeId)}
               report={latestByActivity.get(a.id)}
+              action={actionFor(a, latestByActivity.get(a.id))}
+              canTickDeliverables={can('my-plan:update')}
               onOpenBreakdown={onOpenBreakdown}
               onEdit={onEdit}
             />

@@ -15,6 +15,7 @@ import { DeletePlanButton } from "@/components/strategic-plan/delete-plan-button
 import { SendBreakdownRequestsButton } from "@/components/strategic-plan/send-breakdown-requests-button";
 import { MonthlyBreakdownTable } from "@/components/strategic-plan/monthly-breakdown-table";
 import { ExportMenu } from "@/components/export-menu";
+import { Can } from "@/components/permissions-provider";
 
 function HierarchyView({ pillars, userNames }: { pillars: Pillar[]; userNames: Map<string, string> }) {
     return (
@@ -184,20 +185,30 @@ export default async function StrategicPlanDetailPage({ params }: { params: Prom
                         },
                     ]} />
                     {isPublished && (
+                        <Can anyOf={["reports:view"]}>
+                            <Button asChild variant="outline">
+                                <Link href={`/reports?plan=${plan.id}`}>
+                                    <BarChart3 className="mr-2 h-4 w-4" /> Performance Report
+                                </Link>
+                            </Button>
+                        </Can>
+                    )}
+                    {isPublished && (
+                        <Can anyOf={["plan-approvals:request"]}>
+                            <SendBreakdownRequestsButton planId={plan.id} sendableCount={sendable.length} ownerCount={sendableOwnerCount} />
+                        </Can>
+                    )}
+                    <Can anyOf={["strategic-plan:edit"]}>
                         <Button asChild variant="outline">
-                            <Link href={`/reports?plan=${plan.id}`}>
-                                <BarChart3 className="mr-2 h-4 w-4" /> Performance Report
+                            <Link href={`/strategic-plan/edit/${plan.id}`}>
+                                <Edit className="mr-2 h-4 w-4" /> Edit
                             </Link>
                         </Button>
-                    )}
-                    {isPublished && <SendBreakdownRequestsButton planId={plan.id} sendableCount={sendable.length} ownerCount={sendableOwnerCount} />}
-                    <Button asChild variant="outline">
-                        <Link href={`/strategic-plan/edit/${plan.id}`}>
-                            <Edit className="mr-2 h-4 w-4" /> Edit
-                        </Link>
-                    </Button>
-                    <DeletePlanButton planId={plan.id} planName={plan.name} />
-                    {!isPublished && <PublishButton planId={plan.id} />}
+                        {!isPublished && <PublishButton planId={plan.id} />}
+                    </Can>
+                    <Can anyOf={["strategic-plan:delete"]}>
+                        <DeletePlanButton planId={plan.id} planName={plan.name} />
+                    </Can>
                 </div>
             </div>
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/auth/session';
+import { requirePermission } from '@/lib/auth/permissions-server';
 import type { ReportingPeriodStatus } from '@prisma/client';
 
 export interface ReportingPeriodInput {
@@ -22,7 +23,7 @@ export async function getReportingPeriods(strategicPlanId: string) {
 }
 
 export async function createReportingPeriod(strategicPlanId: string, data: ReportingPeriodInput) {
-  await requireUser();
+  await requirePermission('settings:manage');
 
   const newPeriod = await prisma.reportingPeriod.create({
     data: {
@@ -64,7 +65,7 @@ export async function updateReportingPeriod(
   id: string,
   data: Partial<ReportingPeriodInput> & { status?: ReportingPeriodStatus }
 ) {
-  await requireUser();
+  await requirePermission('settings:manage');
 
   const before = await prisma.reportingPeriod.findUnique({ where: { id } });
 
@@ -101,7 +102,7 @@ export async function updateReportingPeriod(
 }
 
 export async function deleteReportingPeriod(id: string) {
-  await requireUser();
+  await requirePermission('settings:manage');
 
   await prisma.reportingPeriod.delete({ where: { id } });
   revalidatePath('/settings/reporting-periods');

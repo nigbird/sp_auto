@@ -12,6 +12,7 @@ import { Textarea } from "../ui/textarea";
 import { Alert, AlertDescription } from "../ui/alert";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { usePermissions } from "../permissions-provider";
 import { getMyPeriodReports, submitPeriodReport } from "@/actions/period-reports";
 import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
 import { formatTargetValue, type TargetAggregation, type TargetType } from "@/lib/monthly-breakdown";
@@ -212,7 +213,8 @@ function ReportSummaryView({ entry }: { entry: PeriodReportEntry }) {
 function ReportCard({ entry, onChanged }: { entry: PeriodReportEntry; onChanged: () => Promise<void> }) {
   const { activity, reportingPeriod: period } = entry;
   const closed = isPeriodClosedForSubmissions(period);
-  const editable = (entry.reportStatus === 'REQUESTED' || entry.reportStatus === 'RETURNED') && !closed;
+  const { can } = usePermissions();
+  const editable = can('my-reports:submit') && (entry.reportStatus === 'REQUESTED' || entry.reportStatus === 'RETURNED') && !closed;
 
   return (
     <Card>

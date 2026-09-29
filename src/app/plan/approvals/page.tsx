@@ -1,3 +1,4 @@
+import { guardPage } from "@/lib/auth/page-guard";
 import { CheckCircle2, Clock3, Inbox, SendHorizontal } from "lucide-react";
 import { getPlanApprovalOverview, type PlanStage } from "@/actions/plan-approvals";
 import { getPendingActivityPlans } from "@/actions/activity-plan-submissions";
@@ -10,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const WITH_OWNERS: PlanStage[] = ["requested", "drafting", "breakdownReturned", "activityReturned", "ownerDeclined"];
 
 export default async function PlanApprovalsPage({ searchParams }: { searchParams: Promise<{ plan?: string }> }) {
+  const { denied } = await guardPage('plan-approvals:view');
+  if (denied) return denied;
   const { plan: planParam } = await searchParams;
   const [overview, allPendingPlans] = await Promise.all([getPlanApprovalOverview(planParam), getPendingActivityPlans()]);
 

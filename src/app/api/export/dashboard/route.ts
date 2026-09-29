@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth/session';
-import { hasPermission } from '@/lib/auth/permissions-server';
+import { userCan } from '@/lib/auth/permissions-server';
 import { loadDashboard } from '@/lib/dashboard-data';
 import { renderDashboardCharts } from '@/lib/dashboard-export/dashboard-charts';
 import { buildDashboardWorkbook } from '@/lib/dashboard-export/build-dashboard-workbook';
@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: NextRequest) {
   const user = await requireUser();
-  const allowed = (await hasPermission(user.roleId, 'reports:export')) || (await hasPermission(user.roleId, 'strategic-plan:view'));
+  const allowed = userCan(user, 'dashboard:view') && userCan(user, 'reports:export');
   if (!allowed) {
     return NextResponse.json({ error: "You don't have permission to export the dashboard." }, { status: 403 });
   }

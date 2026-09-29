@@ -3,8 +3,9 @@
 import { publicUserSelect } from '@/lib/user-select';
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma';
-import { hasPermission, requirePermission } from '@/lib/auth/permissions-server';
+import { requirePermission, userCan } from '@/lib/auth/permissions-server';
 import { requireUser } from '@/lib/auth/session';
+import { ensurePeriodEntriesForActivity } from '@/lib/period-entries';
 import { monthKey, monthKeyToDate, plannedPercentAtMonth, validateBreakdown, type BreakdownEntry, type TargetAggregation, type TargetType } from '@/lib/monthly-breakdown';
 
 /**
@@ -23,37 +24,6 @@ function revalidateBreakdownPages() {
     revalidatePath('/plan');
     revalidatePath('/plan/approvals');
     revalidatePath('/strategic-plan', 'layout');
-}
-
-/**
- * Ensures this activity has an ActivityPeriodEntry for every ReportingPeriod
- * that overlaps its own [startDate, endDate] range — the periods its actuals
- * are reported against. Safe to call repeatedly: only creates missing rows.
- */
-export async function ensurePeriodEntriesForActivity(activityId: string) {
-    const activity = await prisma.activity.findUnique({ where: { id: activityId } });
-    if (!activity || !activity.strategicPlanId) return;
-
-    const overlappingPeriods = await prisma.reportingPeriod.findMany({
-        where: {
-            strategicPlanId: activity.strategicPlanId,
-            startDate: { lte: activity.endDate },
-            endDate: { gte: activity.startDate },
-        },
-    });
-    if (overlappingPeriods.length === 0) return;
-
-    const existing = await prisma.activityPeriodEntry.findMany({
-        where: { activityId, reportingPeriodId: { in: overlappingPeriods.map(p => p.id) } },
-        select: { reportingPeriodId: true },
-    });
-    const existingIds = new Set(existing.map(e => e.reportingPeriodId));
-    const missing = overlappingPeriods.filter(p => !existingIds.has(p.id));
-    if (missing.length === 0) return;
-
-    await prisma.activityPeriodEntry.createMany({
-        data: missing.map(p => ({ activityId, reportingPeriodId: p.id })),
-    });
 }
 
 /**
@@ -97,7 +67,7 @@ export async function getActivityBreakdown(activityId: string) {
     const user = await requireUser();
     const activity = await prisma.activity.findUnique({ where: { id: activityId }, include: breakdownInclude });
     if (!activity) return null;
-    if (activity.responsibleId !== user.id && !(await hasPermission(user.roleId, 'activities:edit'))) return null;
+    if (activity.responsibleId !== user.id && !userCan(user, 'plan-approvals:view')) return null;
     return JSON.parse(JSON.stringify(activity));
 }
 
@@ -139,7 +109,7 @@ function breakdownRows(activityId: string, entries: BreakdownEntry[]) {
  * submitted together for approval.
  */
 export async function submitActivityBreakdown(activityId: string, input: BreakdownSubmission): Promise<BreakdownActionResult> {
-    const user = await requirePermission('my-activity:update');
+    const user = await requirePermission('my-plan:update');
 
     const activity = await prisma.activity.findUnique({ where: { id: activityId }, include: { strategicPlan: true } });
     if (!activity) return fail("This activity no longer exists.");
@@ -205,7 +175,7 @@ export interface ProposedActivityInput extends BreakdownSubmission {
  * breakdown (which approves the activity too).
  */
 export async function proposeActivityWithBreakdown(siblingActivityId: string, input: ProposedActivityInput): Promise<BreakdownActionResult> {
-    const user = await requirePermission('my-activity:update');
+    const user = await requirePermission('my-plan:update');
 
     const sibling = await prisma.activity.findUnique({ where: { id: siblingActivityId }, include: { strategicPlan: true } });
     if (!sibling) return fail("The activity you're adding to no longer exists.");
@@ -270,7 +240,7 @@ export async function proposeActivityWithBreakdown(siblingActivityId: string, in
 }
 
 export async function getPendingActivityPlans() {
-    await requirePermission('activities:edit');
+    await requirePermission('plan-approvals:view');
 
     const activities = await prisma.activity.findMany({
         where: { planSubmissionStatus: 'PENDING' },
@@ -281,7 +251,7 @@ export async function getPendingActivityPlans() {
 }
 
 export async function approveActivityPlan(activityId: string): Promise<BreakdownActionResult> {
-    const approver = await requirePermission('activities:edit');
+    const approver = await requirePermission('plan-approvals:approve');
 
     const activity = await prisma.activity.findUnique({ where: { id: activityId } });
     if (!activity) return fail("This activity no longer exists.");
@@ -316,7 +286,7 @@ export async function approveActivityPlan(activityId: string): Promise<Breakdown
 }
 
 export async function declineActivityPlan(activityId: string, reason: string): Promise<BreakdownActionResult> {
-    await requirePermission('activities:edit');
+    await requirePermission('plan-approvals:approve');
 
     const trimmed = (reason ?? '').trim();
     if (!trimmed) return fail("Please give a reason so the owner knows what to change.");
@@ -386,7 +356,7 @@ async function sendRequests(where: { initiativeId?: string; strategicPlanId?: st
 
 /** The "send monthly breakdown requests" button on a published plan. */
 export async function sendPlanRequestsForPlan(planId: string): Promise<BreakdownActionResult & { sent?: number }> {
-    const sender = await requirePermission('activities:edit');
+    const sender = await requirePermission('plan-approvals:request');
     const plan = await prisma.strategicPlan.findUnique({ where: { id: planId }, select: { status: true } });
     if (!plan) return fail("This plan no longer exists.");
     if (plan.status !== 'PUBLISHED') return fail("Publish the plan before sending breakdown requests.");

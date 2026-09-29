@@ -8,14 +8,14 @@ import { computeAchievementPercent } from '@/lib/period-achievement';
 import { isPeriodClosedForSubmissions } from '@/lib/reporting-period';
 import { requirePermission } from '@/lib/auth/permissions-server';
 import { requireUser } from '@/lib/auth/session';
-import { ensurePeriodEntriesForActivity } from '@/actions/activity-plan-submissions';
+import { ensurePeriodEntriesForActivity } from '@/lib/period-entries';
 
 async function getStatusRules(): Promise<StatusRule[]> {
     return prisma.rule.findMany({ select: { status: true, min: true, max: true } });
 }
 
 export async function getActivityPeriodEntries(activityId: string) {
-    await requireUser();
+    await requirePermission('report-approvals:view', 'my-reports:view');
     return prisma.activityPeriodEntry.findMany({
         where: { activityId },
         include: { reportingPeriod: true },
@@ -66,7 +66,7 @@ export async function submitPeriodUpdate(
     recommendedAction?: string,
     escalationIssues?: string
 ) {
-    const user = await requirePermission('my-activity:update');
+    const user = await requirePermission('my-reports:submit');
 
     const activity = await prisma.activity.findUnique({ where: { id: activityId } });
     if (!activity) throw new Error("Activity not found");
@@ -158,7 +158,7 @@ export async function submitPeriodUpdate(
 }
 
 export async function approvePeriodEntry(activityId: string) {
-    const approver = await requirePermission('activities:edit');
+    const approver = await requirePermission('report-approvals:approve');
 
     const activity = await prisma.activity.findUnique({ where: { id: activityId } });
     if (!activity) return;
@@ -222,7 +222,7 @@ export async function approvePeriodEntry(activityId: string) {
 }
 
 export async function declinePeriodEntry(activityId: string, reason: string) {
-    await requirePermission('activities:edit');
+    await requirePermission('report-approvals:approve');
 
     const activity = await prisma.activity.findUnique({ where: { id: activityId } });
     if (!activity) return;

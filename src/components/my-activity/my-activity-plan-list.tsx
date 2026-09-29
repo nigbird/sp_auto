@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from "../ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 import { getActivityBreakdown, submitActivityBreakdown, proposeActivityWithBreakdown, type BreakdownActionResult } from "@/actions/activity-plan-submissions";
 import { useToast } from "@/hooks/use-toast";
+import { usePermissions } from "../permissions-provider";
 import { monthKey, monthsBetween, type TargetType } from "@/lib/monthly-breakdown";
 import { BreakdownEditor, BreakdownStrip, breakdownDraftFrom, draftEntries, emptyBreakdownDraft, validateDraft, type BreakdownDraft } from "./breakdown-editor";
 import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } from "../list-controls";
@@ -64,8 +65,10 @@ function PlanCard({ activity, initiativeTitle, onChanged }: { activity: Activity
   const [isProposeOpen, setIsProposeOpen] = React.useState(false);
   const report = useActionFeedback();
 
+  const { can } = usePermissions();
+  const canUpdate = can('my-plan:update');
   const requestOpen = isRequestOpen(activity);
-  const isEditable = requestOpen && (activity.planSubmissionStatus == null || activity.planSubmissionStatus === 'DECLINED');
+  const isEditable = canUpdate && requestOpen && (activity.planSubmissionStatus == null || activity.planSubmissionStatus === 'DECLINED');
 
   // Load the saved breakdown when the card opens, and again whenever the
   // activity's status changes underneath it (after a submit/approval).
@@ -177,11 +180,13 @@ function PlanCard({ activity, initiativeTitle, onChanged }: { activity: Activity
                   <span className="font-medium">Annual target:</span> {details.annualTarget}{details.targetType === 'PERCENT' ? '%' : ''} ({details.targetType === 'PERCENT' ? 'percent' : 'number'})
                 </p>
                 <BreakdownStrip months={monthsBetween(activity.startDate, activity.endDate)} entries={savedEntries} targetType={details.targetType as TargetType} annualTarget={details.annualTarget} aggregation={details.targetAggregation ?? undefined} />
+                {canUpdate && (
                 <div className="flex justify-start">
                   <Button type="button" variant="outline" onClick={() => setIsProposeOpen(true)}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add another activity
                   </Button>
                 </div>
+                )}
               </div>
             )}
           </CardContent>

@@ -8,8 +8,8 @@ import type { Activity } from '@/lib/types';
 import { calculateActivityStatus, type StatusRule } from '@/lib/utils';
 import type { ApprovalStatus, User } from '@prisma/client';
 import { requireUser } from '@/lib/auth/session';
-import { requirePermission, hasPermission } from '@/lib/auth/permissions-server';
-import { ensurePeriodEntriesForActivity } from '@/actions/activity-plan-submissions';
+import { requirePermission, hasPermission, userCan } from '@/lib/auth/permissions-server';
+import { ensurePeriodEntriesForActivity } from '@/lib/period-entries';
 
 /** The live, admin-configurable status thresholds from Settings > Rules. */
 async function getStatusRules(): Promise<StatusRule[]> {
@@ -45,7 +45,12 @@ function buildKpiData(kpi: KpiInput) {
 }
 
 export async function getActivities(strategicPlanId?: string, approvedOnly?: boolean, responsibleId?: string): Promise<Activity[]> {
-    await requireUser();
+    const user = await requireUser();
+    // Without a plan-wide view permission, people only ever get their own activities.
+    if (!userCan(user, 'dashboard:view', 'strategic-plan:view', 'plan-approvals:view', 'reports:view')) {
+        if (!userCan(user, 'my-plan:view')) throw new Error("You don't have permission to do this.");
+        responsibleId = user.id;
+    }
 
     const activities = await prisma.activity.findMany({
         where: {
@@ -79,7 +84,7 @@ export async function getActivities(strategicPlanId?: string, approvedOnly?: boo
 export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updates' | 'progress' | 'approvalStatus' | 'responsible' | 'deliverables'> & { initiativeId: string, strategicPlanId: string, responsible: string, userId?: string, reportingPeriodId?: string, kpi?: KpiInput, deliverables?: string[] }) {
     // The creator is always the authenticated caller — a client-supplied userId
     // is never trusted for the auto-approval decision below.
-    const creator = await requirePermission('activities:create');
+    const creator = await requirePermission('strategic-plan:edit');
 
     if (!data.initiativeId) {
         throw new Error('An activity must be linked to an initiative.');
@@ -89,7 +94,7 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
 
     // Auto-approve when the creator can also approve activities (the same
     // authority, applied to their own submission); otherwise it's pending review.
-    const approvalStatus: ApprovalStatus = (await hasPermission(creator.roleId, 'activities:edit')) ? 'APPROVED' : 'PENDING';
+    const approvalStatus: ApprovalStatus = (await hasPermission(creator.roleId, 'plan-approvals:approve')) ? 'APPROVED' : 'PENDING';
 
     const newActivity = await prisma.activity.create({
         data: {
@@ -139,11 +144,11 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
     const currentActivity = await prisma.activity.findUnique({ where: { id: activityId } });
     if (!currentActivity) throw new Error("Activity not found");
 
-    // Editing arbitrary activities requires activities:edit — except an owner
+    // Editing arbitrary activities needs plan edit or approval rights — except an owner
     // fixing and resubmitting their own declined activity, which is normal
     // self-service and shouldn't require an elevated permission.
     const isOwnerResubmittingDeclined = currentActivity.responsibleId === user.id && currentActivity.approvalStatus === 'DECLINED';
-    if (!isOwnerResubmittingDeclined && !(await hasPermission(user.roleId, 'activities:edit'))) {
+    if (!isOwnerResubmittingDeclined && !userCan(user, 'strategic-plan:edit', 'plan-approvals:approve')) {
         throw new Error("You don't have permission to edit this activity.");
     }
 

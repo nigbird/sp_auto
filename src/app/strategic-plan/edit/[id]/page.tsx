@@ -1,3 +1,4 @@
+import { guardPage } from "@/lib/auth/page-guard";
 
 import { getUsers }from "@/actions/users";
 import { getDepartments } from "@/actions/departments";
@@ -7,6 +8,8 @@ import type { User } from "@/lib/types";
 import { notFound } from "next/navigation";
 
 export default async function EditStrategicPlanPage({ params }: { params: Promise<{ id: string }> }) {
+  const { denied } = await guardPage('strategic-plan:edit');
+  if (denied) return denied;
     const { id } = await params;
     const userList = await getUsers();
     const plan = await getStrategicPlanById(id);

@@ -78,7 +78,7 @@ async function readUser(id: string): Promise<User> {
 }
 
 export async function createUser(data: UserInput): Promise<UserActionResult> {
-    await requirePermission('settings:users:manage');
+    await requirePermission('users:manage');
     const problem = await checkInput(data);
     if (problem) return problem;
     const created = await prisma.user.create({
@@ -111,7 +111,7 @@ async function deliverInvite(user: { id: string; name: string; email: string }):
  * "Forgot password?" on the sign-in page.
  */
 export async function resendInvite(userId: string): Promise<{ success: true; invite: InviteOutcome } | { success: false; message: string }> {
-    await requirePermission('settings:users:manage');
+    await requirePermission('users:manage');
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, status: true, lastLoginAt: true } });
     if (!user) return { success: false, message: 'This user no longer exists.' };
     if (user.lastLoginAt) return { success: false, message: `${user.name} has already signed in. They can use "Forgot password?" on the sign-in page instead.` };
@@ -126,7 +126,7 @@ export async function resendInvite(userId: string): Promise<{ success: true; inv
  * creates the office if it isn't on the list yet, then the user with it.
  */
 export async function registerLeadOwnerUser(data: Omit<UserInput, 'leadOwnerId'> & { leadOwnerName: string }): Promise<UserActionResult> {
-    await requirePermission('settings:users:manage');
+    await requirePermission('users:manage');
     const officeName = (data.leadOwnerName ?? '').replace(/\s+/g, ' ').trim();
     if (!officeName) return { success: false, message: 'The lead owner title is missing.', field: 'leadOwnerId' };
     const department = (data.department ?? '').trim() || null;
@@ -140,7 +140,7 @@ export async function registerLeadOwnerUser(data: Omit<UserInput, 'leadOwnerId'>
 }
 
 export async function updateUser(email: string, data: { name?: string; status?: User['status']; roleId?: string; leadOwnerId?: string | null; department?: string | null }) {
-    await requirePermission('settings:users:manage');
+    await requirePermission('users:manage');
     const updateData: Record<string, unknown> = { ...data };
     if ('leadOwnerId' in data) updateData.leadOwnerId = data.leadOwnerId || null;
     if ('department' in data) updateData.department = data.department || null;
@@ -154,7 +154,7 @@ export async function updateUser(email: string, data: { name?: string; status?: 
 }
 
 export async function deleteUser(email: string) {
-    await requirePermission('settings:users:manage');
+    await requirePermission('users:manage');
     await prisma.user.delete({ where: { email } });
     revalidatePath('/users');
 }

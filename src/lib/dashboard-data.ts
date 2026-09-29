@@ -54,6 +54,7 @@ export async function loadDashboard(planId?: string, periodId?: string): Promise
   const context: Context = { userName: user.name, today: new Date().toISOString() };
 
   const plans: DashboardPlanOption[] = await prisma.strategicPlan.findMany({
+    where: { isActive: true },
     select: { id: true, name: true, version: true, status: true },
     orderBy: { updatedAt: 'desc' },
   });
