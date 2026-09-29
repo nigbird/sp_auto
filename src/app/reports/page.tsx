@@ -8,7 +8,7 @@ import { ExportMenu } from "@/components/export-menu";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default async function PerformanceReportsPage({ searchParams }: { searchParams: Promise<{ plan?: string; period?: string }> }) {
-  const { user, denied } = await guardPage('reports:view');
+  const { user, denied } = await guardPage('reports:view', 'reports:view-own');
   if (denied) return denied;
   const { plan: planParam, period: periodId } = await searchParams;
   const plans = await listStrategicPlans();
@@ -20,6 +20,15 @@ export default async function PerformanceReportsPage({ searchParams }: { searchP
     ? await Promise.all([getStrategicPlanById(planId), getPlanPerformance(planId, periodId)])
     : [null, null];
   const selectedPeriod = performance?.selected as { id: string; name: string } | null;
+  // Personal view: keep only the user's own activities, and the pillars/objectives/initiatives they sit in.
+  const ownOnly = performance?.scope === "own";
+  const pillars = !plan ? [] : !ownOnly ? plan.pillars : plan.pillars
+    .map(p => ({ ...p, objectives: p.objectives
+      .map(o => ({ ...o, initiatives: o.initiatives
+        .map(i => ({ ...i, activities: i.activities.filter(a => (a.responsible as { id?: string } | null)?.id === user.id) }))
+        .filter(i => i.activities.length > 0) }))
+      .filter(o => o.initiatives.length > 0) }))
+    .filter(p => p.objectives.length > 0);
 
   return (
     <div className="flex-1 space-y-6">
@@ -27,10 +36,10 @@ export default async function PerformanceReportsPage({ searchParams }: { searchP
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Performance Report</h1>
           <p className="text-muted-foreground">
-            Plan vs. actual by reporting period.
+            {ownOnly ? "Plan vs. actual for your activities, by reporting period." : "Plan vs. actual by reporting period."}
           </p>
         </div>
-        {plan && userCan(user, "reports:export") && (
+        {plan && !ownOnly && userCan(user, "reports:export") && (
           <ExportMenu options={[
             {
               kind: "pdf",
@@ -56,7 +65,7 @@ export default async function PerformanceReportsPage({ searchParams }: { searchP
             <PlanSelect plans={plans} value={plan.id} />
             <PerformanceReportTable
               planId={plan.id}
-              pillars={plan.pillars}
+              pillars={pillars}
               periods={performance.periods as PerformancePeriod[]}
               selected={performance.selected as PerformancePeriod | null}
               entries={performance.entries as PerformanceEntry[]}

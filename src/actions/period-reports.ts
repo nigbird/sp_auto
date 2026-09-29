@@ -3,7 +3,7 @@
 import { publicUserSelect } from '@/lib/user-select';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/auth/permissions-server';
+import { requirePermission, userCan } from '@/lib/auth/permissions-server';
 import { requireUser } from '@/lib/auth/session';
 import { isPeriodClosedForSubmissions } from '@/lib/reporting-period';
 import { computeReportRow, planToDateForPeriod } from '@/lib/report-calculations';
@@ -372,7 +372,9 @@ export async function returnPeriodReport(entryId: string, reason: string): Promi
 
 /** Periods of a plan plus every report row in the chosen one, for the strategic plan page. */
 export async function getPlanPerformance(strategicPlanId: string, periodId?: string) {
-    await requirePermission('reports:view');
+    const user = await requirePermission('reports:view', 'reports:view-own');
+    // With only reports:view-own, the report covers the activities the user is responsible for.
+    const scope: 'all' | 'own' = userCan(user, 'reports:view') ? 'all' : 'own';
     const periods = await prisma.reportingPeriod.findMany({
         where: { strategicPlanId },
         orderBy: { startDate: 'asc' },
@@ -381,8 +383,8 @@ export async function getPlanPerformance(strategicPlanId: string, periodId?: str
     const selected = (periodId && periods.find(p => p.id === periodId)) || withRequests[withRequests.length - 1] || null;
     const entries = selected
         ? await prisma.activityPeriodEntry.findMany({
-            where: { reportingPeriodId: selected.id, reportStatus: { not: 'NOT_REQUESTED' } },
+            where: { reportingPeriodId: selected.id, reportStatus: { not: 'NOT_REQUESTED' }, ...(scope === 'own' ? { activity: { responsibleId: user.id } } : {}) },
         })
         : [];
-    return JSON.parse(JSON.stringify({ periods, selected, entries }));
+    return JSON.parse(JSON.stringify({ periods, selected, entries, scope, userId: user.id }));
 }

@@ -56,15 +56,15 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
                 <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid vertical={false} stroke="hsl(var(--border))" />
-            <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={10} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} />
+            <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.6} />
+            <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={10} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
             <YAxis
               domain={[0, Math.ceil(max / 25) * 25]}
               tickFormatter={v => `${v}%`}
               tickLine={false}
               axisLine={false}
-              width={48}
-              tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+              width={44}
+              tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
             />
             <Tooltip
               cursor={{ stroke: "hsl(var(--primary))", strokeOpacity: 0.35 }}
@@ -87,7 +87,7 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
               type="monotone"
               dataKey="value"
               stroke="hsl(var(--primary))"
-              strokeWidth={2}
+              strokeWidth={2.5}
               fill={`url(#${gradientId})`}
               connectNulls
               dot={{ r: 3, strokeWidth: 2, fill: "hsl(var(--card))" }}

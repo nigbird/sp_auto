@@ -70,7 +70,7 @@ export function DashboardFilters({ plans, planId, periods, periodId, tab }: {
         </Select>
       )}
 
-      {exportBase && can("reports:export") && (
+      {exportBase && can("reports:export") && can("dashboard:view") && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button

@@ -74,7 +74,7 @@ export function RatingChip({ rating, className }: { rating: Rating; className?: 
 // ---------------------------------------------------------------------------
 
 /** The card surface used across the dashboard: soft, borderless-looking, generous padding. */
-export const CARD = "rounded-3xl border border-border/50 bg-card shadow-[0_1px_2px_rgba(16,24,40,0.04),0_12px_32px_-16px_rgba(16,24,40,0.10)]";
+export const CARD = "rounded-2xl border border-border/40 bg-card shadow-[0_1px_2px_rgba(16,24,40,0.03),0_6px_16px_-12px_rgba(16,24,40,0.08)]";
 
 export function SectionCard({ title, description, action, children, className }: {
   title: string;

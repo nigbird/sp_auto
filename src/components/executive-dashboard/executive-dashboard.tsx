@@ -65,6 +65,9 @@ export function ExecutiveDashboard({ data, tab = "overview" }: { data: Dashboard
           <div>
             {greeting}
             <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              {data.scope === "own" && (
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">My dashboard · only your activities</span>
+              )}
               <span className="font-medium text-foreground">{data.plan.name}</span>
               <span aria-hidden>·</span>
               <span>As of {shortDate(data.period.endDate)}</span>
@@ -204,15 +207,15 @@ function KpiStrip({ m, previous, current, periodEnd }: { m: DashboardMetrics; pr
   const diff = (a: number | null | undefined, b: number | null | undefined) => (a == null || b == null ? null : a - b);
 
   return (
-    <section className={cn(CARD, "grid gap-6 p-6 sm:grid-cols-2 lg:grid-cols-[repeat(4,minmax(0,1fr))_auto] lg:gap-0")}>
-      <Kpi icon={<Flag className="h-4 w-4" />} label="Full-year progress" value={pct(yearProgress)}
+    <section className={cn(CARD, "grid gap-x-8 gap-y-6 p-6 sm:grid-cols-2 lg:grid-cols-[repeat(4,minmax(0,1fr))_auto]")}>
+      <Kpi icon={<Flag className="h-3.5 w-3.5" />} label="Full-year progress" value={pct(yearProgress)} accent
         delta={<DeltaChip value={diff(current.yearProgress, previous?.yearProgress)} />} note="of total plan weight" />
-      <Kpi icon={<CheckCircle2 className="h-4 w-4" />} label="Initiatives completed" value={`${m.initiativesCompleted}`} suffix={`/ ${m.initiatives.length}`}
+      <Kpi icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Initiatives completed" value={`${m.initiativesCompleted}`} suffix={`/ ${m.initiatives.length}`}
         delta={<DeltaChip value={diff(current.initiativesCompleted, previous?.initiativesCompleted)} unit="count" />} note={`${m.initiativesDue} due by ${shortDate(periodEnd)}`} />
-      <Kpi icon={<Target className="h-4 w-4" />} label="Objectives ≥ 80%" value={`${m.objectivesAtLeast80.count}`} suffix={`/ ${m.objectivesAtLeast80.of}`} note="with a target this period" />
-      <Kpi icon={<ClipboardCheck className="h-4 w-4" />} label="Reports approved" value={`${coverage.approved}`} suffix={`/ ${coverage.planned}`}
+      <Kpi icon={<Target className="h-3.5 w-3.5" />} label="Objectives ≥ 80%" value={`${m.objectivesAtLeast80.count}`} suffix={`/ ${m.objectivesAtLeast80.of}`} note="with a target this period" />
+      <Kpi icon={<ClipboardCheck className="h-3.5 w-3.5" />} label="Reports approved" value={`${coverage.approved}`} suffix={`/ ${coverage.planned}`}
         note={coverage.pending > 0 ? `${coverage.pending} awaiting approval` : coverage.missing > 0 ? `${coverage.missing} not yet approved` : "all planned activities reported"} />
-      <div className="flex flex-col items-center justify-center sm:col-span-2 lg:col-span-1 lg:border-l lg:pl-8">
+      <div className="flex flex-col items-center justify-center sm:col-span-2 lg:col-span-1 lg:pl-6">
         <Tip content={<div className="space-y-1"><TipRow label="Weighted plan" value={weightPct(rollup.weightedPlan)} /><TipRow label="Weighted actual" value={weightPct(rollup.weightedActual)} /><TipRow label="After delays" value={pct(rollup.achievedWithDelay)} /></div>}>
           <Gauge value={rollup.weightedPlan > 0 ? rollup.achievedResult : null} label="Overall execution" caption={`${weightPct(rollup.weightedActual)} of ${weightPct(rollup.weightedPlan)} planned`} />
         </Tip>
@@ -222,18 +225,18 @@ function KpiStrip({ m, previous, current, periodEnd }: { m: DashboardMetrics; pr
   );
 }
 
-function Kpi({ icon, label, value, suffix, delta, note }: { icon: React.ReactNode; label: string; value: string; suffix?: string; delta?: React.ReactNode; note: string }) {
+function Kpi({ icon, label, value, suffix, delta, note, accent }: { icon: React.ReactNode; label: string; value: string; suffix?: string; delta?: React.ReactNode; note: string; accent?: boolean }) {
   return (
-    <div className="lg:border-l lg:px-6 lg:first:border-l-0 lg:first:pl-0">
-      <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
-        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">{icon}</span>
+    <div>
+      <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground/80">
+        <span className="text-muted-foreground/60">{icon}</span>
         {label}
       </div>
-      <div className="mt-4 flex items-baseline gap-1.5">
-        <span className="text-[30px] font-bold leading-none tracking-tight">{value}</span>
+      <div className="mt-2.5 flex items-baseline gap-1.5">
+        <span className={cn("text-[32px] font-bold leading-none tracking-tight", accent ? "text-primary" : "text-foreground")}>{value}</span>
         {suffix && <span className="text-sm text-muted-foreground">{suffix}</span>}
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-2.5 flex flex-wrap items-center gap-2">
         {delta}
         <span className="text-xs text-muted-foreground">{note}</span>
       </div>

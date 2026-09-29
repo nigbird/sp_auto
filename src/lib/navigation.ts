@@ -12,7 +12,7 @@ export type NavItemDef = {
 
 export const NAV_GROUPS: { label?: string; items: NavItemDef[] }[] = [
   {
-    items: [{ href: "/", label: "Dashboard", icon: "dashboard", anyOf: ["dashboard:view"], exact: true }],
+    items: [{ href: "/", label: "Dashboard", icon: "dashboard", anyOf: ["dashboard:view", "dashboard:view-own"], exact: true }],
   },
   {
     label: "Planning",
@@ -27,7 +27,7 @@ export const NAV_GROUPS: { label?: string; items: NavItemDef[] }[] = [
     items: [
       { href: "/reports/submit", label: "My Reports", icon: "myReports", anyOf: ["my-reports:view"] },
       { href: "/reports/approvals", label: "Report Approvals", icon: "reportApprovals", anyOf: ["report-approvals:view"] },
-      { href: "/reports", label: "Performance Report", icon: "performance", anyOf: ["reports:view"], exact: true },
+      { href: "/reports", label: "Performance Report", icon: "performance", anyOf: ["reports:view", "reports:view-own"], exact: true },
     ],
   },
   {

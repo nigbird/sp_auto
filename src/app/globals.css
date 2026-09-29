@@ -20,24 +20,27 @@ html {
 
 @layer base {
   :root {
-    --background: 25 20% 96%;
-    --foreground: 222.2 84% 4.9%;
+    /* Warm neutral system to match the login screen (#FAF8F4 / #5B4030 / #D9A441) —
+       every gray below is desaturated toward that cream/brown family instead of
+       the default cool blue-slate, so the app doesn't read as a generic admin template. */
+    --background: 40 33% 97%;
+    --foreground: 215 28% 13%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 215 28% 13%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 215 28% 13%;
     --primary: 35 72% 55%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 210 40% 9%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 210 40% 45.1%;
+    --secondary: 30 20% 95%;
+    --secondary-foreground: 25 20% 15%;
+    --muted: 30 15% 94%;
+    --muted-foreground: 216 15% 46%;
     --accent: 45 96% 54%;
     --accent-foreground: 25 65% 10%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 30 15% 88%;
+    --input: 30 15% 88%;
     --ring: 35 72% 55%;
     --chart-1: 35 72% 55%;
     --chart-2: 180 30% 60%;
@@ -45,13 +48,13 @@ html {
     --chart-4: 0 70% 60%;
     --chart-5: 200 50% 50%;
     --radius: 0.5rem;
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 222.2 47% 20%;
+    --sidebar-background: 40 30% 98%;
+    --sidebar-foreground: 215 25% 20%;
     --sidebar-primary: 35 72% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 35 72% 96%;
-    --sidebar-accent-foreground: 35 72% 40%;
-    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-accent: 35 55% 90%;
+    --sidebar-accent-foreground: 27 65% 28%;
+    --sidebar-border: 30 15% 90%;
     --sidebar-ring: 35 72% 55%;
   }
   .dark {

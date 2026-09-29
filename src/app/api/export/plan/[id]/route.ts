@@ -18,7 +18,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const planOnly = request.nextUrl.searchParams.get('period') === 'none' && request.nextUrl.searchParams.get('format') !== 'pdf';
   const allowed = planOnly
     ? userCan(user, 'strategic-plan:view', 'reports:export')
-    : userCan(user, 'reports:export');
+    : userCan(user, 'reports:export') && userCan(user, 'reports:view');
   if (!allowed) {
     return NextResponse.json({ error: "You don't have permission to export this." }, { status: 403 });
   }

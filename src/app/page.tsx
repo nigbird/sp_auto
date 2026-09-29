@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ plan?: string; period?: string; tab?: string }> }) {
   // "/" is everyone's landing page: without dashboard access, go to the first page they can open.
   const user = await requireUser();
-  if (!userCan(user, "dashboard:view")) redirect(homePathFor(user.permissions));
+  if (!userCan(user, "dashboard:view", "dashboard:view-own")) redirect(homePathFor(user.permissions));
   const { plan, period, tab } = await searchParams;
   const data = await loadDashboard(plan, period);
   return (

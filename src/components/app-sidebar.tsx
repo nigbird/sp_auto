@@ -60,7 +60,7 @@ export function AppSidebar() {
           </div>
         </div>
       </SidebarHeader>
-      <SidebarContent className="flex-1">
+      <SidebarContent className="flex-1 gap-5 py-2">
         {/* Nothing is shown until permissions load, so items never flash in and out. */}
         {permissions && NAV_GROUPS.map((group, i) => {
           const items = group.items.filter((item) => canSeeNavItem(item, permissions));

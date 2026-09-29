@@ -10,7 +10,8 @@ export const PERMISSION_GROUPS = [
   {
     title: 'Dashboard',
     permissions: [
-      { id: 'dashboard:view', label: 'View the dashboard' },
+      { id: 'dashboard:view', label: 'View the full dashboard' },
+      { id: 'dashboard:view-own', label: 'View my dashboard (only my activities)' },
     ],
   },
   {
@@ -54,7 +55,8 @@ export const PERMISSION_GROUPS = [
   {
     title: 'Performance Report',
     permissions: [
-      { id: 'reports:view', label: 'View the performance report' },
+      { id: 'reports:view', label: 'View the full performance report' },
+      { id: 'reports:view-own', label: 'View my performance report (only my activities)' },
       { id: 'reports:export', label: 'Export reports' },
     ],
   },
@@ -82,8 +84,8 @@ export const ALL_PERMISSIONS: Permission[] = PERMISSION_GROUPS.flatMap((g) => g.
 /** Default split used to seed RolePermission for the 3 built-in roles (by display name). */
 export const DEFAULT_ROLE_PERMISSIONS: Record<'Administrator' | 'Manager' | 'User', Permission[]> = {
   Administrator: [...ALL_PERMISSIONS],
-  Manager: ALL_PERMISSIONS.filter((p) => !['users:manage', 'roles:manage', 'strategic-plan:delete', 'settings:manage'].includes(p)),
-  User: ['dashboard:view', 'strategic-plan:view', 'my-plan:view', 'my-plan:update', 'my-reports:view', 'my-reports:submit', 'reports:view'],
+  Manager: ALL_PERMISSIONS.filter((p) => !['users:manage', 'roles:manage', 'strategic-plan:delete', 'settings:manage', 'dashboard:view-own', 'reports:view-own'].includes(p)),
+  User: ['dashboard:view-own', 'strategic-plan:view', 'my-plan:view', 'my-plan:update', 'my-reports:view', 'my-reports:submit', 'reports:view-own'],
 };
 
 /** True if the list grants at least one of the given permissions. */

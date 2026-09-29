@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/auth/session';
+import { userCan } from '@/lib/auth/permissions-server';
 import { monthKey } from '@/lib/monthly-breakdown';
 import { computeDashboard, type DashboardMetrics, type MetricEntry, type MetricPeriod, type MetricPillar } from '@/lib/dashboard-metrics';
 import { parseRatingThresholds } from '@/lib/rating-bands';
@@ -22,7 +23,12 @@ export interface TrendPoint {
   initiativesCompleted: number;
 }
 
-interface Context { userName: string; today: string }
+interface Context {
+  userName: string;
+  today: string;
+  /** 'own': the user may only see activities they are responsible for, so everything is computed from those. */
+  scope: 'all' | 'own';
+}
 
 export type DashboardData =
   | ({ state: 'no-plan'; plans: DashboardPlanOption[] } & Context)
@@ -51,7 +57,11 @@ export type DashboardData =
  */
 export async function loadDashboard(planId?: string, periodId?: string): Promise<DashboardData> {
   const user = await requireUser();
-  const context: Context = { userName: user.name, today: new Date().toISOString() };
+  // The full dashboard needs dashboard:view; with only dashboard:view-own it covers the user's own activities.
+  const scope = userCan(user, 'dashboard:view') ? 'all' : userCan(user, 'dashboard:view-own') ? 'own' : null;
+  if (!scope) throw new Error("You don't have permission to view the dashboard.");
+  const ownOnly = scope === 'own' ? { responsibleId: user.id } : {};
+  const context: Context = { userName: user.name, today: new Date().toISOString(), scope };
 
   const plans: DashboardPlanOption[] = await prisma.strategicPlan.findMany({
     where: { isActive: true },
@@ -107,6 +117,7 @@ export async function loadDashboard(planId?: string, periodId?: string): Promise
                 title: true,
                 activities: {
                   orderBy: { createdAt: 'asc' },
+                  where: ownOnly,
                   select: {
                     id: true,
                     title: true,
@@ -131,7 +142,7 @@ export async function loadDashboard(planId?: string, periodId?: string): Promise
       },
     }),
     prisma.activityPeriodEntry.findMany({
-      where: { reportingPeriodId: { in: history.map(p => p.id) } },
+      where: { reportingPeriodId: { in: history.map(p => p.id) }, ...(scope === 'own' ? { activity: ownOnly } : {}) },
       select: {
         reportingPeriodId: true, activityId: true, reportStatus: true, actualToDate: true, completionDate: true,
         comment: true, reasonForVariation: true, wayForward: true, escalationIssues: true,
@@ -140,7 +151,14 @@ export async function loadDashboard(planId?: string, periodId?: string): Promise
     prisma.appConfig.findUnique({ where: { id: 'singleton' }, select: { ratingBands: true } }),
   ]);
 
-  const pillars: MetricPillar[] = pillarRows.map(p => ({
+  // In the personal view, drop the parts of the plan the user has no activities in.
+  const visibleRows = scope === 'all' ? pillarRows : pillarRows
+    .map(p => ({ ...p, objectives: p.objectives
+      .map(o => ({ ...o, initiatives: o.initiatives.filter(i => i.activities.length > 0) }))
+      .filter(o => o.initiatives.length > 0) }))
+    .filter(p => p.objectives.length > 0);
+
+  const pillars: MetricPillar[] = visibleRows.map(p => ({
     id: p.id,
     title: p.title,
     objectives: p.objectives.map(o => ({
