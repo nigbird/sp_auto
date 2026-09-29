@@ -47,12 +47,15 @@ html {
     --chart-3: 45 96% 54%;
     --chart-4: 0 70% 60%;
     --chart-5: 200 50% 50%;
-    --radius: 0.5rem;
+    /* rounded-lg = this value, rounded-md = -2px, rounded-sm = -4px — 0.75rem
+       keeps every default control (button, input, card, popover) in the
+       12–16px range the rest of the redesign is built around. */
+    --radius: 0.75rem;
     --sidebar-background: 40 30% 98%;
     --sidebar-foreground: 215 25% 20%;
     --sidebar-primary: 35 72% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 35 55% 90%;
+    --sidebar-accent: 35 42% 94%;
     --sidebar-accent-foreground: 27 65% 28%;
     --sidebar-border: 30 15% 90%;
     --sidebar-ring: 35 72% 55%;

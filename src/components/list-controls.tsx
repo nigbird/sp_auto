@@ -24,7 +24,7 @@ export function SearchBox({ value, onChange, placeholder = "Search", className }
   return (
     <div className={cn("relative w-full sm:w-72", className)}>
       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-      <Input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="pl-9 pr-8" aria-label={placeholder} />
+      <Input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="h-9 pl-9 pr-8" aria-label={placeholder} />
       {value && (
         <button type="button" onClick={() => onChange("")} aria-label="Clear search" className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground">
           <X className="h-4 w-4" />
@@ -80,7 +80,7 @@ export function DateRangeFilter({ value, onChange, label = "Any date", hint, cla
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" className={cn("h-10 justify-start gap-2 font-normal", set && "border-primary/60 bg-primary/5", className)}>
+        <Button variant="outline" className={cn("h-9 justify-start gap-2 font-normal", set && "border-primary/60 bg-primary/5", className)}>
           <CalendarDays className="h-4 w-4 text-muted-foreground" />
           <span className={cn("truncate", !set && "text-muted-foreground")}>{set ? rangeText(value) : label}</span>
           {set && (

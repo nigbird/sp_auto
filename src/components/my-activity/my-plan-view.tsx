@@ -60,16 +60,16 @@ export function MyPlanView({ plans, plan, activities, reports, periods, users }:
 
   return (
     <div className="flex-1 space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">My Plan</h1>
-          <p className="text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">My Plan</h1>
+          <p className="text-sm text-muted-foreground">
             Your activities and their progress.
           </p>
         </div>
         {plans.length > 0 && (
           <Select value={plan?.id ?? ""} onValueChange={handlePlanChange}>
-            <SelectTrigger className="w-full sm:w-[320px]">
+            <SelectTrigger className="h-9 w-full rounded-xl border-border/60 bg-card text-sm sm:w-[300px]">
               <SelectValue placeholder="Select a strategic plan" />
             </SelectTrigger>
             <SelectContent>

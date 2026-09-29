@@ -7,6 +7,7 @@ import { NewActivityApprovalList, PlanActivityTracker } from "@/components/appro
 import { PlanSelect } from "@/components/reports/plan-select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
 const WITH_OWNERS: PlanStage[] = ["requested", "drafting", "breakdownReturned", "activityReturned", "ownerDeclined"];
 
@@ -29,11 +30,11 @@ export default async function PlanApprovalsPage({ searchParams }: { searchParams
   const defaultTab = pendingPlans.length > 0 ? "breakdowns" : newActivities.length > 0 ? "new" : "all";
 
   return (
-    <div className="flex-1 space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Plan Approvals</h1>
-          <p className="text-muted-foreground">
+    <div className="flex-1 space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Plan Approvals</h1>
+          <p className="text-sm text-muted-foreground">
             Approve new activities and their monthly breakdowns, and see where every activity in the plan stands.
           </p>
         </div>
@@ -46,11 +47,11 @@ export default async function PlanApprovalsPage({ searchParams }: { searchParams
         <Card><CardContent className="pt-6"><p className="text-center text-muted-foreground">There is no strategic plan yet.</p></CardContent></Card>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Stat icon={<Inbox className="h-4 w-4 text-blue-600" />} label="Waiting for your approval" value={waiting} note={`${pendingPlans.length} breakdowns · ${newActivities.length} new activities`} />
-            <Stat icon={<Clock3 className="h-4 w-4 text-amber-600" />} label="With activity owners" value={withOwners} note="requested, being prepared or returned" />
-            <Stat icon={<SendHorizontal className="h-4 w-4 text-muted-foreground" />} label="Breakdown request not sent" value={notSent} note="send it from the strategic plan" />
-            <Stat icon={<CheckCircle2 className="h-4 w-4 text-green-600" />} label="Fully planned" value={approved} note={`of ${activities.length} activities, breakdown approved`} />
+          <div className="flex flex-wrap overflow-hidden rounded-xl border border-border/50 bg-card sm:flex-nowrap">
+            <Stat icon={<Inbox className="h-3.5 w-3.5" />} label="Waiting for your approval" value={waiting} note={`${pendingPlans.length} breakdowns · ${newActivities.length} new activities`} tone="gold" first />
+            <Stat icon={<Clock3 className="h-3.5 w-3.5" />} label="With activity owners" value={withOwners} note="requested, being prepared or returned" tone="neutral" />
+            <Stat icon={<SendHorizontal className="h-3.5 w-3.5" />} label="Breakdown request not sent" value={notSent} note="send it from the strategic plan" tone="muted-gold" />
+            <Stat icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Fully planned" value={approved} note={`of ${activities.length} activities, breakdown approved`} tone="green" />
           </div>
 
           <Tabs defaultValue={defaultTab}>
@@ -75,14 +76,24 @@ export default async function PlanApprovalsPage({ searchParams }: { searchParams
   );
 }
 
-function Stat({ icon, label, value, note }: { icon: React.ReactNode; label: string; value: number; note: string }) {
+const STAT_TONE = {
+  gold: "text-primary",
+  neutral: "text-foreground",
+  "muted-gold": "text-amber-700/80",
+  green: "text-emerald-700",
+} as const;
+
+function Stat({ icon, label, value, note, tone, first }: {
+  icon: React.ReactNode; label: string; value: number; note: string; tone: keyof typeof STAT_TONE; first?: boolean;
+}) {
   return (
-    <Card>
-      <CardContent className="space-y-1 p-5">
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">{icon}{label}</p>
-        <p className="text-3xl font-bold tabular-nums">{value}</p>
-        <p className="text-xs text-muted-foreground">{note}</p>
-      </CardContent>
-    </Card>
+    <div className={cn("min-w-[11rem] flex-1 basis-1/2 px-5 py-4 sm:basis-0", !first && "border-l border-border/50")}>
+      <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <span className={STAT_TONE[tone]}>{icon}</span>
+        {label}
+      </p>
+      <p className={cn("mt-2 text-[28px] font-bold leading-none tracking-tight tabular-nums", STAT_TONE[tone])}>{value}</p>
+      <p className="mt-1.5 text-xs text-muted-foreground">{note}</p>
+    </div>
   );
 }

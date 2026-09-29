@@ -22,15 +22,15 @@ import { formatWeight } from "@/lib/report-calculations";
 import { approveNewActivity, returnNewActivity, type PlanApprovalActivity, type PlanStage } from "@/actions/plan-approvals";
 
 export const STAGE_META: Record<PlanStage, { label: string; className: string }> = {
-  activityPending: { label: "New activity · awaiting approval", className: "border-blue-500 text-blue-700 bg-blue-500/10" },
-  breakdownPending: { label: "Breakdown awaiting approval", className: "border-blue-500 text-blue-700 bg-blue-500/10" },
-  activityReturned: { label: "Activity returned", className: "border-red-400 text-red-700 bg-red-500/10" },
-  breakdownReturned: { label: "Breakdown returned", className: "border-red-400 text-red-700 bg-red-500/10" },
-  ownerDeclined: { label: "Owner declined request", className: "border-red-400 text-red-700 bg-red-500/10" },
-  requested: { label: "Waiting for owner", className: "border-amber-500 text-amber-700 bg-amber-500/10" },
-  drafting: { label: "Owner preparing breakdown", className: "border-amber-500 text-amber-700 bg-amber-500/10" },
+  activityPending: { label: "New activity · awaiting approval", className: "border-blue-500/25 text-blue-700 bg-blue-500/[0.06]" },
+  breakdownPending: { label: "Breakdown awaiting approval", className: "border-blue-500/25 text-blue-700 bg-blue-500/[0.06]" },
+  activityReturned: { label: "Activity returned", className: "border-red-400/30 text-red-700 bg-red-500/[0.06]" },
+  breakdownReturned: { label: "Breakdown returned", className: "border-red-400/30 text-red-700 bg-red-500/[0.06]" },
+  ownerDeclined: { label: "Owner declined request", className: "border-red-400/30 text-red-700 bg-red-500/[0.06]" },
+  requested: { label: "Waiting for owner", className: "border-amber-500/30 text-amber-700 bg-amber-500/[0.06]" },
+  drafting: { label: "Owner preparing breakdown", className: "border-amber-500/30 text-amber-700 bg-amber-500/[0.06]" },
   notSent: { label: "Request not sent", className: "border-border text-muted-foreground bg-muted/50" },
-  approved: { label: "Approved", className: "border-green-500 text-green-700 bg-green-500/10" },
+  approved: { label: "Approved", className: "border-emerald-500/30 text-emerald-700 bg-emerald-500/[0.07]" },
 };
 
 const STAGE_ORDER: PlanStage[] = ["activityPending", "breakdownPending", "activityReturned", "breakdownReturned", "ownerDeclined", "requested", "drafting", "notSent", "approved"];
@@ -73,14 +73,14 @@ export function PlanActivityTracker({ activities }: { activities: PlanApprovalAc
       <div className="flex flex-wrap items-center gap-2">
         <SearchBox value={query} onChange={setQuery} placeholder="Search activity, initiative or person" />
         <Select value={owner} onValueChange={setOwner}>
-          <SelectTrigger className="w-full sm:w-64" aria-label="Lead owner"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-9 w-full sm:w-64" aria-label="Lead owner"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>All lead owners</SelectItem>
             {owners.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={stage} onValueChange={setStage}>
-          <SelectTrigger className="w-full sm:w-64" aria-label="Stage"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-9 w-full sm:w-64" aria-label="Stage"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>All stages</SelectItem>
             {STAGE_ORDER.filter(s => stageCounts.has(s)).map(s => (
@@ -97,40 +97,40 @@ export function PlanActivityTracker({ activities }: { activities: PlanApprovalAc
         <p className="ml-auto text-sm text-muted-foreground">{rows.length} of {activities.length} activities</p>
       </div>
 
-      <div className="overflow-x-auto rounded-md border">
+      <div className="overflow-x-auto rounded-xl border border-border/50">
         <Table className="min-w-[980px]">
           <TableHeader>
-            <TableRow>
-              <TableHead>Activity</TableHead>
-              <TableHead>Lead owner</TableHead>
-              <TableHead>Responsible</TableHead>
-              <TableHead>Timeline</TableHead>
-              <TableHead className="text-right">Weight</TableHead>
-              <TableHead>Stage</TableHead>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Activity</TableHead>
+              <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Lead owner</TableHead>
+              <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Responsible</TableHead>
+              <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Timeline</TableHead>
+              <TableHead className="h-10 text-right text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Weight</TableHead>
+              <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Stage</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="h-24 text-center text-muted-foreground">No activities match these filters.</TableCell></TableRow>
             ) : pagination.items.map(a => (
-              <TableRow key={a.id} onClick={() => setOpenId(a.id)} className="cursor-pointer">
-                <TableCell className="max-w-[380px]">
+              <TableRow key={a.id} onClick={() => setOpenId(a.id)} className="cursor-pointer border-border/50 hover:bg-muted/30">
+                <TableCell className="max-w-[420px] py-4">
                   <button
                     type="button"
                     onClick={e => { e.stopPropagation(); setOpenId(a.id); }}
-                    className="text-left font-medium hover:underline focus-visible:underline focus-visible:outline-none"
+                    className="text-left text-[15px] font-semibold leading-snug hover:underline focus-visible:underline focus-visible:outline-none"
                   >
                     {a.title}
                   </button>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground/70">Initiative:</span> {a.initiative}
+                  <p className="mt-1 text-xs text-muted-foreground/90">
+                    <span className="text-muted-foreground/70">Initiative:</span> {a.initiative}
                   </p>
                 </TableCell>
-                <TableCell className="max-w-[220px] text-sm">{a.leadOwner || <span className="text-muted-foreground">Unassigned</span>}</TableCell>
-                <TableCell className="text-sm">{a.responsible ?? <span className="text-muted-foreground">Unassigned</span>}</TableCell>
-                <TableCell className="whitespace-nowrap text-sm">{dateText(a.startDate)} – {dateText(a.endDate)}</TableCell>
-                <TableCell className="text-right text-sm tabular-nums">{a.countsTowardWeight ? formatWeight(a.weight) : <span className="text-muted-foreground" title="Duplicate: its weight counts under another lead owner">dup.</span>}</TableCell>
-                <TableCell>
+                <TableCell className="max-w-[220px] py-4 text-sm text-foreground/90">{a.leadOwner || <span className="text-muted-foreground">Unassigned</span>}</TableCell>
+                <TableCell className="py-4 text-sm text-foreground/90">{a.responsible ?? <span className="text-muted-foreground">Unassigned</span>}</TableCell>
+                <TableCell className="whitespace-nowrap py-4 text-sm text-foreground/90">{dateText(a.startDate)} – {dateText(a.endDate)}</TableCell>
+                <TableCell className="py-4 text-right text-sm tabular-nums text-foreground/90">{a.countsTowardWeight ? formatWeight(a.weight) : <span className="text-muted-foreground" title="Duplicate: its weight counts under another lead owner">dup.</span>}</TableCell>
+                <TableCell className="py-4">
                   <StageBadge stage={a.stage} />
                   {a.reason && <p className="mt-1 max-w-[260px] text-xs text-muted-foreground" title={a.reason}>“{a.reason.length > 90 ? `${a.reason.slice(0, 89)}…` : a.reason}”</p>}
                 </TableCell>

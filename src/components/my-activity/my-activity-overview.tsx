@@ -245,7 +245,7 @@ function ActivityCard({ activity, initiativeTitle, report, action, canTickDelive
 /** One concrete to-do line at the top of the tab, e.g. "79 reports to submit for New Period — due Nov 7". */
 function TodoRow({ icon, text, action }: { icon: React.ReactNode; text: React.ReactNode; action: React.ReactNode }) {
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+    <li className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
       <span className="flex items-center gap-2 text-sm">{icon}{text}</span>
       {action}
     </li>
@@ -255,11 +255,11 @@ function TodoRow({ icon, text, action }: { icon: React.ReactNode; text: React.Re
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 const FILTERS: { id: OverviewFilter; label: string; short: string; icon: React.ReactNode }[] = [
-  { id: 'all', label: 'All activities', short: 'Assigned to you', icon: <List className="h-4 w-4 text-muted-foreground" /> },
-  { id: 'todo', label: 'Needs your action', short: 'Breakdown or report to fill in', icon: <ClipboardList className="h-4 w-4 text-amber-600" /> },
-  { id: 'waiting', label: 'Waiting for approval', short: 'With an approver', icon: <Hourglass className="h-4 w-4 text-blue-600" /> },
-  { id: 'behind', label: 'Behind schedule', short: 'Delayed or overdue', icon: <AlertTriangle className="h-4 w-4 text-destructive" /> },
-  { id: 'completed', label: 'Completed', short: 'Reported as done', icon: <CheckCircle2 className="h-4 w-4 text-green-600" /> },
+  { id: 'all', label: 'All activities', short: 'Assigned to you', icon: <List className="h-3.5 w-3.5 text-muted-foreground" /> },
+  { id: 'todo', label: 'Needs your action', short: 'Breakdown or report to fill in', icon: <ClipboardList className="h-3.5 w-3.5 text-amber-600" /> },
+  { id: 'waiting', label: 'Waiting for approval', short: 'With an approver', icon: <Hourglass className="h-3.5 w-3.5 text-blue-600" /> },
+  { id: 'behind', label: 'Behind schedule', short: 'Delayed or overdue', icon: <AlertTriangle className="h-3.5 w-3.5 text-destructive" /> },
+  { id: 'completed', label: 'Completed', short: 'Reported as done', icon: <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> },
 ];
 
 /**
@@ -351,81 +351,83 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader className="pb-2">
-          <h2 className="text-lg font-semibold">What you need to do</h2>
-        </CardHeader>
-        <CardContent className="p-0 pb-2">
-          {!hasTodos ? (
-            <p className="flex items-center gap-2 px-6 pb-4 text-sm text-muted-foreground">
-              <CheckCircle2 className="h-4 w-4 text-green-600" /> You're all caught up — nothing needs your action right now.
-            </p>
-          ) : (
-            <ul className="divide-y">
-              {todos.reportsByPeriod.map(p => (
-                <TodoRow
-                  key={p.name}
-                  icon={<FileText className="h-4 w-4 text-amber-600" />}
-                  text={<><span className="font-semibold">{plural(p.count, 'report', 'reports')}</span>&nbsp;to submit for {p.name} — due {format(new Date(p.cutOff), "MMM d, yyyy")}</>}
-                  action={<Button size="sm" asChild><Link href="/reports/submit">Go to My Reports <ArrowRight className="ml-1 h-4 w-4" /></Link></Button>}
-                />
-              ))}
-              {todos.returnedReports > 0 && (
-                <TodoRow
-                  icon={<ShieldX className="h-4 w-4 text-destructive" />}
-                  text={<><span className="font-semibold">{plural(todos.returnedReports, 'report was', 'reports were')}</span>&nbsp;returned — fix and resubmit</>}
-                  action={<Button size="sm" variant="outline" asChild><Link href="/reports/submit">Go to My Reports</Link></Button>}
-                />
-              )}
-              {todos.breakdowns > 0 && (
-                <TodoRow
-                  icon={<TableProperties className="h-4 w-4 text-amber-600" />}
-                  text={<><span className="font-semibold">{plural(todos.breakdowns, 'monthly breakdown', 'monthly breakdowns')}</span>&nbsp;to fill in</>}
-                  action={<Button size="sm" variant="outline" onClick={onOpenBreakdown}>Open Monthly Breakdown</Button>}
-                />
-              )}
-              {todos.declined > 0 && (
-                <TodoRow
-                  icon={<PencilLine className="h-4 w-4 text-destructive" />}
-                  text={<><span className="font-semibold">{plural(todos.declined, 'activity was', 'activities were')}</span>&nbsp;declined — edit and resubmit</>}
-                  action={<Button size="sm" variant="outline" onClick={() => setFilter('todo')}>Show them</Button>}
-                />
-              )}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5" role="tablist" aria-label="Filter activities">
-          {FILTERS.map(f => (
-            <button
-              key={f.id}
-              type="button"
-              role="tab"
-              aria-selected={filter === f.id}
-              onClick={() => setFilter(f.id)}
-              className={cn(
-                "flex flex-col rounded-lg border bg-card p-4 text-left shadow-sm transition-colors hover:bg-muted/50",
-                filter === f.id && "border-primary bg-primary/5 ring-1 ring-primary"
-              )}
-            >
-              <span className="flex items-center justify-between gap-2 text-sm font-medium">
-                {f.label}
-                {f.icon}
-              </span>
-              <span className="mt-2 text-3xl font-bold">{visibleGroups[f.id].length}</span>
-              <span className="mt-1 text-xs text-muted-foreground">{f.short}</span>
-            </button>
-          ))}
+      {!hasTodos ? (
+        <div className="flex items-center gap-2.5 rounded-xl border border-border/50 bg-card px-4 py-3 text-sm text-muted-foreground">
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+          You're all caught up — nothing needs your action right now.
         </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-border/50 bg-card">
+          <div className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-foreground">
+            <ClipboardList className="h-4 w-4 text-amber-600" />
+            What you need to do
+          </div>
+          <ul className="divide-y divide-border/50 border-t border-border/50">
+            {todos.reportsByPeriod.map(p => (
+              <TodoRow
+                key={p.name}
+                icon={<FileText className="h-4 w-4 text-amber-600" />}
+                text={<><span className="font-semibold">{plural(p.count, 'report', 'reports')}</span>&nbsp;to submit for {p.name} — due {format(new Date(p.cutOff), "MMM d, yyyy")}</>}
+                action={<Button size="sm" asChild><Link href="/reports/submit">Go to My Reports <ArrowRight className="ml-1 h-4 w-4" /></Link></Button>}
+              />
+            ))}
+            {todos.returnedReports > 0 && (
+              <TodoRow
+                icon={<ShieldX className="h-4 w-4 text-destructive" />}
+                text={<><span className="font-semibold">{plural(todos.returnedReports, 'report was', 'reports were')}</span>&nbsp;returned — fix and resubmit</>}
+                action={<Button size="sm" variant="outline" asChild><Link href="/reports/submit">Go to My Reports</Link></Button>}
+              />
+            )}
+            {todos.breakdowns > 0 && (
+              <TodoRow
+                icon={<TableProperties className="h-4 w-4 text-amber-600" />}
+                text={<><span className="font-semibold">{plural(todos.breakdowns, 'monthly breakdown', 'monthly breakdowns')}</span>&nbsp;to fill in</>}
+                action={<Button size="sm" variant="outline" onClick={onOpenBreakdown}>Open Monthly Breakdown</Button>}
+              />
+            )}
+            {todos.declined > 0 && (
+              <TodoRow
+                icon={<PencilLine className="h-4 w-4 text-destructive" />}
+                text={<><span className="font-semibold">{plural(todos.declined, 'activity was', 'activities were')}</span>&nbsp;declined — edit and resubmit</>}
+                action={<Button size="sm" variant="outline" onClick={() => setFilter('todo')}>Show them</Button>}
+              />
+            )}
+          </ul>
+        </div>
+      )}
+
+      <div className="flex flex-wrap overflow-hidden rounded-xl border border-border/50 bg-card sm:flex-nowrap" role="tablist" aria-label="Filter activities">
+        {FILTERS.map((f, i) => (
+          <button
+            key={f.id}
+            type="button"
+            role="tab"
+            aria-selected={filter === f.id}
+            onClick={() => setFilter(f.id)}
+            className={cn(
+              "relative min-w-[9rem] flex-1 basis-1/2 px-4 py-3.5 text-left transition-colors sm:basis-0",
+              i > 0 && "border-l border-border/50",
+              filter === f.id ? "bg-primary/[0.05]" : "hover:bg-muted/40"
+            )}
+          >
+            {filter === f.id && <span className="absolute inset-x-0 top-0 h-0.5 bg-primary" />}
+            <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {f.icon}
+              {f.label}
+            </span>
+            <span className={cn("mt-2 block text-[28px] font-bold leading-none tracking-tight", filter === f.id ? "text-primary" : "text-foreground")}>
+              {visibleGroups[f.id].length}
+            </span>
+            <span className="mt-1.5 block text-xs text-muted-foreground">{f.short}</span>
+          </button>
+        ))}
       </div>
 
       <ListToolbar count={narrowed ? `${visible.length} of ${activities.length} activities match` : undefined}>
         <SearchBox value={query} onChange={setQuery} placeholder="Search activity, initiative or deliverable" />
         <DateRangeFilter value={range} onChange={setRange} label="Any dates" hint="Shows activities that run at any point in this range." />
         {narrowed && (
-          <Button variant="ghost" className="h-10 px-3" onClick={() => { setQuery(''); setRange({}); }}>Reset</Button>
+          <Button variant="ghost" className="h-9 px-3" onClick={() => { setQuery(''); setRange({}); }}>Reset</Button>
         )}
       </ListToolbar>
 
