@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { format } from "date-fns";
-import { AlertCircle, AlertTriangle, Check, CheckCircle2, ClipboardList, Hourglass, List, Loader2, PencilLine, ShieldQuestion, ShieldX, TrendingDown, Undo2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, Check, CheckCircle2, ClipboardList, Hourglass, Info, List, Loader2, PencilLine, ShieldQuestion, ShieldX, TrendingDown, Undo2 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -10,6 +10,8 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { Alert, AlertDescription } from "../ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "../permissions-provider";
@@ -56,11 +58,49 @@ export interface PeriodReportEntry {
 
 export function ReportStatusBadge({ status }: { status: PeriodReportEntry['reportStatus'] }) {
   switch (status) {
-    case 'APPROVED': return <Badge variant="outline" className="border-green-500 text-green-600 bg-green-500/10"><Check className="h-3 w-3 mr-1" />Approved</Badge>;
-    case 'SUBMITTED': return <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-500/10"><ShieldQuestion className="h-3 w-3 mr-1" />Waiting for approval</Badge>;
-    case 'RETURNED': return <Badge variant="destructive"><ShieldX className="h-3 w-3 mr-1" />Returned — needs changes</Badge>;
-    default: return <Badge variant="outline">To fill in</Badge>;
+    case 'APPROVED': return <Badge variant="outline" className="gap-1 whitespace-nowrap border-emerald-500/30 bg-emerald-500/[0.07] font-medium text-emerald-700"><Check className="h-3 w-3" />Approved</Badge>;
+    case 'SUBMITTED': return <Badge variant="outline" className="gap-1 whitespace-nowrap border-blue-500/25 bg-blue-500/[0.06] font-medium text-blue-700"><ShieldQuestion className="h-3 w-3" />Waiting for approval</Badge>;
+    case 'RETURNED': return <Badge variant="outline" className="gap-1 whitespace-nowrap border-red-400/30 bg-red-500/[0.06] font-medium text-red-700"><ShieldX className="h-3 w-3" />Returned — needs changes</Badge>;
+    default: return <Badge variant="outline" className="gap-1 whitespace-nowrap border-amber-500/30 bg-amber-500/[0.06] font-medium text-amber-700"><PencilLine className="h-3 w-3" />To fill in</Badge>;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Shared layout for the metrics row and narrative section — the editable
+// form and the read-only summary are two states of the same visual structure,
+// built from these same pieces, so they never look like separate UIs.
+// ---------------------------------------------------------------------------
+
+const FIELD_LABEL_CLASS = "block text-xs font-medium text-muted-foreground";
+
+function MetricStatic({ children, tone }: { children: React.ReactNode; tone?: "danger" | "success" }) {
+  return (
+    <p className={cn(
+      "text-[15px] font-semibold tabular-nums text-foreground",
+      tone === "danger" && "text-red-700",
+      tone === "success" && "text-emerald-700"
+    )}>
+      {children}
+    </p>
+  );
+}
+
+function NarrativeSection({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="space-y-4 border-t border-border/50 pt-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/80">Reporting details</p>
+      {children}
+    </div>
+  );
+}
+
+function NarrativeField({ label, htmlFor, children }: { label: string; htmlFor?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      {htmlFor ? <Label htmlFor={htmlFor} className={FIELD_LABEL_CLASS}>{label}</Label> : <p className={FIELD_LABEL_CLASS}>{label}</p>}
+      {children}
+    </div>
+  );
 }
 
 /** The owner's blue columns for one activity in one period. */
@@ -128,53 +168,48 @@ function ReportForm({ entry, onSubmitted }: { entry: PeriodReportEntry; onSubmit
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="space-y-1">
-          <Label>Plan up to the reporting period</Label>
-          <div className="flex h-10 items-center rounded-md border bg-muted/50 px-3 text-sm font-semibold">{formatTargetValue(row.planToDate, targetType)}</div>
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor={`actual-${entry.id}`}>Actual up to the reporting period {unit && `(${unit})`} *</Label>
-          <Input id={`actual-${entry.id}`} type="number" min={0} step="any" value={actual} onChange={(e) => { setActual(e.target.value); setErrors(({ actualToDate, ...rest }) => rest); }} className={cn(errors.actualToDate && "border-destructive")} />
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <NarrativeField label="Plan up to the period">
+          <MetricStatic>{formatTargetValue(row.planToDate, targetType)}</MetricStatic>
+        </NarrativeField>
+        <NarrativeField label={`Actual up to the period ${unit && `(${unit}) `}*`} htmlFor={`actual-${entry.id}`}>
+          <Input id={`actual-${entry.id}`} type="number" min={0} step="any" value={actual} onChange={(e) => { setActual(e.target.value); setErrors(({ actualToDate, ...rest }) => rest); }} className={cn("h-9", errors.actualToDate && "border-destructive")} />
           {fieldError('actualToDate')}
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor={`completion-${entry.id}`}>Completion date {reachedTarget && '*'}</Label>
-          <Input id={`completion-${entry.id}`} type="date" value={completionDate} onChange={(e) => { setCompletionDate(e.target.value); setErrors(({ completionDate, ...rest }) => rest); }} className={cn(errors.completionDate && "border-destructive")} />
+        </NarrativeField>
+        <NarrativeField label="%age Achiev't">
+          <MetricStatic tone={row.planToDate > 0 ? (row.isBehindPlan ? "danger" : "success") : undefined}>
+            {row.planToDate > 0 ? formatRatio(row.achievement) : 'No plan yet'}
+          </MetricStatic>
+        </NarrativeField>
+        <NarrativeField label={`Completion date${reachedTarget ? ' *' : ''}`} htmlFor={`completion-${entry.id}`}>
+          <Input id={`completion-${entry.id}`} type="date" value={completionDate} onChange={(e) => { setCompletionDate(e.target.value); setErrors(({ completionDate, ...rest }) => rest); }} className={cn("h-9", errors.completionDate && "border-destructive")} />
           {fieldError('completionDate')}
-        </div>
-        <div className="space-y-1">
-          <Label>%age Achiev&apos;t</Label>
-          <div className={cn("flex h-10 items-center rounded-md border px-3 text-sm font-semibold", row.isBehindPlan ? "text-destructive" : "text-green-600")}>
-            {row.planToDate > 0 ? formatRatio(row.achievement) : 'No plan for this period yet'}
-          </div>
-        </div>
+        </NarrativeField>
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor={`accomplished-${entry.id}`}>Accomplished tasks &amp; key achievements (outputs) for the reporting period</Label>
-        <Textarea id={`accomplished-${entry.id}`} rows={3} value={accomplished} onChange={(e) => setAccomplished(e.target.value)} />
-        {fieldError('accomplishedTasks')}
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-1">
-          <Label htmlFor={`reason-${entry.id}`}>Reasons for variation {row.isBehindPlan && '*'}</Label>
-          <Textarea id={`reason-${entry.id}`} rows={3} value={reason} onChange={(e) => { setReason(e.target.value); setErrors(({ reasonForVariation, ...rest }) => rest); }} className={cn(errors.reasonForVariation && "border-destructive")} placeholder={row.isBehindPlan ? 'Why is the actual below plan?' : undefined} />
-          {fieldError('reasonForVariation')}
+      <NarrativeSection>
+        <NarrativeField label="Accomplished tasks & key achievements (outputs) for the reporting period" htmlFor={`accomplished-${entry.id}`}>
+          <Textarea id={`accomplished-${entry.id}`} rows={3} value={accomplished} onChange={(e) => setAccomplished(e.target.value)} />
+          {fieldError('accomplishedTasks')}
+        </NarrativeField>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <NarrativeField label={`Reasons for variation${row.isBehindPlan ? ' *' : ''}`} htmlFor={`reason-${entry.id}`}>
+            <Textarea id={`reason-${entry.id}`} rows={3} value={reason} onChange={(e) => { setReason(e.target.value); setErrors(({ reasonForVariation, ...rest }) => rest); }} className={cn(errors.reasonForVariation && "border-destructive")} placeholder={row.isBehindPlan ? 'Why is the actual below plan?' : undefined} />
+            {fieldError('reasonForVariation')}
+          </NarrativeField>
+          <NarrativeField label={`The way forward${row.isBehindPlan ? ' *' : ''}`} htmlFor={`way-${entry.id}`}>
+            <Textarea id={`way-${entry.id}`} rows={3} value={wayForward} onChange={(e) => { setWayForward(e.target.value); setErrors(({ wayForward, ...rest }) => rest); }} className={cn(errors.wayForward && "border-destructive")} placeholder={row.isBehindPlan ? 'What will be done to catch up?' : undefined} />
+            {fieldError('wayForward')}
+          </NarrativeField>
         </div>
-        <div className="space-y-1">
-          <Label htmlFor={`way-${entry.id}`}>The way forward {row.isBehindPlan && '*'}</Label>
-          <Textarea id={`way-${entry.id}`} rows={3} value={wayForward} onChange={(e) => { setWayForward(e.target.value); setErrors(({ wayForward, ...rest }) => rest); }} className={cn(errors.wayForward && "border-destructive")} placeholder={row.isBehindPlan ? 'What will be done to catch up?' : undefined} />
-          {fieldError('wayForward')}
-        </div>
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor={`escalation-${entry.id}`}>Issues that need escalation</Label>
-        <Textarea id={`escalation-${entry.id}`} rows={2} value={escalation} onChange={(e) => setEscalation(e.target.value)} />
-        {fieldError('escalationIssues')}
-      </div>
+        <NarrativeField label="Issues that need escalation" htmlFor={`escalation-${entry.id}`}>
+          <Textarea id={`escalation-${entry.id}`} rows={2} value={escalation} onChange={(e) => setEscalation(e.target.value)} />
+          {fieldError('escalationIssues')}
+        </NarrativeField>
+      </NarrativeSection>
+
       <ReportEvidence entryId={entry.id} files={entry.evidence ?? []} editable />
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 border-t border-border/50 pt-4">
         <p className="text-xs text-muted-foreground">* required{row.isBehindPlan ? ' — reasons and the way forward are required because the actual is below plan.' : ''}</p>
         <Button onClick={handleSubmit} disabled={isSaving}>
           {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Submit report
@@ -192,20 +227,40 @@ function ReportSummaryView({ entry }: { entry: PeriodReportEntry }) {
     { actualToDate: entry.actualToDate, completionDate: entry.completionDate },
     entry.reportingPeriod.endDate
   );
-  const item = (label: string, value: React.ReactNode) => (
-    <div><p className="text-xs text-muted-foreground">{label}</p><p className="text-sm whitespace-pre-wrap">{value || '—'}</p></div>
+  const note = (label: string, value: React.ReactNode) => (
+    <NarrativeField label={label}>
+      <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{value || '—'}</p>
+    </NarrativeField>
   );
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {item('Plan up to the period', formatTargetValue(row.planToDate, targetType))}
-      {item('Actual up to the period', entry.actualToDate != null ? formatTargetValue(entry.actualToDate, targetType) : null)}
-      {item("%age Achiev't", formatRatio(row.achievement))}
-      {item('Completion date', entry.completionDate ? format(new Date(entry.completionDate), 'PP') : null)}
-      <div className="col-span-2 md:col-span-4">{item('Accomplished tasks & key achievements', entry.comment)}</div>
-      <div className="col-span-2">{item('Reasons for variation', entry.reasonForVariation)}</div>
-      <div className="col-span-2">{item('The way forward', entry.wayForward)}</div>
-      <div className="col-span-2 md:col-span-4">{item('Issues that need escalation', entry.escalationIssues)}</div>
-      <div className="col-span-2 md:col-span-4"><ReportEvidence entryId={entry.id} files={entry.evidence ?? []} /></div>
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <NarrativeField label="Plan up to the period">
+          <MetricStatic>{formatTargetValue(row.planToDate, targetType)}</MetricStatic>
+        </NarrativeField>
+        <NarrativeField label="Actual up to the period">
+          <MetricStatic>{entry.actualToDate != null ? formatTargetValue(entry.actualToDate, targetType) : '—'}</MetricStatic>
+        </NarrativeField>
+        <NarrativeField label="%age Achiev't">
+          <MetricStatic tone={row.planToDate > 0 ? (row.isBehindPlan ? "danger" : "success") : undefined}>
+            {row.planToDate > 0 ? formatRatio(row.achievement) : '—'}
+          </MetricStatic>
+        </NarrativeField>
+        <NarrativeField label="Completion date">
+          <MetricStatic>{entry.completionDate ? format(new Date(entry.completionDate), 'PP') : '—'}</MetricStatic>
+        </NarrativeField>
+      </div>
+
+      <NarrativeSection>
+        {note('Accomplished tasks & key achievements', entry.comment)}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {note('Reasons for variation', entry.reasonForVariation)}
+          {note('The way forward', entry.wayForward)}
+        </div>
+        {note('Issues that need escalation', entry.escalationIssues)}
+      </NarrativeSection>
+
+      <ReportEvidence entryId={entry.id} files={entry.evidence ?? []} />
     </div>
   );
 }
@@ -217,21 +272,23 @@ function ReportCard({ entry, onChanged }: { entry: PeriodReportEntry; onChanged:
   const editable = can('my-reports:submit') && (entry.reportStatus === 'REQUESTED' || entry.reportStatus === 'RETURNED') && !closed;
 
   return (
-    <Card>
+    <Card className="rounded-xl border-border/50 shadow-[0_1px_2px_rgba(16,24,40,0.03),0_4px_12px_-8px_rgba(16,24,40,0.06)]">
       <CardHeader className="flex flex-row items-start justify-between gap-4 pb-3">
         <div className="space-y-1">
-          <h3 className="font-semibold">{activity.title}</h3>
-          {activity.initiative && <p className="text-xs text-muted-foreground">{activity.initiative.objective.pillar.title} → {activity.initiative.title}</p>}
-          <p className="text-xs text-muted-foreground">
+          <h3 className="text-[15px] font-semibold leading-snug text-foreground">{activity.title}</h3>
+          {activity.initiative && <p className="text-xs text-muted-foreground/90">{activity.initiative.objective.pillar.title} → {activity.initiative.title}</p>}
+          <p className="text-xs text-muted-foreground/90">
             {format(new Date(activity.startDate), 'PP')} – {format(new Date(activity.endDate), 'PP')} · Target {activity.annualTarget != null ? formatTargetValue(activity.annualTarget, activity.targetType) : '—'}
           </p>
-          {activity.deliverable && <p className="text-sm"><span className="font-medium">Deliverable:</span> {activity.deliverable}</p>}
+          {activity.deliverable && <p className="text-sm"><span className="font-medium text-foreground/80">Deliverable:</span> {activity.deliverable}</p>}
         </div>
         <ReportStatusBadge status={entry.reportStatus} />
       </CardHeader>
       <CardContent className="space-y-4">
         {entry.reportStatus === 'RETURNED' && entry.declineReason && (
-          <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription><span className="font-semibold">Returned by approver:</span> {entry.declineReason}</AlertDescription></Alert>
+          <Alert className="border-red-400/30 bg-red-500/[0.06] text-red-800 [&>svg]:text-red-600">
+            <AlertCircle className="h-4 w-4" /><AlertDescription><span className="font-semibold">Returned by approver:</span> {entry.declineReason}</AlertDescription>
+          </Alert>
         )}
         {editable
           ? <ReportForm entry={entry} onSubmitted={onChanged} />
@@ -263,15 +320,17 @@ const isCompletedAsPerTarget = (e: PeriodReportEntry) => e.reportStatus === 'APP
 
 type ReportFilter = 'all' | 'toFill' | 'returned' | 'overdue' | 'waiting' | 'approved' | 'completed' | 'behind';
 
+const ALL_PERIODS = 'all';
+
 const REPORT_FILTERS: { id: ReportFilter; label: string; short: string; icon: React.ReactNode; test: (e: PeriodReportEntry) => boolean }[] = [
-  { id: 'all', label: 'All reports', short: 'Requested from you', icon: <List className="h-4 w-4 text-muted-foreground" />, test: () => true },
-  { id: 'toFill', label: 'Not started', short: 'To fill in before the cut-off', icon: <PencilLine className="h-4 w-4 text-amber-600" />, test: e => e.reportStatus === 'REQUESTED' && periodOpen(e) },
-  { id: 'returned', label: 'Returned', short: 'Sent back — fix and resubmit', icon: <Undo2 className="h-4 w-4 text-destructive" />, test: e => e.reportStatus === 'RETURNED' && periodOpen(e) },
-  { id: 'overdue', label: 'Overdue', short: 'Cut-off passed, not submitted', icon: <AlertTriangle className="h-4 w-4 text-destructive" />, test: e => isEditableStatus(e) && !periodOpen(e) },
-  { id: 'waiting', label: 'Waiting for approval', short: 'Submitted, with an approver', icon: <Hourglass className="h-4 w-4 text-blue-600" />, test: e => e.reportStatus === 'SUBMITTED' },
-  { id: 'approved', label: 'Approved', short: 'Counted on the plan', icon: <Check className="h-4 w-4 text-green-600" />, test: e => e.reportStatus === 'APPROVED' },
-  { id: 'completed', label: 'Completed as per target', short: 'Approved and finished', icon: <CheckCircle2 className="h-4 w-4 text-green-600" />, test: isCompletedAsPerTarget },
-  { id: 'behind', label: 'Behind plan', short: 'Approved, actual below plan', icon: <TrendingDown className="h-4 w-4 text-amber-600" />, test: e => e.reportStatus === 'APPROVED' && approvedRow(e).isBehindPlan },
+  { id: 'all', label: 'All reports', short: 'Requested from you', icon: <List className="h-3.5 w-3.5 text-muted-foreground" />, test: () => true },
+  { id: 'toFill', label: 'Not started', short: 'To fill in before the cut-off', icon: <PencilLine className="h-3.5 w-3.5 text-amber-600" />, test: e => e.reportStatus === 'REQUESTED' && periodOpen(e) },
+  { id: 'returned', label: 'Returned', short: 'Sent back — fix and resubmit', icon: <Undo2 className="h-3.5 w-3.5 text-red-600" />, test: e => e.reportStatus === 'RETURNED' && periodOpen(e) },
+  { id: 'overdue', label: 'Overdue', short: 'Cut-off passed, not submitted', icon: <AlertTriangle className="h-3.5 w-3.5 text-red-600" />, test: e => isEditableStatus(e) && !periodOpen(e) },
+  { id: 'waiting', label: 'Waiting for approval', short: 'Submitted, with an approver', icon: <Hourglass className="h-3.5 w-3.5 text-blue-600" />, test: e => e.reportStatus === 'SUBMITTED' },
+  { id: 'approved', label: 'Approved', short: 'Counted on the plan', icon: <Check className="h-3.5 w-3.5 text-emerald-600" />, test: e => e.reportStatus === 'APPROVED' },
+  { id: 'completed', label: 'Completed as per target', short: 'Approved and finished', icon: <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />, test: isCompletedAsPerTarget },
+  { id: 'behind', label: 'Behind plan', short: 'Approved, actual below plan', icon: <TrendingDown className="h-3.5 w-3.5 text-amber-600" />, test: e => e.reportStatus === 'APPROVED' && approvedRow(e).isBehindPlan },
 ];
 /** Reporting → My Reports: every period report requested from the current user, newest period first. */
 export function MyActivityReportList({ initialEntries }: { initialEntries?: PeriodReportEntry[] }) {
@@ -287,14 +346,22 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
 
   const [query, setQuery] = React.useState('');
   const [range, setRange] = React.useState<DateRangeValue>({});
-  const narrowed = query.trim() !== '' || isRangeSet(range);
-  // Search and dates narrow everything below, the category tiles included.
+  const [periodId, setPeriodId] = React.useState(ALL_PERIODS);
+  const narrowed = query.trim() !== '' || isRangeSet(range) || periodId !== ALL_PERIODS;
+  // The reporting periods that actually have a report requested from this user, newest first.
+  const periods = React.useMemo(() => {
+    const map = new Map<string, PeriodReportEntry['reportingPeriod']>();
+    for (const e of entries ?? []) map.set(e.reportingPeriod.id, e.reportingPeriod);
+    return [...map.values()].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+  }, [entries]);
+  // Search, dates and the reporting period narrow everything below, the category tiles included.
   const matching = React.useMemo(() => (entries ?? []).filter(e =>
+    (periodId === ALL_PERIODS || e.reportingPeriod.id === periodId) &&
     overlapsDateRange(e.reportingPeriod.startDate, e.reportingPeriod.endDate, range) &&
     matchesSearch(query, e.activity.title, e.activity.initiative?.title, e.activity.deliverable, e.reportingPeriod.name)
-  ), [entries, query, range]);
+  ), [entries, query, range, periodId]);
   const activeTest = REPORT_FILTERS.find(f => f.id === filter)!.test;
-  const pagination = usePagination(matching.filter(activeTest), `${filter}|${query}|${range.from}|${range.to}`);
+  const pagination = usePagination(matching.filter(activeTest), `${filter}|${query}|${range.from}|${range.to}|${periodId}`);
 
   if (entries == null) {
     return <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading reports…</p>;
@@ -310,25 +377,35 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
   const toFill = entries.filter(e => (e.reportStatus === 'REQUESTED' || e.reportStatus === 'RETURNED') && !isPeriodClosedForSubmissions(e.reportingPeriod)).length;
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="flex items-center gap-2 text-xl font-bold"><ClipboardList className="text-muted-foreground" /> Period Reports</h2>
-        <p className="text-sm text-muted-foreground">
-          {entries.length === 0
-            ? 'No reports have been requested from you yet.'
-            : toFill > 0 ? `${toFill} ${toFill === 1 ? 'report needs' : 'reports need'} to be filled in.` : 'Nothing is waiting on you right now.'}
-        </p>
+    <div className="space-y-5">
+      <div className="flex items-center gap-2">
+        <ClipboardList className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <h2 className="text-base font-semibold text-foreground">Period Reports</h2>
+        {entries.length > 0 ? (
+          <span className={cn("text-sm", toFill > 0 ? "text-primary" : "text-muted-foreground")}>
+            · {toFill > 0 ? `${toFill} ${toFill === 1 ? 'report needs' : 'reports need'} to be filled in` : 'nothing waiting on you'}
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">· No reports have been requested from you yet.</span>
+        )}
       </div>
       {entries.length > 0 && (
         <ListToolbar count={narrowed ? `${matching.length} of ${entries.length} reports match` : undefined}>
-          <SearchBox value={query} onChange={setQuery} placeholder="Search activity, initiative or period" />
-          <DateRangeFilter value={range} onChange={setRange} label="Any period" hint="Shows reports for periods that fall in this range." />
-          {narrowed && <Button variant="ghost" className="h-10 px-3" onClick={() => { setQuery(''); setRange({}); }}>Reset</Button>}
+          <SearchBox value={query} onChange={setQuery} placeholder="Search activity, initiative or period" className="sm:w-80" />
+          <Select value={periodId} onValueChange={setPeriodId}>
+            <SelectTrigger className="h-9 w-full sm:w-64" aria-label="Reporting period"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_PERIODS}>All reporting periods</SelectItem>
+              {periods.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <DateRangeFilter value={range} onChange={setRange} label="Any dates" hint="Shows reports for periods that fall in this range." />
+          {narrowed && <Button variant="ghost" className="h-9 px-3" onClick={() => { setQuery(''); setRange({}); setPeriodId(ALL_PERIODS); }}>Reset</Button>}
         </ListToolbar>
       )}
       {entries.length > 0 && (
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4" role="tablist" aria-label="Filter reports">
+        <div className="space-y-2.5">
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border/50 bg-border/50 sm:grid-cols-4" role="tablist" aria-label="Filter reports">
             {REPORT_FILTERS.map(f => (
               <button
                 key={f.id}
@@ -337,13 +414,18 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
                 aria-selected={filter === f.id}
                 onClick={() => setFilter(f.id)}
                 className={cn(
-                  "flex flex-col rounded-lg border bg-card p-4 text-left shadow-sm transition-colors hover:bg-muted/50",
-                  filter === f.id && "border-primary bg-primary/5 ring-1 ring-primary"
+                  "bg-card px-4 py-3.5 text-left transition-colors",
+                  filter === f.id ? "bg-primary/[0.05]" : "hover:bg-muted/40"
                 )}
               >
-                <span className="flex items-center justify-between gap-2 text-sm font-medium">{f.label}{f.icon}</span>
-                <span className="mt-2 text-3xl font-bold">{counts[f.id]}</span>
-                <span className="mt-1 text-xs text-muted-foreground">{f.short}</span>
+                <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {f.icon}
+                  {f.label}
+                </span>
+                <span className={cn("mt-2 block text-2xl font-bold leading-none tracking-tight", filter === f.id ? "text-primary" : "text-foreground")}>
+                  {counts[f.id]}
+                </span>
+                <span className="mt-1.5 block text-xs text-muted-foreground">{f.short}</span>
               </button>
             ))}
           </div>
@@ -359,12 +441,26 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
         const period = periodEntries[0].reportingPeriod;
         return (
           <section key={period.id} className="space-y-3">
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <p className="font-semibold">{period.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {format(new Date(period.startDate), 'PP')} – {format(new Date(period.endDate), 'PP')} · Submit by {format(new Date(period.cutOffDate), 'PP')}
-              </p>
-              {period.reportRequestMessage && <p className="mt-1 text-sm whitespace-pre-wrap">{period.reportRequestMessage}</p>}
+            <div className="flex items-center gap-1.5 border-b border-border/50 px-0.5 pb-2">
+              <TooltipProvider delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:text-foreground">
+                      {period.name}
+                      <Info className="h-3 w-3 text-muted-foreground/60" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" align="start" className="max-w-xs space-y-1 text-xs">
+                    <p className="text-sm font-medium text-foreground">
+                      {format(new Date(period.startDate), 'PP')} – {format(new Date(period.endDate), 'PP')}
+                    </p>
+                    <p className="text-muted-foreground">Submit by {format(new Date(period.cutOffDate), 'PP')}</p>
+                    {period.reportRequestMessage && (
+                      <p className="whitespace-pre-wrap border-t pt-1 text-muted-foreground">{period.reportRequestMessage}</p>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
             {periodEntries.map(e => <ReportCard key={e.id} entry={e} onChanged={load} />)}
           </section>

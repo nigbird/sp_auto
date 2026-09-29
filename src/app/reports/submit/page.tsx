@@ -8,11 +8,11 @@ export default async function MyReportsPage() {
   const entries = await getMyPeriodReports();
 
   return (
-    <div className="flex-1 space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">My Reports</h1>
-        <p className="text-muted-foreground">
-          Submit your period reports.
+    <div className="flex-1 space-y-5">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">My Reports</h1>
+        <p className="text-sm text-muted-foreground">
+          Submit and track your period performance reports.
         </p>
       </div>
       <MyActivityReportList initialEntries={entries as PeriodReportEntry[]} />
