@@ -44,10 +44,17 @@ const ALL = "all";
 const dateText = (iso: string) => format(new Date(iso), "d MMM yyyy");
 
 /** Every activity in the plan with where it stands: activity approval, then its monthly breakdown. */
-export function PlanActivityTracker({ activities }: { activities: PlanApprovalActivity[] }) {
+export function PlanActivityTracker({ activities, initialStage, initialStageGroup, initialStageGroupLabel }: {
+  activities: PlanApprovalActivity[];
+  initialStage?: string;
+  /** For a KPI that spans several stages (e.g. "with activity owners") — no single Stage dropdown value can represent it, so it's tracked separately and shown as a removable chip. */
+  initialStageGroup?: PlanStage[];
+  initialStageGroupLabel?: string;
+}) {
   const [query, setQuery] = React.useState("");
   const [owner, setOwner] = React.useState(ALL);
-  const [stage, setStage] = React.useState<string>(ALL);
+  const [stage, setStage] = React.useState<string>(initialStage ?? ALL);
+  const [groupFilter, setGroupFilter] = React.useState<PlanStage[] | null>(initialStageGroup ?? null);
   const [range, setRange] = React.useState<DateRangeValue>({});
   const [openId, setOpenId] = React.useState<string | null>(null);
   const open = activities.find(a => a.id === openId) ?? null;
@@ -61,12 +68,13 @@ export function PlanActivityTracker({ activities }: { activities: PlanApprovalAc
 
   const rows = activities.filter(a =>
     (owner === ALL || (a.leadOwner || "Unassigned") === owner) &&
-    (stage === ALL || a.stage === stage) &&
+    (groupFilter ? groupFilter.includes(a.stage) : (stage === ALL || a.stage === stage)) &&
     overlapsDateRange(a.startDate, a.endDate, range) &&
     matchesSearch(query, a.title, a.initiative, a.responsible, a.leadOwner, a.deliverable)
   );
-  const filtered = query.trim() !== "" || owner !== ALL || stage !== ALL || isRangeSet(range);
-  const pagination = usePagination(rows, `${query}|${owner}|${stage}|${range.from}|${range.to}`, 25);
+  const filtered = query.trim() !== "" || owner !== ALL || stage !== ALL || groupFilter !== null || isRangeSet(range);
+  const pagination = usePagination(rows, `${query}|${owner}|${stage}|${groupFilter}|${range.from}|${range.to}`, 25);
+  const resetAll = () => { setQuery(""); setOwner(ALL); setStage(ALL); setGroupFilter(null); setRange({}); };
 
   return (
     <div className="space-y-4">
@@ -79,7 +87,7 @@ export function PlanActivityTracker({ activities }: { activities: PlanApprovalAc
             {owners.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={stage} onValueChange={setStage}>
+        <Select value={stage} onValueChange={v => { setStage(v); setGroupFilter(null); }}>
           <SelectTrigger className="h-9 w-full sm:w-64" aria-label="Stage"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>All stages</SelectItem>
@@ -90,14 +98,25 @@ export function PlanActivityTracker({ activities }: { activities: PlanApprovalAc
         </Select>
         <DateRangeFilter value={range} onChange={setRange} label="Any dates" hint="Shows activities that run at any point in this range." />
         {filtered && (
-          <Button variant="ghost" onClick={() => { setQuery(""); setOwner(ALL); setStage(ALL); setRange({}); }} className="h-9 px-3">
+          <Button variant="ghost" onClick={resetAll} className="h-9 px-3">
             Reset <X className="ml-1.5 h-4 w-4" />
           </Button>
         )}
         <p className="ml-auto text-sm text-muted-foreground">{rows.length} of {activities.length} activities</p>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border/50">
+      {groupFilter && (
+        <div className="flex items-center gap-1.5">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/[0.06] py-1 pl-3 pr-1.5 text-xs font-medium text-primary">
+            Filter: {initialStageGroupLabel ?? "Custom stage group"}
+            <button type="button" onClick={() => setGroupFilter(null)} aria-label="Clear this filter" className="rounded-full p-0.5 hover:bg-primary/10">
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        </div>
+      )}
+
+      <div className="overflow-x-auto rounded-xl border border-border/50 bg-card">
         <Table className="min-w-[980px]">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
