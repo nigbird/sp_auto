@@ -94,10 +94,10 @@ export default function RolesPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="rounded-xl border-border/50 shadow-[0_1px_2px_rgba(16,24,40,0.03),0_4px_12px_-8px_rgba(16,24,40,0.06)]">
         <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-          <div className="space-y-1.5">
-            <CardTitle>Roles & Permissions</CardTitle>
+          <div className="space-y-1">
+            <CardTitle className="text-2xl font-semibold text-foreground">Roles & Permissions</CardTitle>
             <CardDescription>
               Built-in roles can be edited but not deleted.
             </CardDescription>
@@ -109,51 +109,53 @@ export default function RolesPage() {
           )}
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Role Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Permissions</TableHead>
-                <TableHead><span className="sr-only">Actions</span></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center">
-                    Loading roles...
-                  </TableCell>
+          <div className="overflow-x-auto rounded-xl border border-border/50">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Role Name</TableHead>
+                  <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Type</TableHead>
+                  <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Permissions</TableHead>
+                  <TableHead><span className="sr-only">Actions</span></TableHead>
                 </TableRow>
-              ) : (
-                roles.map((role) => (
-                  <TableRow key={role.id}>
-                    <TableCell className="font-medium">{role.name}</TableCell>
-                    <TableCell>
-                      <Badge variant={role.isSystem ? "outline" : "secondary"}>
-                        {role.isSystem ? "Built-in" : "Custom"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{role.permissions.length} permissions</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button size="icon" variant="ghost" onClick={() => setEditingRole(role)}>
-                        {canManage ? <Edit className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        <span className="sr-only">{canManage ? "Edit" : "View"} {role.name}</span>
-                      </Button>
-                      {canManage && !role.isSystem && (
-                        <Button size="icon" variant="ghost" className="text-destructive" onClick={() => setDeletingRole(role)}>
-                          <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">Delete {role.name}</span>
-                        </Button>
-                      )}
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
+                      Loading roles...
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  roles.map((role) => (
+                    <TableRow key={role.id} className="border-border/50 hover:bg-muted/30">
+                      <TableCell className="py-3.5 font-medium text-foreground">{role.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={role.isSystem ? "border-border/60 bg-muted/60 font-medium text-muted-foreground" : "border-primary/30 bg-primary/[0.06] font-medium text-primary"}>
+                          {role.isSystem ? "Built-in" : "Custom"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="border-border/60 bg-muted/60 font-medium text-muted-foreground">{role.permissions.length} permissions</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button size="icon" variant="ghost" onClick={() => setEditingRole(role)}>
+                          {canManage ? <Edit className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          <span className="sr-only">{canManage ? "Edit" : "View"} {role.name}</span>
+                        </Button>
+                        {canManage && !role.isSystem && (
+                          <Button size="icon" variant="ghost" className="text-destructive" onClick={() => setDeletingRole(role)}>
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Delete {role.name}</span>
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 

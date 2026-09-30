@@ -115,12 +115,12 @@ export default function RulesPage() {
   };
 
   return (
-    <div className="flex-1 space-y-6">
+    <div className="flex-1 space-y-5">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-            <div>
-            <h2 className="text-xl font-semibold tracking-tight">Performance Rules</h2>
-            <p className="text-muted-foreground">
+            <div className="space-y-0.5">
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">Performance Rules</h2>
+            <p className="text-sm text-muted-foreground">
                 Define the criteria for how activity performance statuses are calculated.
             </p>
             </div>
@@ -131,9 +131,9 @@ export default function RulesPage() {
         </Button>
         )}
       </div>
-      <Card>
+      <Card className="rounded-xl border-border/50 shadow-[0_1px_2px_rgba(16,24,40,0.03),0_4px_12px_-8px_rgba(16,24,40,0.06)]">
         <CardHeader>
-          <CardTitle>Achievement Cap</CardTitle>
+          <CardTitle className="text-lg font-semibold text-foreground">Achievement Cap</CardTitle>
           <CardDescription>
             The maximum achievement percentage a KPI can be reported at, even if actual performance exceeds target.
           </CardDescription>
@@ -149,12 +149,12 @@ export default function RulesPage() {
                 className="w-32"
               />
               <span>%</span>
-              <Button size="icon" variant="ghost" onClick={handleSaveCap}><Save className="h-4 w-4 text-green-600" /></Button>
+              <Button size="icon" variant="ghost" onClick={handleSaveCap}><Save className="h-4 w-4 text-emerald-600" /></Button>
               <Button size="icon" variant="ghost" onClick={() => setIsEditingCap(false)}><X className="h-4 w-4 text-red-600" /></Button>
             </>
           ) : (
             <>
-              <span className="text-2xl font-bold">{achievementCap}%</span>
+              <span className="text-2xl font-bold tracking-tight text-primary">{achievementCap}%</span>
               {canManage && <Button size="icon" variant="ghost" onClick={handleEditCap}><Edit className="h-4 w-4" /></Button>}
             </>
           )}
@@ -162,30 +162,31 @@ export default function RulesPage() {
       </Card>
 
       <RatingBandsCard />
-      <Card>
+      <Card className="rounded-xl border-border/50 shadow-[0_1px_2px_rgba(16,24,40,0.03),0_4px_12px_-8px_rgba(16,24,40,0.06)]">
         <CardHeader>
-          <CardTitle>Status Definitions</CardTitle>
+          <CardTitle className="text-lg font-semibold text-foreground">Status Definitions</CardTitle>
           <CardDescription>
             These rules determine the status of an activity based on its progress percentage.
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="overflow-x-auto rounded-xl border border-border/50">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead className="w-[20%]">Activity Status</TableHead>
-                <TableHead>Definition</TableHead>
-                <TableHead className="w-[10%] text-center">From (%)</TableHead>
-                <TableHead className="w-[10%] text-center">To (%)</TableHead>
-                <TableHead className="w-[15%] text-center">Actions</TableHead>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="h-10 w-[20%] text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Activity Status</TableHead>
+                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Definition</TableHead>
+                <TableHead className="h-10 w-[10%] text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">From (%)</TableHead>
+                <TableHead className="h-10 w-[10%] text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">To (%)</TableHead>
+                <TableHead className="h-10 w-[15%] text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rules.map((rule) => {
                 const isEditing = editingId === rule.id;
                 return (
-                    <TableRow key={rule.id}>
-                        <TableCell className="font-medium">
+                    <TableRow key={rule.id} className="border-border/50 hover:bg-muted/30">
+                        <TableCell className="py-3.5 font-medium text-foreground">
                             {isEditing ? (
                                 <Input value={editedRule?.status || ''} onChange={(e) => handleRuleChange('status', e.target.value)} />
                             ) : (
@@ -225,7 +226,7 @@ export default function RulesPage() {
                                 <span className="text-xs text-muted-foreground">System Rule</span>
                             ) : !canManage ? null : isEditing ? (
                                 <div className="flex justify-center gap-2">
-                                    <Button size="icon" variant="ghost" onClick={handleSaveEdit}><Save className="h-4 w-4 text-green-600"/></Button>
+                                    <Button size="icon" variant="ghost" onClick={handleSaveEdit}><Save className="h-4 w-4 text-emerald-600"/></Button>
                                     <Button size="icon" variant="ghost" onClick={handleCancelEdit}><X className="h-4 w-4 text-red-600"/></Button>
                                 </div>
                             ) : (
@@ -240,6 +241,7 @@ export default function RulesPage() {
               })}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
         {canManage && <CardFooter className="justify-end border-t pt-6">
             <Button onClick={handleSaveChanges}>

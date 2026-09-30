@@ -47,6 +47,7 @@ import { InviteLinkDialog } from "@/components/settings/invite-link-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } from "@/components/list-controls";
 import { inDateRange, isRangeSet, matchesSearch, type DateRangeValue } from "@/lib/list-filters";
+import { cn } from "@/lib/utils";
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -182,10 +183,10 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="rounded-xl border-border/50 shadow-[0_1px_2px_rgba(16,24,40,0.03),0_4px_12px_-8px_rgba(16,24,40,0.06)]">
         <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-          <div className="space-y-1.5">
-            <CardTitle>Users</CardTitle>
+          <div className="space-y-1">
+            <CardTitle className="text-2xl font-semibold text-foreground">Users</CardTitle>
             <CardDescription>
               Everyone who can sign in.
             </CardDescription>
@@ -200,18 +201,18 @@ export default function UsersPage() {
           <ListToolbar count={narrowed ? `${matchingUsers.length} of ${users.length} users match` : `${users.length} users`}>
             <SearchBox value={query} onChange={setQuery} placeholder="Search name, email, role, lead owner or department" className="sm:w-96" />
             <DateRangeFilter value={range} onChange={setRange} label="Any creation date" hint="Shows users created in this range." />
-            {narrowed && <Button variant="ghost" className="h-10 px-3" onClick={() => { setQuery(""); setRange({}); }}>Reset</Button>}
+            {narrowed && <Button variant="ghost" className="h-9 px-3" onClick={() => { setQuery(""); setRange({}); }}>Reset</Button>}
           </ListToolbar>
-          <div className="overflow-x-auto rounded-md border">
+          <div className="overflow-x-auto rounded-xl border border-border/50">
            <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Lead Owner</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created At</TableHead>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">User</TableHead>
+                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Role</TableHead>
+                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Lead Owner</TableHead>
+                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Department</TableHead>
+                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Status</TableHead>
+                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Created At</TableHead>
                 <TableHead><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>
@@ -230,29 +231,29 @@ export default function UsersPage() {
                 </TableRow>
               ) : (
                 userPages.items.map((user) => (
-                <TableRow key={user.email}>
-                    <TableCell>
+                <TableRow key={user.email} className="border-border/50 hover:bg-muted/30">
+                    <TableCell className="py-3.5">
                         <div className="flex items-center gap-3">
                             <Avatar>
                                 <AvatarImage src={user.avatar} alt={user.name} data-ai-hint="person" />
                                 <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                             </Avatar>
                             <div>
-                                <p className="font-medium">{user.name}</p>
+                                <p className="font-medium text-foreground">{user.name}</p>
                                 <p className="text-sm text-muted-foreground">{user.email}</p>
                             </div>
                         </div>
                     </TableCell>
-                  <TableCell>{user.role}</TableCell>
-                  <TableCell className="max-w-[220px]">{user.leadOwner ?? <span className="text-muted-foreground">—</span>}</TableCell>
-                  <TableCell>{user.department ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                  <TableCell className="text-sm text-foreground/90">{user.role}</TableCell>
+                  <TableCell className="max-w-[220px] text-sm text-foreground/90">{user.leadOwner ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                  <TableCell className="text-sm text-foreground/90">{user.department ?? <span className="text-muted-foreground">—</span>}</TableCell>
                    <TableCell>
-                    <Badge variant={user.status === 'Active' ? 'default' : 'secondary'} className={user.status === 'Active' ? 'bg-green-500/20 text-green-700 border-green-400' : ''}>
+                    <Badge variant="outline" className={cn("whitespace-nowrap font-medium", user.status === 'Active' ? "border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-700" : "border-border/60 bg-muted/60 text-muted-foreground")}>
                       {user.status}
                     </Badge>
                     <InviteStatus user={user} />
                   </TableCell>
-                  <TableCell>{format(new Date(user.createdAt), "PP")}</TableCell>
+                  <TableCell className="text-sm text-foreground/90">{format(new Date(user.createdAt), "PP")}</TableCell>
                   <TableCell>
                     {canManage && (
                     <DropdownMenu>

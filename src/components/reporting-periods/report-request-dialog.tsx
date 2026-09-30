@@ -19,10 +19,10 @@ export function ReportSummaryBadges({ summary }: { summary?: ReportSummary }) {
   if (!summary || summary.total === 0) return null;
   return (
     <div className="flex flex-wrap justify-center gap-1 text-[10px]">
-      <Badge variant="outline" className="border-green-500 text-green-600 bg-green-500/10">{summary.approved}/{summary.total} approved</Badge>
-      {summary.submitted > 0 && <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-500/10">{summary.submitted} to review</Badge>}
-      {summary.requested > 0 && <Badge variant="outline">{summary.requested} not submitted</Badge>}
-      {summary.returned > 0 && <Badge variant="destructive">{summary.returned} returned</Badge>}
+      <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/[0.07] font-medium text-emerald-700">{summary.approved}/{summary.total} approved</Badge>
+      {summary.submitted > 0 && <Badge variant="outline" className="border-blue-500/25 bg-blue-500/[0.06] font-medium text-blue-700">{summary.submitted} to review</Badge>}
+      {summary.requested > 0 && <Badge variant="outline" className="border-border/60 bg-muted/60 font-medium text-muted-foreground">{summary.requested} not submitted</Badge>}
+      {summary.returned > 0 && <Badge variant="outline" className="border-red-400/30 bg-red-500/[0.06] font-medium text-red-700">{summary.returned} returned</Badge>}
     </div>
   );
 }

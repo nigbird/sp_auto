@@ -93,9 +93,9 @@ export default function DepartmentsPage() {
   ].filter(Boolean).join(", ");
 
   return (
-    <Card>
+    <Card className="rounded-xl border-border/50 shadow-[0_1px_2px_rgba(16,24,40,0.03),0_4px_12px_-8px_rgba(16,24,40,0.06)]">
       <CardHeader>
-        <CardTitle>Departments</CardTitle>
+        <CardTitle className="text-lg font-semibold text-foreground">Departments</CardTitle>
         <p className="text-sm text-muted-foreground">Activities can only be assigned to a department on this list.</p>
         {canManage && <div className="mt-2 flex flex-wrap gap-2">
           <Input
@@ -111,14 +111,15 @@ export default function DepartmentsPage() {
         </div>}
       </CardHeader>
       <CardContent>
+        <div className="overflow-x-auto rounded-xl border border-border/50">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Lead Owners</TableHead>
-              <TableHead className="text-right">People</TableHead>
-              <TableHead className="text-right">Activities</TableHead>
-              <TableHead className="w-[140px] text-center">Actions</TableHead>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Name</TableHead>
+              <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Lead Owners</TableHead>
+              <TableHead className="h-10 text-right text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">People</TableHead>
+              <TableHead className="h-10 text-right text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Activities</TableHead>
+              <TableHead className="h-10 w-[140px] text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -134,8 +135,8 @@ export default function DepartmentsPage() {
               </TableRow>
             )}
             {departments?.map((department) => (
-              <TableRow key={department.id}>
-                <TableCell className="font-medium">
+              <TableRow key={department.id} className="border-border/50 hover:bg-muted/30">
+                <TableCell className="py-3.5 font-medium text-foreground">
                   {!canManage ? null : editingId === department.id ? (
                     <Input
                       value={editingName}
@@ -152,14 +153,14 @@ export default function DepartmentsPage() {
                 <TableCell>
                   {department.leadOwners.length === 0
                     ? <span className="text-muted-foreground">—</span>
-                    : <div className="flex flex-wrap gap-1">{department.leadOwners.map(l => <Badge key={l} variant="secondary">{l}</Badge>)}</div>}
+                    : <div className="flex flex-wrap gap-1">{department.leadOwners.map(l => <Badge key={l} variant="outline" className="border-border/60 bg-muted/60 font-medium text-muted-foreground">{l}</Badge>)}</div>}
                 </TableCell>
-                <TableCell className="text-right">{department.people || <span className="text-muted-foreground">0</span>}</TableCell>
-                <TableCell className="text-right">{department.activities || <span className="text-muted-foreground">0</span>}</TableCell>
+                <TableCell className="text-right text-foreground/90">{department.people || <span className="text-muted-foreground">0</span>}</TableCell>
+                <TableCell className="text-right text-foreground/90">{department.activities || <span className="text-muted-foreground">0</span>}</TableCell>
                 <TableCell className="text-center">
                   {editingId === department.id ? (
                     <>
-                      <Button size="icon" variant="ghost" aria-label="Save" onClick={() => requestRename(department)}><Check className="h-4 w-4 text-green-600" /></Button>
+                      <Button size="icon" variant="ghost" aria-label="Save" onClick={() => requestRename(department)}><Check className="h-4 w-4 text-emerald-600" /></Button>
                       <Button size="icon" variant="ghost" aria-label="Cancel" onClick={cancelEdit}><X className="h-4 w-4 text-muted-foreground" /></Button>
                     </>
                   ) : (
@@ -173,6 +174,7 @@ export default function DepartmentsPage() {
             ))}
           </TableBody>
         </Table>
+        </div>
         <p className="mt-3 text-xs text-muted-foreground">
           Lead owners are listed under their default department — set it on the <Link href="/settings/organization/lead-owners" className="underline underline-offset-2">Lead Owners</Link> tab.
         </p>

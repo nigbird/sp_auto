@@ -24,6 +24,7 @@ import { getReportSummaries } from "@/actions/period-reports";
 import { ReportRequestButton, ReportSummaryBadges, type ReportSummary } from "@/components/reporting-periods/report-request-dialog";
 import { usePermissions } from "@/components/permissions-provider";
 import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
+import { cn } from "@/lib/utils";
 
 type EditableFields = { name: string; startDate: string; endDate: string; cutOffDate: string };
 
@@ -134,12 +135,12 @@ export default function ReportingPeriodsPage() {
   };
 
   return (
-    <div className="flex-1 space-y-6">
+    <div className="flex-1 space-y-5">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div>
-            <h2 className="text-xl font-semibold tracking-tight">Reporting Periods</h2>
-            <p className="text-muted-foreground">
+          <div className="space-y-0.5">
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">Reporting Periods</h2>
+            <p className="text-sm text-muted-foreground">
               Define the reporting calendar and cut-off dates for a strategic plan.
             </p>
           </div>
@@ -151,12 +152,12 @@ export default function ReportingPeriodsPage() {
         )}
       </div>
 
-      <Card>
+      <Card className="rounded-xl border-border/50 shadow-[0_1px_2px_rgba(16,24,40,0.03),0_4px_12px_-8px_rgba(16,24,40,0.06)]">
         <CardHeader>
-          <CardTitle>Periods</CardTitle>
+          <CardTitle className="text-base font-semibold text-foreground">Periods</CardTitle>
           <CardDescription>
             <Select value={selectedPlanId ?? ""} onValueChange={setSelectedPlanId}>
-              <SelectTrigger className="w-full sm:w-[280px] mt-2">
+              <SelectTrigger className="mt-2 h-9 w-full rounded-xl sm:w-[280px]">
                 <SelectValue placeholder="Select a strategic plan" />
               </SelectTrigger>
               <SelectContent>
@@ -171,16 +172,17 @@ export default function ReportingPeriodsPage() {
         </CardHeader>
         <CardContent>
           {editError && <p className="mb-3 text-sm font-medium text-destructive">{editError}</p>}
+          <div className="overflow-x-auto rounded-xl border border-border/50">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Start Date</TableHead>
-                <TableHead>End Date</TableHead>
-                <TableHead>Cut-off Date</TableHead>
-                <TableHead className="text-center">Status</TableHead>
-                <TableHead className="text-center">Report Request</TableHead>
-                <TableHead className="text-center">Actions</TableHead>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Name</TableHead>
+                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Start Date</TableHead>
+                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">End Date</TableHead>
+                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Cut-off Date</TableHead>
+                <TableHead className="h-10 text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Status</TableHead>
+                <TableHead className="h-10 text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Report Request</TableHead>
+                <TableHead className="h-10 text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -195,8 +197,8 @@ export default function ReportingPeriodsPage() {
               {periods.map((period) => {
                 const isEditing = editingId === period.id;
                 return (
-                  <TableRow key={period.id}>
-                    <TableCell className="font-medium">
+                  <TableRow key={period.id} className="border-border/50 hover:bg-muted/30">
+                    <TableCell className="py-3.5 font-medium text-foreground">
                       {isEditing ? (
                         <Input value={editedFields?.name || ""} onChange={(e) => handleFieldChange("name", e.target.value)} />
                       ) : (
@@ -226,11 +228,11 @@ export default function ReportingPeriodsPage() {
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex flex-col items-center gap-1">
-                        <Badge variant={period.status === "OPEN" ? "outline" : "secondary"} className={period.status === "OPEN" ? "border-green-500 text-green-600 bg-green-500/10" : ""}>
+                        <Badge variant="outline" className={cn("font-medium", period.status === "OPEN" ? "border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-700" : "border-border/60 bg-muted/60 text-muted-foreground")}>
                           {period.status}
                         </Badge>
                         {period.status === "OPEN" && isCutOffPassed(period) && (
-                          <Badge variant="outline" className="border-amber-500 text-amber-600 bg-amber-500/10 text-[10px]">
+                          <Badge variant="outline" className="border-amber-500/30 bg-amber-500/[0.06] text-[10px] font-medium text-amber-700">
                             Cut-off passed
                           </Badge>
                         )}
@@ -275,6 +277,7 @@ export default function ReportingPeriodsPage() {
               })}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

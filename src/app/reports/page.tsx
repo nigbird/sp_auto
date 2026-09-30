@@ -31,11 +31,11 @@ export default async function PerformanceReportsPage({ searchParams }: { searchP
     .filter(p => p.objectives.length > 0);
 
   return (
-    <div className="flex-1 space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Performance Report</h1>
-          <p className="text-muted-foreground">
+    <div className="flex-1 space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Performance Report</h1>
+          <p className="text-sm text-muted-foreground">
             {ownOnly ? "Plan vs. actual for your activities, by reporting period." : "Plan vs. actual by reporting period."}
           </p>
         </div>
@@ -60,7 +60,7 @@ export default async function PerformanceReportsPage({ searchParams }: { searchP
       </div>
 
       {plan && performance ? (
-        <Card>
+        <Card className="rounded-xl border-border/50 shadow-[0_1px_2px_rgba(16,24,40,0.03),0_4px_12px_-8px_rgba(16,24,40,0.06)]">
           <CardContent className="space-y-4 pt-6">
             <PlanSelect plans={plans} value={plan.id} />
             <PerformanceReportTable

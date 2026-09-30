@@ -5,10 +5,10 @@ export default async function SettingsLayout({ children }: { children: React.Rea
   const { denied } = await guardPage("settings:view");
   if (denied) return denied;
   return (
-    <div className="flex-1 space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Configuration</h1>
-        <p className="text-muted-foreground">
+    <div className="flex-1 space-y-5">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Configuration</h1>
+        <p className="text-sm text-muted-foreground">
           System-wide configuration for planning and reporting.
         </p>
       </div>

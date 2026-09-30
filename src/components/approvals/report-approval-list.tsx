@@ -2,6 +2,7 @@
 
 import { Can } from "@/components/permissions-provider";
 import * as React from "react";
+import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../ui/card";
@@ -21,8 +22,8 @@ import { inDateRange, isRangeSet, matchesSearch, type DateRangeValue } from "@/l
 function Field({ label, children, wide }: { label: string; children: React.ReactNode; wide?: boolean }) {
   return (
     <div className={wide ? "col-span-2 md:col-span-4" : undefined}>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <div className="text-sm whitespace-pre-wrap">{children || '—'}</div>
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <div className="mt-1 whitespace-pre-wrap text-sm text-foreground/90">{children || '—'}</div>
     </div>
   );
 }
@@ -95,9 +96,9 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
   return (
     <div className="space-y-4">
       <ListToolbar count={narrowed ? `${matching.length} of ${reports.length} reports match` : `${reports.length} waiting`}>
-        <SearchBox value={query} onChange={setQuery} placeholder="Search activity, owner, initiative or period" />
+        <SearchBox value={query} onChange={setQuery} placeholder="Search activity, owner, initiative or period" className="sm:w-80" />
         <DateRangeFilter value={range} onChange={setRange} label="Any submission date" hint="Shows reports submitted in this range." />
-        {narrowed && <Button variant="ghost" className="h-10 px-3" onClick={() => { setQuery(""); setRange({}); }}>Reset</Button>}
+        {narrowed && <Button variant="ghost" className="h-9 px-3" onClick={() => { setQuery(""); setRange({}); }}>Reset</Button>}
       </ListToolbar>
       {matching.length === 0 && (
         <Card><CardContent className="pt-6"><p className="text-center text-muted-foreground">No waiting reports match the search or dates.</p></CardContent></Card>
@@ -111,25 +112,25 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
         );
         const t = activity.targetType;
         return (
-          <Card key={entry.id}>
+          <Card key={entry.id} className="rounded-xl border-border/50 shadow-[0_1px_2px_rgba(16,24,40,0.03),0_4px_12px_-8px_rgba(16,24,40,0.06)]">
             <CardHeader className="flex flex-row items-start justify-between gap-4 pb-3">
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-semibold">{activity.title}</h3>
-                  <Badge variant="secondary">{period.name}</Badge>
+                  <h3 className="text-[15px] font-semibold leading-snug text-foreground">{activity.title}</h3>
+                  <Badge variant="outline" className="border-border/60 bg-muted/60 font-medium text-muted-foreground">{period.name}</Badge>
                 </div>
-                {activity.initiative && <p className="text-xs text-muted-foreground">{activity.initiative.objective.pillar.title} → {activity.initiative.objective.statement} → {activity.initiative.title}</p>}
-                <p className="text-sm text-muted-foreground">
+                {activity.initiative && <p className="text-xs text-muted-foreground/90">{activity.initiative.objective.pillar.title} → {activity.initiative.objective.statement} → {activity.initiative.title}</p>}
+                <p className="text-xs text-muted-foreground/90">
                   {activity.responsible?.name ?? 'Unassigned'} · Target {activity.annualTarget != null ? formatTargetValue(activity.annualTarget, t) : '—'} · Weight {formatWeight(activity.weight)}
                   {entry.submittedAt && ` · submitted ${format(new Date(entry.submittedAt), 'PPp')}`}
                 </p>
               </div>
-              <Badge variant="outline" className={row.isBehindPlan ? "border-amber-500 text-amber-600 bg-amber-500/10" : "border-green-500 text-green-600 bg-green-500/10"}>
+              <Badge variant="outline" className={cn("whitespace-nowrap font-medium", row.isBehindPlan ? "border-amber-500/30 bg-amber-500/[0.06] text-amber-700" : "border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-700")}>
                 {row.isBehindPlan ? 'Behind plan' : 'On plan'}
               </Badge>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 rounded-md border bg-sky-500/5 p-3">
+              <div className="grid grid-cols-2 gap-4 border-t border-border/50 pt-4 sm:grid-cols-4">
                 <Field label="Plan up to the period">{formatTargetValue(row.planToDate, t)}</Field>
                 <Field label="Actual up to the period">{entry.actualToDate != null ? formatTargetValue(entry.actualToDate, t) : null}</Field>
                 <Field label="Completion date">{entry.completionDate ? format(new Date(entry.completionDate), 'PP') : null}</Field>
@@ -139,7 +140,7 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
                 <div className="col-span-2"><Field label="The way forward">{entry.wayForward}</Field></div>
               </div>
               <ReportEvidence entryId={entry.id} files={entry.evidence ?? []} />
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-4 border-t border-border/50 pt-4 text-sm sm:grid-cols-4">
                 <Field label="%age Achiev't">{formatRatio(row.achievement)}</Field>
                 <Field label="Date delayed">{row.daysDelayed != null ? `${row.daysDelayed} days` : null}</Field>
                 <Field label="%age Achiev't with delay">{formatRatio(row.achievementWithDelay)}</Field>
@@ -150,9 +151,9 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
                 <Field label="Achieved result">{formatRatio(row.achievedResult)}</Field>
               </div>
               <Can anyOf={["report-approvals:approve"]}>
-              <div className="flex justify-end gap-2">
-                <Button variant="destructive" disabled={busyId === entry.id} onClick={() => { setReturning(entry); setReasonError(null); }}>Return</Button>
-                <Button className="bg-green-600 hover:bg-green-700" disabled={busyId === entry.id} onClick={() => handleApprove(entry)}>
+              <div className="flex justify-end gap-2 border-t border-border/50 pt-4">
+                <Button variant="outline" className="text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={busyId === entry.id} onClick={() => { setReturning(entry); setReasonError(null); }}>Return</Button>
+                <Button className="bg-emerald-600 hover:bg-emerald-700" disabled={busyId === entry.id} onClick={() => handleApprove(entry)}>
                   {busyId === entry.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Approve
                 </Button>
               </div>

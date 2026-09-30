@@ -7,9 +7,9 @@ import { PageTabs } from "@/components/page-tabs";
 export default function OrganizationLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex-1 space-y-4">
-      <div>
-        <h2 className="text-xl font-semibold tracking-tight">Organization</h2>
-        <p className="text-muted-foreground">
+      <div className="space-y-0.5">
+        <h2 className="text-lg font-semibold tracking-tight text-foreground">Organization</h2>
+        <p className="text-sm text-muted-foreground">
           The departments activities belong to, and the lead-owner offices (e.g. &ldquo;Chief Strategy Officer&rdquo;) that lead them. Link people to both under Users &amp; Roles.
         </p>
       </div>

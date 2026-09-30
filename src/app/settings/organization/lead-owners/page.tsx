@@ -26,7 +26,7 @@ interface LeadOwnerRow {
 function DepartmentSelect({ value, onChange, departments }: { value: string; onChange: (v: string) => void; departments: string[] }) {
   return (
     <Select value={value || NONE} onValueChange={(v) => onChange(v === NONE ? "" : v)}>
-      <SelectTrigger className="w-[240px]"><SelectValue placeholder="No default department" /></SelectTrigger>
+      <SelectTrigger className="h-9 w-[240px]"><SelectValue placeholder="No default department" /></SelectTrigger>
       <SelectContent>
         <SelectItem value={NONE}>No default department</SelectItem>
         {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
@@ -108,9 +108,9 @@ export default function LeadOwnersPage() {
 
   return (
     <div className="flex-1 space-y-6">
-      <Card>
+      <Card className="rounded-xl border-border/50 shadow-[0_1px_2px_rgba(16,24,40,0.03),0_4px_12px_-8px_rgba(16,24,40,0.06)]">
         <CardHeader>
-          <CardTitle>Lead Owners</CardTitle>
+          <CardTitle className="text-lg font-semibold text-foreground">Lead Owners</CardTitle>
           <p className="text-sm text-muted-foreground">
             Link each person to their office under Users &amp; Roles — plan imports then match offices to people automatically.
           </p>
@@ -129,13 +129,14 @@ export default function LeadOwnersPage() {
           </div>}
         </CardHeader>
         <CardContent>
+          <div className="overflow-x-auto rounded-xl border border-border/50">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Lead Owner</TableHead>
-                <TableHead>Default Department</TableHead>
-                <TableHead>Held By</TableHead>
-                <TableHead className="w-[140px] text-center">Actions</TableHead>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Lead Owner</TableHead>
+                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Default Department</TableHead>
+                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Held By</TableHead>
+                <TableHead className="h-10 w-[140px] text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -148,8 +149,8 @@ export default function LeadOwnersPage() {
                 </TableRow>
               )}
               {leadOwners.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell className="font-medium">
+                <TableRow key={row.id} className="border-border/50 hover:bg-muted/30">
+                  <TableCell className="py-3.5 font-medium text-foreground">
                     {!canManage ? null : editingId === row.id ? (
                       <Input
                         value={editingName}
@@ -163,20 +164,20 @@ export default function LeadOwnersPage() {
                       />
                     ) : row.name}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-foreground/90">
                     {editingId === row.id
                       ? <DepartmentSelect value={editingDepartment} onChange={setEditingDepartment} departments={departments} />
                       : row.department ?? <span className="text-muted-foreground">—</span>}
                   </TableCell>
                   <TableCell>
                     {row.users.length === 0
-                      ? <Badge variant="outline" className="border-amber-500 text-amber-600">No one yet</Badge>
-                      : <div className="flex flex-wrap gap-1">{row.users.map(u => <Badge key={u.id} variant="secondary">{u.name}</Badge>)}</div>}
+                      ? <Badge variant="outline" className="border-amber-500/30 bg-amber-500/[0.06] font-medium text-amber-700">No one yet</Badge>
+                      : <div className="flex flex-wrap gap-1">{row.users.map(u => <Badge key={u.id} variant="outline" className="border-border/60 bg-muted/60 font-medium text-muted-foreground">{u.name}</Badge>)}</div>}
                   </TableCell>
                   <TableCell className="text-center">
                     {editingId === row.id ? (
                       <>
-                        <Button size="icon" variant="ghost" aria-label="Save" onClick={() => handleUpdate(row.id)}><Check className="h-4 w-4 text-green-600" /></Button>
+                        <Button size="icon" variant="ghost" aria-label="Save" onClick={() => handleUpdate(row.id)}><Check className="h-4 w-4 text-emerald-600" /></Button>
                         <Button size="icon" variant="ghost" aria-label="Cancel" onClick={cancelEdit}><X className="h-4 w-4 text-muted-foreground" /></Button>
                       </>
                     ) : (
@@ -190,6 +191,7 @@ export default function LeadOwnersPage() {
               ))}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 

@@ -133,11 +133,11 @@ function ScrollFrame({ children, resetKey }: { children: ReactNode; resetKey: st
 
   return (
     <div className="relative">
-      <div ref={ref} className="max-h-[70vh] overflow-auto rounded-md border">
+      <div ref={ref} className="max-h-[70vh] overflow-auto rounded-xl border border-border/50">
         {children}
       </div>
       <div className={cn(
-        "pointer-events-none absolute inset-y-px right-px w-10 rounded-r-md bg-gradient-to-l from-background to-transparent transition-opacity",
+        "pointer-events-none absolute inset-y-px right-px w-10 rounded-r-xl bg-gradient-to-l from-background to-transparent transition-opacity",
         more.right ? "opacity-100" : "opacity-0"
       )} />
       {more.right && !more.left && (

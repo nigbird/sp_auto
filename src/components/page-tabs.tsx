@@ -18,14 +18,14 @@ export function PageTabs({ tabs }: { tabs: PageTab[] }) {
     .sort((a, b) => b.href.length - a.href.length)[0];
 
   return (
-    <nav className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground">
+    <nav className="inline-flex h-9 items-center justify-center rounded-xl bg-muted/70 p-1 text-muted-foreground">
       {tabs.map((tab) => (
         <Link
           key={tab.href}
           href={tab.href}
           className={cn(
-            "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all",
-            tab === active && "bg-background text-foreground shadow-sm"
+            "inline-flex items-center justify-center whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all",
+            tab === active && "bg-card text-foreground shadow-sm"
           )}
         >
           {tab.label}
