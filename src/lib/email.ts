@@ -1,3 +1,4 @@
+import { readFileSync } from 'fs';
 import nodemailer, { type Transporter } from 'nodemailer';
 
 /**
@@ -6,6 +7,11 @@ import nodemailer, { type Transporter } from 'nodemailer';
  * and optionally MAIL_FROM. EMAIL_ENABLED=false switches sending off. When
  * sending is off or SMTP_HOST isn't set, messages are written to the server
  * console instead, so links can still be followed by hand.
+ *
+ * Internal mail servers often present a certificate signed by the organisation's
+ * own CA, which Node does not trust (it ignores the Windows certificate store).
+ * Point SMTP_TLS_CA_FILE at that CA's .pem file, or as a last resort set
+ * SMTP_TLS_REJECT_UNAUTHORIZED=false to skip certificate checks.
  */
 
 let transporter: Transporter | null = null;
@@ -24,6 +30,13 @@ export function isEmailConfigured(): boolean {
   return process.env.EMAIL_ENABLED?.trim().toLowerCase() !== 'false' && !!process.env.SMTP_HOST;
 }
 
+function tlsOptions() {
+  const caFile = process.env.SMTP_TLS_CA_FILE?.trim();
+  const rejectUnauthorized = process.env.SMTP_TLS_REJECT_UNAUTHORIZED?.trim().toLowerCase() !== 'false';
+  if (!rejectUnauthorized) console.warn('[email] SMTP_TLS_REJECT_UNAUTHORIZED=false — the mail server certificate is not being checked.');
+  return { rejectUnauthorized, ...(caFile ? { ca: readFileSync(caFile) } : {}) };
+}
+
 function getTransporter(): Transporter {
   if (!transporter) {
     const port = Number(process.env.SMTP_PORT || 587);
@@ -34,6 +47,7 @@ function getTransporter(): Transporter {
       port,
       secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE.trim() === 'true' : port === 465,
       auth: user ? { user, pass: smtpPassword() } : undefined,
+      tls: tlsOptions(),
     });
   }
   return transporter;
