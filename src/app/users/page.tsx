@@ -342,7 +342,7 @@ export default function UsersPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel onClick={() => setSelectedUser(null)}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                <AlertDialogAction onClick={handleDeleteUser} className="border border-destructive/30 bg-destructive/10 text-destructive hover:border-destructive/40 hover:bg-destructive/15">Delete</AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -210,7 +210,7 @@ export default function DepartmentsPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             {!(deleting && deleting.activities > 0) && (
-              <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+              <AlertDialogAction onClick={handleDelete} className="border border-destructive/30 bg-destructive/10 text-destructive hover:border-destructive/40 hover:bg-destructive/15">Delete</AlertDialogAction>
             )}
           </AlertDialogFooter>
         </AlertDialogContent>

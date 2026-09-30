@@ -152,7 +152,7 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
               </div>
               <Can anyOf={["report-approvals:approve"]}>
               <div className="flex justify-end gap-2 border-t border-border/50 pt-4">
-                <Button variant="outline" className="text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={busyId === entry.id} onClick={() => { setReturning(entry); setReasonError(null); }}>Return</Button>
+                <Button variant="destructive" disabled={busyId === entry.id} onClick={() => { setReturning(entry); setReasonError(null); }}>Return</Button>
                 <Button className="bg-emerald-600 hover:bg-emerald-700" disabled={busyId === entry.id} onClick={() => handleApprove(entry)}>
                   {busyId === entry.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Approve
                 </Button>

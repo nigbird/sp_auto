@@ -99,18 +99,18 @@ export function PerformanceReportTable({ planId, pillars, periods, selected, ent
         <span className="text-sm text-muted-foreground">Reporting period:</span>
         {requested.map(p => (
           <Link key={p.id} href={`/reports?plan=${planId}&period=${p.id}`} scroll={false}
-            className={cn("rounded-md border px-2.5 py-1 text-sm", p.id === selected.id ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted")}>
+            className={cn("rounded-lg border px-2.5 py-1 text-sm transition-colors", p.id === selected.id ? "border-primary bg-primary text-primary-foreground" : "border-border/60 hover:bg-muted/50")}>
             {p.name}
           </Link>
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Stat label="Reports approved" value={`${approvedRows.length} of ${reportCount}`} />
+      <div className="flex flex-wrap overflow-hidden rounded-xl border border-border/50 bg-card sm:flex-nowrap">
+        <Stat label="Reports approved" value={`${approvedRows.length} of ${reportCount}`} first />
         <Stat label="Weighted plan" value={formatWeight(total.weightedPlan)} />
         <Stat label="Weighted actual" value={formatWeight(total.weightedActual)} />
         <Stat label="Weighted actual with delay" value={formatWeight(total.weightedActualWithDelay)} />
-        <Stat label="Achieved result" value={formatRatio(total.achievedResult)} sub={total.status} />
+        <Stat label="Achieved result" value={formatRatio(total.achievedResult)} sub={total.status} accent />
       </div>
 
       <PerformanceReportGrid pillars={grid} />
@@ -123,12 +123,12 @@ export function PerformanceReportTable({ planId, pillars, periods, selected, ent
   );
 }
 
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function Stat({ label, value, sub, accent, first }: { label: string; value: string; sub?: string; accent?: boolean; first?: boolean }) {
   return (
-    <div className="rounded-md border p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-lg font-semibold">{value}</p>
-      {sub && <p className={cn("text-xs", statusClass(sub))}>{sub}</p>}
+    <div className={cn("min-w-[9rem] flex-1 basis-1/2 px-4 py-3.5 sm:basis-0", !first && "border-l border-border/50")}>
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={cn("mt-2 text-2xl font-bold leading-none tracking-tight", accent ? "text-primary" : "text-foreground")}>{value}</p>
+      {sub && <p className={cn("mt-1.5 text-xs font-medium", statusClass(sub))}>{sub}</p>}
     </div>
   );
 }

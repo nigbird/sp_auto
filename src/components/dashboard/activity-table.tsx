@@ -483,7 +483,7 @@ export function ActivityTable({ activities: initialActivities, users, statuses, 
                 </div>
                  <AlertDialogFooter>
                     <AlertDialogCancel onClick={() => setIsDeclineModalOpen(false)}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={confirmDecline} className="bg-destructive hover:bg-destructive/90">Confirm Decline</AlertDialogAction>
+                    <AlertDialogAction onClick={confirmDecline} className="border border-destructive/30 bg-destructive/10 text-destructive hover:border-destructive/40 hover:bg-destructive/15">Confirm Decline</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
