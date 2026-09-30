@@ -1,7 +1,7 @@
 "use client";
 
 import { usePermissions } from "@/components/permissions-provider";
-import { MoreHorizontal, UserPlus, Trash2, Mail } from "lucide-react";
+import { MoreHorizontal, UserPlus, Mail, UserCheck, UserX, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -39,7 +39,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
-import { getUsers, createUser, updateUser, deleteUser, resendInvite, type InviteOutcome } from "@/actions/users";
+import { getUsers, createUser, updateUser, setUserStatus, resendInvite, type InviteOutcome } from "@/actions/users";
 import type { User } from "@/lib/types";
 import { format, formatDistanceToNow } from "date-fns";
 import { UserForm, UserFormValues } from "@/components/settings/user-form";
@@ -49,12 +49,15 @@ import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } fr
 import { inDateRange, isRangeSet, matchesSearch, type DateRangeValue } from "@/lib/list-filters";
 import { cn } from "@/lib/utils";
 
+const statusLabel = (status: User['status']) => (status === 'ACTIVE' ? 'Active' : 'Inactive');
+
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [statusTarget, setStatusTarget] = useState<User | null>(null);
+  const [isChangingStatus, setIsChangingStatus] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [manualInvite, setManualInvite] = useState<{ name: string; email: string; link: string } | null>(null);
   const [resendingId, setResendingId] = useState<string | null>(null);
@@ -65,7 +68,7 @@ export default function UsersPage() {
   const narrowed = query.trim() !== "" || isRangeSet(range);
   const matchingUsers = users.filter(u =>
     inDateRange(u.createdAt, range) &&
-    matchesSearch(query, u.name, u.email, u.role, u.leadOwner, u.department, u.status));
+    matchesSearch(query, u.name, u.email, u.role, u.leadOwner, u.department, statusLabel(u.status)));
   const userPages = usePagination(matchingUsers, `${query}|${range.from}|${range.to}`);
 
   /** Tells the admin the invite went out, or hands them the link when it couldn't be emailed. */
@@ -101,24 +104,33 @@ export default function UsersPage() {
     fetchData();
   }, []);
 
-  const handleToggleStatus = async (user: User) => {
-    const newStatus = user.status === 'Active' ? 'Inactive' : 'Active';
-    await updateUser(user.email, { status: newStatus });
-    setUsers(users.map(u => u.email === user.email ? { ...u, status: newStatus } : u));
-    toast({
-        title: "Status Updated",
-        description: `${user.name}'s status has been updated to ${newStatus}.`,
-    });
+  const handleConfirmStatus = async () => {
+    if (!statusTarget) return;
+    const user = statusTarget;
+    const newStatus = user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    setIsChangingStatus(true);
+    try {
+      const result = await setUserStatus(user.id, newStatus);
+      if (!result.success) {
+        toast({ title: newStatus === 'ACTIVE' ? "Could Not Activate User" : "Could Not Deactivate User", description: result.message, variant: "destructive" });
+        return;
+      }
+      setUsers(await getUsers());
+      toast({
+        title: newStatus === 'ACTIVE' ? "User Activated" : "User Deactivated",
+        description: newStatus === 'ACTIVE'
+          ? `${user.name} can sign in again.`
+          : `${user.name} has been signed out and can no longer sign in.`,
+      });
+      setStatusTarget(null);
+    } finally {
+      setIsChangingStatus(false);
+    }
   };
 
   const handleEditClick = (user: User) => {
     setSelectedUser(user);
     setIsEditDialogOpen(true);
-  };
-  
-  const handleDeleteClick = (user: User) => {
-    setSelectedUser(user);
-    setIsDeleteDialogOpen(true);
   };
 
   const handleRegisterUser = async (values: UserFormValues) => {
@@ -164,19 +176,6 @@ export default function UsersPage() {
     toast({
       title: "User Updated",
       description: `${values.name}'s details have been successfully updated.`,
-    });
-  };
-
-  const handleDeleteUser = async () => {
-    if (!selectedUser) return;
-    await deleteUser(selectedUser.email);
-    setUsers(users.filter(user => user.email !== selectedUser.email));
-    setIsDeleteDialogOpen(false);
-    setSelectedUser(null);
-    toast({
-      title: "User Deleted",
-      description: "The user has been permanently removed from the system.",
-      variant: "destructive",
     });
   };
 
@@ -248,8 +247,8 @@ export default function UsersPage() {
                   <TableCell className="max-w-[220px] text-sm text-foreground/90">{user.leadOwner ?? <span className="text-muted-foreground">—</span>}</TableCell>
                   <TableCell className="text-sm text-foreground/90">{user.department ?? <span className="text-muted-foreground">—</span>}</TableCell>
                    <TableCell>
-                    <Badge variant="outline" className={cn("whitespace-nowrap font-medium", user.status === 'Active' ? "border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-700" : "border-border/60 bg-muted/60 text-muted-foreground")}>
-                      {user.status}
+                    <Badge variant="outline" className={cn("whitespace-nowrap font-medium", user.status === 'ACTIVE' ? "border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-700" : "border-border/60 bg-muted/60 text-muted-foreground")}>
+                      {statusLabel(user.status)}
                     </Badge>
                     <InviteStatus user={user} />
                   </TableCell>
@@ -265,7 +264,8 @@ export default function UsersPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => handleEditClick(user)}>
-                            Edit
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit
                         </DropdownMenuItem>
                         {user.invitePending && (
                           <DropdownMenuItem onClick={() => handleResendInvite(user)} disabled={resendingId === user.id}>
@@ -273,14 +273,18 @@ export default function UsersPage() {
                             {resendingId === user.id ? "Sending…" : "Resend invitation"}
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuItem onClick={() => handleToggleStatus(user)}>
-                          {user.status === 'Active' ? 'Deactivate' : 'Activate'}
-                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleDeleteClick(user)} className="text-destructive">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                        </DropdownMenuItem>
+                        {user.status === 'ACTIVE' ? (
+                          <DropdownMenuItem onClick={() => setStatusTarget(user)} className="text-destructive focus:text-destructive">
+                            <UserX className="mr-2 h-4 w-4" />
+                            Deactivate
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={() => setStatusTarget(user)} className="text-emerald-700 focus:text-emerald-700">
+                            <UserCheck className="mr-2 h-4 w-4" />
+                            Activate
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                     )}
@@ -331,19 +335,31 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
       
-      {/* Delete User Confirmation */}
-       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      {/* Activate / Deactivate Confirmation */}
+      <AlertDialog open={statusTarget !== null} onOpenChange={open => { if (!open && !isChangingStatus) setStatusTarget(null); }}>
         <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete the account for <strong>{selectedUser?.name}</strong>.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setSelectedUser(null)}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteUser} className="border border-destructive/30 bg-destructive/10 text-destructive hover:border-destructive/40 hover:bg-destructive/15">Delete</AlertDialogAction>
-            </AlertDialogFooter>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {statusTarget?.status === 'ACTIVE' ? `Deactivate ${statusTarget?.name}?` : `Activate ${statusTarget?.name}?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {statusTarget?.status === 'ACTIVE'
+                ? "They will be signed out right away and won't be able to sign in until they're activated again. Their plans, reports and approvals stay as they are."
+                : "They will be able to sign in again with their existing password."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isChangingStatus}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isChangingStatus}
+              onClick={e => { e.preventDefault(); void handleConfirmStatus(); }}
+              className={statusTarget?.status === 'ACTIVE'
+                ? "border border-destructive/30 bg-destructive/10 text-destructive hover:border-destructive/40 hover:bg-destructive/15"
+                : undefined}
+            >
+              {isChangingStatus ? "Saving…" : statusTarget?.status === 'ACTIVE' ? "Deactivate" : "Activate"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 

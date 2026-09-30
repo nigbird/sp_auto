@@ -139,7 +139,7 @@ export async function registerLeadOwnerUser(data: Omit<UserInput, 'leadOwnerId'>
     return result;
 }
 
-export async function updateUser(email: string, data: { name?: string; status?: User['status']; roleId?: string; leadOwnerId?: string | null; department?: string | null }) {
+export async function updateUser(email: string, data: { name?: string; roleId?: string; leadOwnerId?: string | null; department?: string | null }) {
     await requirePermission('users:manage');
     const updateData: Record<string, unknown> = { ...data };
     if ('leadOwnerId' in data) updateData.leadOwnerId = data.leadOwnerId || null;
@@ -153,8 +153,26 @@ export async function updateUser(email: string, data: { name?: string; status?: 
     return updatedUser;
 }
 
-export async function deleteUser(email: string) {
-    await requirePermission('users:manage');
-    await prisma.user.delete({ where: { email } });
+/**
+ * Users are never deleted — their name stays on plans, reports and approvals.
+ * Deactivating blocks sign-in at once (every request checks the status) and
+ * voids their existing sessions, so reactivating later needs a fresh sign-in.
+ */
+export async function setUserStatus(userId: string, status: 'ACTIVE' | 'INACTIVE'): Promise<{ success: true } | { success: false; message: string }> {
+    const actor = await requirePermission('users:manage');
+    if (status !== 'ACTIVE' && status !== 'INACTIVE') return { success: false, message: 'Unknown status.' };
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, status: true } });
+    if (!user) return { success: false, message: 'This user no longer exists.' };
+    if (user.status === status) return { success: true };
+    if (status === 'INACTIVE' && user.id === actor.id) {
+        return { success: false, message: "You can't deactivate your own account. Ask another administrator." };
+    }
+
+    await prisma.user.update({
+        where: { id: user.id },
+        data: status === 'INACTIVE' ? { status, sessionVersion: { increment: 1 } } : { status },
+    });
+    await writeAuditLog({ action: status === 'INACTIVE' ? 'USER_DEACTIVATED' : 'USER_ACTIVATED', success: true, identifier: user.email, userId: user.id, metadata: { by: actor.id } });
     revalidatePath('/users');
+    return { success: true };
 }

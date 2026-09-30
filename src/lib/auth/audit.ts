@@ -10,7 +10,9 @@ export type AuditAction =
   | 'INVITE_SENT'
   | 'PASSWORD_RESET_REQUEST'
   | 'PASSWORD_SET'
-  | 'PASSWORD_CHANGE';
+  | 'PASSWORD_CHANGE'
+  | 'USER_ACTIVATED'
+  | 'USER_DEACTIVATED';
 
 export async function writeAuditLog(params: {
   action: AuditAction;

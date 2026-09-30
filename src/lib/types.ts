@@ -53,7 +53,7 @@ export type User = {
   avatar: string;
   role: string;
   roleId: string;
-  status: "Active" | "Inactive";
+  status: "ACTIVE" | "INACTIVE";
   createdAt: Date;
   /** The lead-owner office the person holds, if any. */
   leadOwnerId?: string | null;
