@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { format } from "date-fns";
 import type { Pillar } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -6,6 +5,7 @@ import type { TargetType } from "@/lib/monthly-breakdown";
 import { computeReportRow, formatRatio, formatWeight, rollUp, type ReportRow } from "@/lib/report-calculations";
 import { REPORT_COLUMNS, statusClass } from "./performance-report-columns";
 import { PerformanceReportGrid, type GridActivity, type GridPillar } from "./performance-report-grid";
+import { PeriodSelect } from "./period-select";
 
 type Activity = Pillar['objectives'][number]['initiatives'][number]['activities'][number];
 
@@ -37,10 +37,22 @@ const STATUS_TEXT: Record<string, string> = {
  * plain strings, so raw plan records (e.g. user rows) never reach the browser.
  */
 export function PerformanceReportTable({ planId, pillars, periods, selected, entries }: { planId: string; pillars: Pillar[]; periods: PerformancePeriod[]; selected: PerformancePeriod | null; entries: PerformanceEntry[] }) {
-  const requested = periods.filter(p => p.reportRequestSentAt);
-
   if (!selected) {
-    return <p className="text-sm text-muted-foreground">No reports have been requested yet. Send a report request from Reporting Periods; results appear here as reports are approved.</p>;
+    return <p className="text-sm text-muted-foreground">There are no reporting periods yet. Create one from Reporting Periods first.</p>;
+  }
+
+  if (entries.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted-foreground">Reporting period:</span>
+          <PeriodSelect periods={periods} value={selected.id} planId={planId} />
+        </div>
+        <p className="text-sm text-muted-foreground">
+          No reports have been requested for {selected.name} yet. Send a report request from Reporting Periods; results appear here as reports are approved.
+        </p>
+      </div>
+    );
   }
 
   const entryByActivity = new Map(entries.map(e => [e.activityId, e]));
@@ -97,12 +109,7 @@ export function PerformanceReportTable({ planId, pillars, periods, selected, ent
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm text-muted-foreground">Reporting period:</span>
-        {requested.map(p => (
-          <Link key={p.id} href={`/reports?plan=${planId}&period=${p.id}`} scroll={false}
-            className={cn("rounded-lg border px-2.5 py-1 text-sm transition-colors", p.id === selected.id ? "border-primary bg-primary text-primary-foreground" : "border-border/60 hover:bg-muted/50")}>
-            {p.name}
-          </Link>
-        ))}
+        <PeriodSelect periods={periods} value={selected.id} planId={planId} />
       </div>
 
       <div className="flex flex-wrap overflow-hidden rounded-xl border border-border/50 bg-card sm:flex-nowrap">

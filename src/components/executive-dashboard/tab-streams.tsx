@@ -5,6 +5,8 @@ import { describeRatingBands } from "@/lib/rating-bands";
 import { StreamAchievementChart, StreamDeliveryChart, StreamWorkloadChart } from "./charts";
 import { DeltaChip, MeterBar, RatingChip, SectionCard, pct, weightPct } from "./primitives";
 import { MiniStat } from "./tab-initiatives";
+import { ExportCsvButton } from "./export-csv-button";
+import { StreamsSummaryTable } from "./streams-summary-table";
 
 const RATING_ORDER: Rating[] = ["Outstanding", "Very Good", "Good", "Fair", "Unsatisfactory", "No Target"];
 
@@ -18,6 +20,23 @@ export function StreamsTab({ m, previous }: { m: DashboardMetrics; previous: Das
   const pendingReports = m.streams.reduce((s, x) => s + x.summary.coverage.pending, 0);
   const notSubmittedReports = missingReports - pendingReports;
   const totals = streamTotals(m);
+
+  const streamCsvHeaders = ["#", "Stream / director", "Initiatives", "Activities", "Planned activities", "Total weight %", "Weighted plan %", "Weighted actual %", "Achievement %", "After delays %", "Score /30", "Rating", "vs last period %", "Initiatives due", "Initiatives done", "Activities due", "Activities done", "Not submitted", "Pending approval"];
+  const streamCsvRows = m.streams.map((s, i) => {
+    const { rollup, totalWeight, coverage } = s.summary;
+    const hasPlan = rollup.weightedPlan > 0 && coverage.approved > 0;
+    const prev = prevByName.get(s.name);
+    const prevHasPlan = prev && prev.summary.rollup.weightedPlan > 0 && prev.summary.coverage.approved > 0;
+    const delta = hasPlan && prevHasPlan ? (rollup.achievedResult ?? 0) - (prev!.summary.rollup.achievedResult ?? 0) : null;
+    return [
+      i + 1, s.name, s.initiatives, coverage.activities, coverage.planned,
+      weightPct(totalWeight), weightPct(rollup.weightedPlan), weightPct(rollup.weightedActual),
+      hasPlan ? pct(rollup.achievedResult) : "—", hasPlan ? pct(rollup.achievedWithDelay) : "—",
+      s.score30 == null ? "—" : s.score30.toFixed(1), s.rating, delta == null ? "—" : pct(delta),
+      s.initiativesDue, s.initiativesCompleted, s.activitiesDue, s.activitiesCompleted,
+      coverage.missing - coverage.pending, coverage.pending,
+    ];
+  });
 
   return (
     <div className="space-y-5">
@@ -69,7 +88,15 @@ export function StreamsTab({ m, previous }: { m: DashboardMetrics; previous: Das
         </div>
       </SectionCard>
 
-      <SectionCard title="Streams & departments performance" description="Every lead owner, ranked by achievement. Deviation = completed − due.">
+      <SectionCard title="Stream scores" description="Plan, actual, achievement, score and rating for each lead owner — filter by rating">
+        <StreamsSummaryTable streams={m.streams} />
+      </SectionCard>
+
+      <SectionCard
+        title="Streams & departments performance"
+        description="Every lead owner, ranked by achievement. Deviation = completed − due."
+        action={<ExportCsvButton filename="streams-departments" headers={streamCsvHeaders} rows={streamCsvRows} />}
+      >
         <div className="-mx-2 overflow-x-auto">
           <table className="w-full min-w-[1380px] text-sm">
             <thead>

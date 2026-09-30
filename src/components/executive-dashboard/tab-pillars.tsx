@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { INITIATIVE_STATUS_LABEL, INITIATIVE_STATUS_ORDER, type DashboardMetrics, type InitiativeStatus, type Summary } from "@/lib/dashboard-metrics";
 import { Donut, PlanActualBars } from "./charts";
 import { MeterBar, SectionCard, StatusLabel, StatusStack, Tip, TipRow, pct, pillarColor, weightPct } from "./primitives";
+import { ExportCsvButton } from "./export-csv-button";
 
 const stripPrefix = (s: string, word: string) => s.replace(new RegExp(`^${word}\\s*\\d+\\s*:?\\s*`, "i"), "");
 
@@ -10,6 +11,19 @@ const stripPrefix = (s: string, word: string) => s.replace(new RegExp(`^${word}\
 export function PillarsTab({ m }: { m: DashboardMetrics }) {
   const totalActual = m.overall.rollup.weightedActual;
   const totalWeight = m.overall.totalWeight;
+
+  const pillarCsvHeaders = ["Code", "Pillar / objective", "Weight %", "Plan %", "Actual %", "Achievement %", "Full year %"];
+  const pillarCsvRow = (code: string, label: string, s: Summary) => [
+    code, label, weightPct(s.totalWeight), weightPct(s.rollup.weightedPlan), weightPct(s.rollup.weightedActual),
+    s.rollup.weightedPlan > 0 ? pct(s.rollup.achievedResult) : "—", pct(s.yearProgress),
+  ];
+  const pillarCsvRows = [
+    ...m.pillars.flatMap(p => [
+      pillarCsvRow(p.code, stripPrefix(p.title, "Pillar"), p.summary),
+      ...p.objectives.map(o => pillarCsvRow(o.code, stripPrefix(o.statement, "Objective"), o.summary)),
+    ]),
+    pillarCsvRow("", "Overall", m.overall),
+  ];
 
   return (
     <div className="space-y-5">
@@ -89,7 +103,11 @@ export function PillarsTab({ m }: { m: DashboardMetrics }) {
         </SectionCard>
       </div>
 
-      <SectionCard title="Pillar & objective performance" description="Status columns count initiatives.">
+      <SectionCard
+        title="Pillar & objective performance"
+        description="Weight, plan, actual and achievement for every pillar and objective."
+        action={<ExportCsvButton filename="pillar-objective-performance" headers={pillarCsvHeaders} rows={pillarCsvRows} />}
+      >
         <div className="-mx-2 overflow-x-auto">
           <table className="w-full min-w-[980px] text-sm">
             <thead>

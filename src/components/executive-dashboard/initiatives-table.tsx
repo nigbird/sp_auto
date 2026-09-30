@@ -7,6 +7,7 @@ import { INITIATIVE_STATUS_LABEL, INITIATIVE_STATUS_ORDER, type InitiativeStatus
 import { overlapsDateRange, type DateRangeValue } from "@/lib/list-filters";
 import { DateRangeFilter, Pagination, usePagination } from "../list-controls";
 import { MeterBar, RatingChip, STATUS_COLOR, StatusPill, pct, pillarColor, shortDate, weightPct } from "./primitives";
+import { ExportCsvButton } from "./export-csv-button";
 
 type SortKey = "code" | "achieved" | "planned" | "total" | "due";
 
@@ -56,6 +57,19 @@ export function InitiativesTable({ initiatives }: { initiatives: InitiativeSumma
   }, [initiatives, pillar, status, query, sort, range]);
   const pagination = usePagination(rows, `${query}|${pillar}|${status}|${range.from}|${range.to}|${sort.key}|${sort.dir}`, 25);
 
+  const csvHeaders = ["Code", "Initiative", "Owner", "Pillar", "Start", "Due", "Total weight %", "Planned weight %", "Attained weight %", "Achievement %", "Reports approved", "Reports planned", "Status", "Overall", "Rating"];
+  const csvRows = rows.map(i => {
+    const { rollup, totalWeight, coverage } = i.summary;
+    const hasPlan = rollup.weightedPlan > 0;
+    return [
+      i.code, i.title, i.owner, i.pillarCode,
+      i.startDate ? shortDate(i.startDate) : "", i.dueDate ? shortDate(i.dueDate) : "",
+      weightPct(totalWeight), weightPct(rollup.weightedPlan), weightPct(rollup.weightedActual),
+      hasPlan ? pct(rollup.achievedResult) : "—", coverage.approved, coverage.planned,
+      INITIATIVE_STATUS_LABEL[i.status], i.completed ? "Completed" : "Not completed", i.rating,
+    ];
+  });
+
   const toggle = (id: string) => setOpen(prev => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -90,11 +104,12 @@ export function InitiativesTable({ initiatives }: { initiatives: InitiativeSumma
             </button>
           ))}
         </div>
+        <ExportCsvButton className="ml-auto" filename="initiatives" headers={csvHeaders} rows={csvRows} />
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2">
         <FilterChip active={status === "all"} onClick={() => setStatus("all")} label="All" count={Object.values(counts).reduce((s, n) => s + n, 0)} />
-        {INITIATIVE_STATUS_ORDER.filter(s => counts[s] > 0).map(s => (
+        {INITIATIVE_STATUS_ORDER.map(s => (
           <FilterChip key={s} active={status === s} onClick={() => setStatus(s)} label={INITIATIVE_STATUS_LABEL[s]} count={counts[s]} color={STATUS_COLOR[s]} />
         ))}
       </div>
