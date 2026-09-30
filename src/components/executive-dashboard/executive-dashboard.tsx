@@ -87,7 +87,7 @@ export function ExecutiveDashboard({ data, tab = "overview" }: { data: Dashboard
       {tab === "overview" && <OverviewTab data={data} m={m} />}
       {tab === "pillars" && <PillarsTab m={m} />}
       {tab === "initiatives" && <InitiativesTab m={m} />}
-      {tab === "delivery" && <DeliveryTab m={m} />}
+      {tab === "delivery" && <DeliveryTab m={m} planId={data.plan.id} periodId={data.period.id} />}
       {tab === "streams" && <StreamsTab m={m} previous={data.previousMetrics} />}
 
       <p className="px-1 text-xs leading-relaxed text-muted-foreground">

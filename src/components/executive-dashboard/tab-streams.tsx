@@ -15,15 +15,18 @@ export function StreamsTab({ m, previous }: { m: DashboardMetrics; previous: Das
   const avgScore = measured.length ? measured.reduce((s, x) => s + (x.score30 ?? 0), 0) / measured.length : null;
   const ratingCounts = RATING_ORDER.map(r => ({ rating: r, count: m.streams.filter(s => s.rating === r).length })).filter(x => x.count > 0);
   const missingReports = m.streams.reduce((s, x) => s + x.summary.coverage.missing, 0);
+  const pendingReports = m.streams.reduce((s, x) => s + x.summary.coverage.pending, 0);
+  const notSubmittedReports = missingReports - pendingReports;
   const totals = streamTotals(m);
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <MiniStat label="Streams & departments" value={String(m.streams.length)} note={`${measured.length} measured this period`} />
         <MiniStat label="Average score" value={avgScore == null ? "—" : `${avgScore.toFixed(1)} / 30`} note="achievement × 30, measured streams" />
         <MiniStat label="Rated Outstanding" value={String(m.streams.filter(s => s.rating === "Outstanding").length)} note={`${m.ratingThresholds.outstanding}% or more of their period plan`} />
-        <MiniStat label="Reports not approved" value={String(missingReports)} note="planned activities counting as zero" />
+        <MiniStat label="Not submitted" value={String(notSubmittedReports)} note="no report sent in yet — counts as zero" />
+        <MiniStat label="Pending approval" value={String(pendingReports)} note="submitted, waiting on an approver" />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-2">
@@ -101,7 +104,11 @@ export function StreamsTab({ m, previous }: { m: DashboardMetrics; previous: Das
                       <p className="truncate font-medium" title={s.name}>{s.name}</p>
                       {coverage.missing > 0 && (
                         <p className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
-                          <FileWarning className="h-3 w-3" />{coverage.missing} planned {coverage.missing === 1 ? "report" : "reports"} not approved
+                          <FileWarning className="h-3 w-3" />
+                          {[
+                            coverage.missing - coverage.pending > 0 ? `${coverage.missing - coverage.pending} not submitted` : null,
+                            coverage.pending > 0 ? `${coverage.pending} pending approval` : null,
+                          ].filter(Boolean).join(", ")}
                         </p>
                       )}
                     </td>

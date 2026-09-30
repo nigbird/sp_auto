@@ -205,7 +205,7 @@ function NarrativeBlock({ label, items }: { label: string; items: NarrativeItem[
   );
 }
 
-function FilterChip({ active, onClick, label, count, color }: { active: boolean; onClick: () => void; label: string; count: number; color?: string }) {
+export function FilterChip({ active, onClick, label, count, color }: { active: boolean; onClick: () => void; label: string; count: number; color?: string }) {
   return (
     <button
       type="button"

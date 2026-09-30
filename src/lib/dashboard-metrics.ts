@@ -31,6 +31,7 @@ export interface MetricActivity {
   countsTowardWeight: boolean;
   leadOwner: string | null;
   department: string;
+  deliverable?: string | null;
   startDate: string;
   /** Planned end date on the activity itself; used when there is no approved breakdown. */
   endDate: string;
@@ -191,6 +192,47 @@ export interface Highlight { code: string; title: string; value: number }
 
 export interface ListItem { id: string; code: string; title: string; owner: string; note: string }
 
+/** The activity's status for the period: the Excel's "Activity Status" (AW), or where its report stands. */
+export type ActivityStatusLabel =
+  | 'Completed As Per The Target' | 'In Good Progress' | 'Not In Good Progress' | 'Not Started'
+  | 'Awaiting report' | 'No target';
+
+export const ACTIVITY_STATUS_ORDER: ActivityStatusLabel[] = [
+  'Completed As Per The Target', 'In Good Progress', 'Not In Good Progress', 'Not Started', 'Awaiting report', 'No target',
+];
+
+/** Where an activity stands against its due date at the period end. */
+export type DeliveryState = 'completedOnTime' | 'completedLate' | 'overdue' | 'notYetDue' | 'noDueDate';
+
+export const DELIVERY_STATE_LABEL: Record<DeliveryState, string> = {
+  completedOnTime: 'Completed on time',
+  completedLate: 'Completed late',
+  overdue: 'Overdue',
+  notYetDue: 'Not yet due',
+  noDueDate: 'No due date',
+};
+
+/**
+ * One line of the "Work Stream / Initiatives Assigned / Major Activities /
+ * # of Days Delayed" table. Days delayed follows the Excel's "Date Delayed":
+ * completion date (or the period end, if not completed) minus the due date —
+ * positive is late, negative is days still to go.
+ */
+export interface ActivityDelayRow {
+  id: string;
+  stream: string;
+  initiativeId: string;
+  initiativeCode: string;
+  initiative: string;
+  activity: string;
+  deliverable: string | null;
+  dueDate: string | null;
+  completionDate: string | null;
+  daysDelayed: number | null;
+  status: ActivityStatusLabel;
+  delivery: DeliveryState;
+}
+
 export interface DashboardMetrics {
   overall: Summary;
   pillars: PillarSummary[];
@@ -213,6 +255,8 @@ export interface DashboardMetrics {
   activitiesOverdue: number;
   completedInitiatives: ListItem[];
   activitiesWithoutTarget: ListItem[];
+  /** Every activity with its days delayed and status, grouped by work stream then initiative. */
+  activityDelayRows: ActivityDelayRow[];
   objectivesAtLeast80: { count: number; of: number };
   strongestPillarPeriod: Highlight | null;
   strongestPillarYear: Highlight | null;
@@ -338,6 +382,51 @@ function evaluateActivity(activity: MetricActivity, entry: MetricEntry | undefin
   };
 }
 
+/** "1.2.10" after "1.2.9". Stable, so activities keep their plan order within an initiative. */
+function compareCodes(a: string, b: string) {
+  const pa = a.split('.').map(Number), pb = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
+function delayRowFor(r: ActivityResult, stream: string, initiative: { id: string; code: string; title: string }, periodEnd: Date): ActivityDelayRow {
+  const completionDate = r.completed && r.entry?.completionDate ? new Date(r.entry.completionDate) : null;
+  // Signed, like the Excel: completion (or the period end, if still open) minus the due date.
+  const daysDelayed = r.dueDate
+    ? Math.round(((completionDate ?? periodEnd).getTime() - r.dueDate.getTime()) / DAY_MS)
+    : null;
+
+  let status: ActivityStatusLabel;
+  if (r.row === null) status = 'No target';
+  else if (!r.approved) status = 'Awaiting report';
+  else status = r.row.status === 'Completed As Per The Target' || r.row.status === 'In Good Progress' || r.row.status === 'Not In Good Progress' || r.row.status === 'Not Started'
+    ? r.row.status
+    : 'No target';
+
+  let delivery: DeliveryState;
+  if (!r.dueDate) delivery = 'noDueDate';
+  else if (r.completed) delivery = (daysDelayed ?? 0) > 0 ? 'completedLate' : 'completedOnTime';
+  else delivery = r.dueByPeriodEnd ? 'overdue' : 'notYetDue';
+
+  return {
+    id: r.activity.id,
+    stream,
+    initiativeId: initiative.id,
+    initiativeCode: initiative.code,
+    initiative: initiative.title,
+    activity: r.activity.title,
+    deliverable: r.activity.deliverable ?? null,
+    dueDate: r.dueDate ? r.dueDate.toISOString() : null,
+    completionDate: completionDate ? completionDate.toISOString() : null,
+    daysDelayed,
+    status,
+    delivery,
+  };
+}
+
 function summarize(results: ActivityResult[]): Summary {
   const totalWeight = results.reduce((s, r) => s + r.noDupWeight, 0);
   const rows = results.map(r => r.row).filter((r): r is ReportRow => r !== null);
@@ -444,6 +533,7 @@ export function computeDashboard(
   const initiativeSummaries: InitiativeSummary[] = [];
   const issues: IssueItem[] = [];
   const activitiesWithoutTarget: ListItem[] = [];
+  const activityDelayRows: ActivityDelayRow[] = [];
   const byStream = new Map<string, { results: ActivityResult[]; initiatives: Set<string> }>();
 
   let objectiveNo = 0;
@@ -517,6 +607,7 @@ export function computeDashboard(
 
         for (const r of results) {
           const stream = streamOf(r.activity);
+          activityDelayRows.push(delayRowFor(r, stream, { id: initiative.id, code, title: initiative.title }, periodEnd));
           const bucket = byStream.get(stream) ?? { results: [], initiatives: new Set<string>() };
           bucket.results.push(r);
           bucket.initiatives.add(initiative.id);
@@ -644,6 +735,8 @@ export function computeDashboard(
       id: i.id, code: i.code, title: i.title, owner: i.owner, note: i.dueDate ? `Due ${i.dueDate.slice(0, 10)}` : '',
     })),
     activitiesWithoutTarget,
+    activityDelayRows: activityDelayRows.sort((a, b) =>
+      a.stream.localeCompare(b.stream) || compareCodes(a.initiativeCode, b.initiativeCode)),
     objectivesAtLeast80,
     strongestPillarPeriod: sPP && toHighlight(sPP.code, sPP.title, sPP.summary.rollup.achievedResult),
     strongestPillarYear: sPY && toHighlight(sPY.code, sPY.title, sPY.summary.yearProgress),

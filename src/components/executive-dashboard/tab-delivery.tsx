@@ -4,12 +4,13 @@ import { DELAY_BUCKET_LABEL, type DashboardMetrics, type DelayBucket, type ListI
 import { Donut, QuarterChart } from "./charts";
 import { SectionCard, Tip, TipRow, pct } from "./primitives";
 import { MiniStat } from "./tab-initiatives";
+import { ActivityDelayTable } from "./activity-delay-table";
 
 // Delivery state is status, so it wears the reserved status colours (with labels).
 const STATE = { completed: "#0c6e3a", overdue: "#c0392b", open: "#a8a29a" };
 
 /** "Initiatives Summary @GRAPH" and "Activity Summary @GRAPH". */
-export function DeliveryTab({ m }: { m: DashboardMetrics }) {
+export function DeliveryTab({ m, planId, periodId }: { m: DashboardMetrics; planId: string; periodId: string }) {
   const dueActivities = sumDue(m.activityDelays);
   const onTime = dueActivities ? m.activityDelays.onTime / dueActivities : null;
 
@@ -67,6 +68,10 @@ export function DeliveryTab({ m }: { m: DashboardMetrics }) {
           <DelayBars label="Initiatives" counts={m.initiativeDelays} />
           <DelayBars label="Activities" counts={m.activityDelays} />
         </div>
+      </SectionCard>
+
+      <SectionCard title="Activity delays" description="Every activity by work stream and initiative, with days delayed and status">
+        <ActivityDelayTable rows={m.activityDelayRows} planId={planId} periodId={periodId} />
       </SectionCard>
 
       <div className="grid gap-5 xl:grid-cols-2">

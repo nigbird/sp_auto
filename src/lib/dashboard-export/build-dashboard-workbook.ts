@@ -3,6 +3,7 @@ import { DELAY_BUCKET_LABEL, INITIATIVE_STATUS_LABEL, INITIATIVE_STATUS_ORDER, s
 import { describeRatingBands } from '@/lib/rating-bands';
 import type { ChartImage, ChartKey } from './dashboard-charts';
 import { SheetBuilder, writeStyledWorkbook, type StyleRole, type StyledCell } from './xlsx-styling';
+import { activityDelaySheet } from './activity-delay-export';
 
 type Ready = Extract<DashboardData, { state: 'ready' }>;
 
@@ -195,14 +196,14 @@ export function buildDashboardWorkbook(data: Ready, charts: Record<ChartKey, Cha
 
   // --- Streams & Departments ------------------------------------------------------
   const prevByName = new Map(data.previousMetrics?.streams.map(s => [s.name, s]) ?? []);
-  const st = new SheetBuilder('Streams & Departments', [5, 42, 10, 10, 10, 11, 11, 11, 12, 12, 9, 15, 12, 9, 9, 9, 9, 9, 9, 11, 3]);
+  const st = new SheetBuilder('Streams & Departments', [5, 42, 10, 10, 10, 11, 11, 11, 12, 12, 9, 15, 12, 9, 9, 9, 9, 9, 9, 11, 11, 3]);
   st.row([{ v: 'Streams & Departments Performance', role: 'title' }]);
   st.row([{ v: subtitle, role: 'subtitle' }]);
   st.blank();
   const stHeader = st.row([
     '#', 'Stream / director', 'Initiatives', 'Activities', 'Planned activities', 'Total weight', 'Weighted plan', 'Weighted actual',
     'Achievement', 'After delays', 'Score /30', 'Rating', 'vs last period', 'Initiatives due', 'Initiatives done', 'Deviation',
-    'Activities due', 'Activities done', 'Deviation', 'Reports not approved',
+    'Activities due', 'Activities done', 'Deviation', 'Not submitted', 'Pending approval',
   ], 'header');
   st.rowHeights.set(stHeader, 42);
   st.freezeRows = stHeader + 1;
@@ -218,10 +219,10 @@ export function buildDashboardWorkbook(data: Ready, charts: Record<ChartKey, Cha
       cell(s.score30 == null ? '—' : s.score30, 'score'), cell(s.rating, 'text'), cell(delta == null ? '—' : delta, 'pct'),
       cell(s.initiativesDue, 'int'), cell(s.initiativesCompleted, 'int'), cell(s.initiativesCompleted - s.initiativesDue, 'int'),
       cell(s.activitiesDue, 'int'), cell(s.activitiesCompleted, 'int'), cell(s.activitiesCompleted - s.activitiesDue, 'int'),
-      cell(s.summary.coverage.missing, 'int'),
+      cell(s.summary.coverage.missing - s.summary.coverage.pending, 'int'), cell(s.summary.coverage.pending, 'int'),
     ]);
   });
-  st.autoFilter = `A${stHeader + 1}:T${stHeader + 1 + m.streams.length}`;
+  st.autoFilter = `A${stHeader + 1}:U${stHeader + 1 + m.streams.length}`;
   // The Excel's totals: an initiative shared by several lead owners counts once per owner "with duplication".
   const totals = streamTotals(m);
   const totalRow = (label: string, values: (number | '')[]) =>
@@ -235,5 +236,7 @@ export function buildDashboardWorkbook(data: Ready, charts: Record<ChartKey, Cha
     chart('streamWorkload', 'Lead owner involvement'), chart('streamAchievement', 'Achievement by stream'), chart('streamDelivery', 'Activities due vs completed'),
   ], 21, stHeader, 0.75);
 
-  return writeStyledWorkbook([ov, po, ini, dl, st]);
+  const ad = activityDelaySheet(m.activityDelayRows, subtitle, 'All activities');
+
+  return writeStyledWorkbook([ov, po, ini, dl, ad, st]);
 }

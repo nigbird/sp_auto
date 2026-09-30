@@ -2,7 +2,7 @@ import { Fragment } from "react";
 import { cn } from "@/lib/utils";
 import { INITIATIVE_STATUS_LABEL, INITIATIVE_STATUS_ORDER, type DashboardMetrics, type InitiativeStatus, type Summary } from "@/lib/dashboard-metrics";
 import { Donut, PlanActualBars } from "./charts";
-import { MeterBar, STATUS_COLOR, SectionCard, StatusLabel, StatusStack, Tip, TipRow, pct, pillarColor, weightPct } from "./primitives";
+import { MeterBar, SectionCard, StatusLabel, StatusStack, Tip, TipRow, pct, pillarColor, weightPct } from "./primitives";
 
 const stripPrefix = (s: string, word: string) => s.replace(new RegExp(`^${word}\\s*\\d+\\s*:?\\s*`, "i"), "");
 
@@ -100,12 +100,6 @@ export function PillarsTab({ m }: { m: DashboardMetrics }) {
                 <th className="px-2 pb-3 text-right font-medium">Actual</th>
                 <th className="w-40 px-2 pb-3 font-medium">Achievement</th>
                 <th className="px-2 pb-3 text-right font-medium">Full year</th>
-                {INITIATIVE_STATUS_ORDER.map(s => (
-                  <th key={s} className="px-1 pb-3 text-center font-medium" title={INITIATIVE_STATUS_LABEL[s]}>
-                    <span className="mx-auto block h-2.5 w-2.5 rounded-full" style={{ background: STATUS_COLOR[s] }} />
-                    <span className="sr-only">{INITIATIVE_STATUS_LABEL[s]}</span>
-                  </th>
-                ))}
               </tr>
             </thead>
             <tbody>
@@ -115,24 +109,22 @@ export function PillarsTab({ m }: { m: DashboardMetrics }) {
                     className="bg-muted/50 font-semibold"
                     label={<span className="flex items-center gap-2"><span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: pillarColor(p.code) }} />{p.code} · {stripPrefix(p.title, "Pillar")}</span>}
                     summary={p.summary}
-                    counts={p.statusCounts}
                   />
                   {p.objectives.map(o => (
                     <Row
                       key={o.id}
                       label={<span className="pl-5 font-normal"><span className="mr-1.5 text-xs text-muted-foreground">{o.code}</span>{stripPrefix(o.statement, "Objective")}</span>}
                       summary={o.summary}
-                      counts={o.statusCounts}
                     />
                   ))}
                 </Fragment>
               ))}
-              <Row className="border-t-2 font-bold" label="Overall" summary={m.overall} counts={m.statusCounts} />
+              <Row className="border-t-2 font-bold" label="Overall" summary={m.overall} />
             </tbody>
           </table>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          Plan and actual are weighted (% of the whole plan) for the period. Full year = weighted actual ÷ total weight. Hover the coloured dots for status names.
+          Plan and actual are weighted (% of the whole plan) for the period. Full year = weighted actual ÷ total weight. See "Initiative status by pillar" above for the status breakdown.
         </p>
       </SectionCard>
     </div>
@@ -143,7 +135,7 @@ function StatusRows({ counts }: { counts: Record<InitiativeStatus, number> }) {
   return <div className="space-y-1">{INITIATIVE_STATUS_ORDER.map(s => <TipRow key={s} label={INITIATIVE_STATUS_LABEL[s]} value={String(counts[s])} />)}</div>;
 }
 
-function Row({ label, summary, counts, className }: { label: React.ReactNode; summary: Summary; counts: Record<InitiativeStatus, number>; className?: string }) {
+function Row({ label, summary, className }: { label: React.ReactNode; summary: Summary; className?: string }) {
   const { rollup, totalWeight, yearProgress } = summary;
   const hasPlan = rollup.weightedPlan > 0;
   return (
@@ -159,9 +151,6 @@ function Row({ label, summary, counts, className }: { label: React.ReactNode; su
         </div>
       </td>
       <td className="px-2 py-2.5 text-right tabular-nums">{pct(yearProgress)}</td>
-      {INITIATIVE_STATUS_ORDER.map(s => (
-        <td key={s} className={cn("px-1 py-2.5 text-center tabular-nums", counts[s] === 0 && "text-muted-foreground/50")}>{counts[s]}</td>
-      ))}
     </tr>
   );
 }
