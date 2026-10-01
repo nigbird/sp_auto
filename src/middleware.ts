@@ -79,5 +79,5 @@ async function refreshInline(request: NextRequest): Promise<NextResponse | null>
 }
 
 export const config = {
-  matcher: ['/((?!api/auth|_next/static|_next/image|favicon.ico|login|forgot-password|set-password).*)'],
+  matcher: ['/((?!api/auth|_next/static|_next/image|favicon.ico|login|forgot-password|set-password|.*\\.(?:png|jpg|jpeg|svg|ico|webp)$).*)'],
 };

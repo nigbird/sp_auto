@@ -20,6 +20,7 @@ import { isRangeSet, matchesSearch, overlapsDateRange, type DateRangeValue } fro
 import { cn } from "@/lib/utils";
 import { formatWeight } from "@/lib/report-calculations";
 import { approveNewActivity, returnNewActivity, type PlanApprovalActivity, type PlanStage } from "@/actions/plan-approvals";
+import { EmptyState } from "@/components/empty-state";
 
 export const STAGE_META: Record<PlanStage, { label: string; className: string }> = {
   activityPending: { label: "New activity · awaiting approval", className: "border-blue-500/25 text-blue-700 bg-blue-500/[0.06]" },
@@ -309,11 +310,12 @@ export function NewActivityApprovalList({ activities: initial }: { activities: P
 
   if (items.length === 0) {
     return (
-      <Card>
-        <CardContent className="pt-6">
-          <p className="text-center text-muted-foreground">No new activities are waiting for approval.</p>
-        </CardContent>
-      </Card>
+      <EmptyState
+        art="inbox"
+        title="All caught up"
+        description="No new activities are waiting for your approval."
+        className="rounded-xl border border-dashed border-border/70 bg-card/60"
+      />
     );
   }
 

@@ -25,7 +25,7 @@ import {
   FileCheck2,
   Users,
 } from "lucide-react";
-import { Logo } from "./icons";
+import Image from "next/image";
 import { usePermissions } from "./permissions-provider";
 import { NAV_GROUPS, canSeeNavItem, type NavItemDef } from "@/lib/navigation";
 
@@ -52,12 +52,15 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-3 p-2">
-          <Logo className="size-8 text-sidebar-primary" />
-          <div className="flex flex-col">
-            <p className="text-lg font-semibold text-sidebar-foreground">
-              Corp-Plan
-            </p>
+          {/* Gold-rimmed badge around the Nib mark. */}
+          <div className="relative flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#F6D27A] via-[#D9A441] to-[#A8742A] p-[3px] shadow-[0_4px_10px_-2px_rgba(91,64,48,0.45)]">
+            <div className="flex size-full items-center justify-center rounded-full bg-gradient-to-b from-white to-[#FBF3E2] shadow-[inset_0_1px_3px_rgba(91,64,48,0.25)]">
+              <Image src="/niblogo.png" alt="Nib International Bank" width={30} height={30} className="size-[30px] drop-shadow-[0_1px_1px_rgba(91,64,48,0.35)]" priority />
+            </div>
           </div>
+          <p className="bg-gradient-to-r from-[#5B4030] to-[#9A6A2E] bg-clip-text text-lg font-bold tracking-tight text-transparent">
+            Strategic Plan
+          </p>
         </div>
       </SidebarHeader>
       <SidebarContent className="flex-1 gap-5 py-2">

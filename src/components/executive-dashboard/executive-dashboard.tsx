@@ -1,7 +1,8 @@
+import { EmptyState as SharedEmptyState } from "@/components/empty-state";
 import Link from "next/link";
 import {
   ArrowDownRight, ArrowRight, ArrowUpRight, Building2, CalendarClock, CheckCircle2, ClipboardCheck, Crown, Flag,
-  Gauge as GaugeIcon, LayoutGrid, Layers, ListChecks, Sparkles, Target, TriangleAlert,
+  LayoutGrid, Layers, ListChecks, Sparkles, Target, TriangleAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DashboardData, TrendPoint } from "@/lib/dashboard-data";
@@ -158,10 +159,7 @@ function TabNav({ active, planId, periodId }: { active: DashboardTab; planId: st
 function EmptyState({ title, body, href, cta }: { title: string; body: string; href: string; cta: string }) {
   return (
     <div className={cn(CARD, "flex flex-col items-center justify-center px-6 py-20 text-center")}>
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><GaugeIcon className="h-6 w-6" /></div>
-      <h2 className="text-lg font-semibold">{title}</h2>
-      <p className="mt-1 max-w-md text-sm text-muted-foreground">{body}</p>
-      <Link href={href} className="mt-5 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90">{cta}</Link>
+      <SharedEmptyState art="chart" title={title} description={body} action={{ href, label: cta }} className="py-0" />
     </div>
   );
 }

@@ -20,6 +20,7 @@ import { monthKey, monthsBetween, type TargetType } from "@/lib/monthly-breakdow
 import { BreakdownEditor, BreakdownStrip, breakdownDraftFrom, draftEntries, emptyBreakdownDraft, validateDraft, type BreakdownDraft } from "./breakdown-editor";
 import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } from "../list-controls";
 import { isRangeSet, matchesSearch, overlapsDateRange, type DateRangeValue } from "@/lib/list-filters";
+import { EmptyState } from "@/components/empty-state";
 
 type BreakdownActivity = Activity & { monthlyTargets?: { month: string; value: number }[] };
 
@@ -353,11 +354,12 @@ export function MyActivityPlanList({ activities, plan, onChanged }: { activities
         {waitingCount > 0 && ` ${waitingCount} of your activities ${waitingCount === 1 ? "hasn't" : "haven't"} had a request sent yet.`}
       </p>
       {actionable.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">No breakdown requests yet — they appear here once an approver sends them for the published plan.</p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          art="plan"
+          title="No breakdowns to plan yet"
+          description="Breakdown requests appear here once an approver sends them for the published plan."
+          className="rounded-xl border border-dashed border-border/70 bg-card/60"
+        />
       ) : (
         <div className="space-y-4">
           <ListToolbar count={narrowed ? `${matching.length} of ${actionable.length} match` : undefined}>

@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { PlanRowActions } from '@/components/strategic-plan/plan-row-actions';
 import { Can } from '@/components/permissions-provider';
+import { EmptyState } from "@/components/empty-state";
 
 export default async function StrategicPlanListPage() {
   const plans = await listStrategicPlans({ includeInactive: true });
@@ -44,9 +45,7 @@ export default async function StrategicPlanListPage() {
 
         <div className="border-t border-border/60">
           {plans.length === 0 ? (
-            <div className="px-6 py-16 text-center text-sm text-muted-foreground">
-              No strategic plans yet. Get started by creating one.
-            </div>
+            <EmptyState art="plan" title="No strategic plans yet" description="Get started by creating or importing one." />
           ) : (
             <table className="w-full text-sm">
               <thead>

@@ -18,6 +18,7 @@ import type { PeriodReportEntry } from "../my-activity/my-activity-report-list";
 import { ReportEvidence } from "../reports/report-evidence";
 import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } from "../list-controls";
 import { inDateRange, isRangeSet, matchesSearch, type DateRangeValue } from "@/lib/list-filters";
+import { EmptyState } from "@/components/empty-state";
 
 function Field({ label, children, wide }: { label: string; children: React.ReactNode; wide?: boolean }) {
   return (
@@ -85,11 +86,12 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
 
   if (reports.length === 0) {
     return (
-      <Card>
-        <CardContent className="pt-6">
-          <p className="text-center text-muted-foreground">No period reports are waiting for approval.</p>
-        </CardContent>
-      </Card>
+      <EmptyState
+        art="inbox"
+        title="All caught up"
+        description="No period reports are waiting for your approval."
+        className="rounded-xl border border-dashed border-border/70 bg-card/60"
+      />
     );
   }
 

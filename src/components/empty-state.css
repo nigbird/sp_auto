@@ -1,0 +1,61 @@
+/* Small looping illustrations for empty pages. Colours come from the theme tokens. */
+
+.es-art { width: 160px; height: 120px; overflow: visible; }
+.es-paper { fill: hsl(var(--card)); stroke: hsl(var(--border)); stroke-width: 1.5; }
+.es-shadow { fill: hsl(var(--muted)); }
+.es-ink { fill: none; stroke: hsl(var(--muted-foreground) / 0.45); stroke-width: 3; stroke-linecap: round; }
+.es-accent { fill: hsl(var(--primary)); }
+.es-accent-stroke { fill: none; stroke: hsl(var(--primary)); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.es-soft { fill: hsl(var(--primary) / 0.15); }
+.es-muted { fill: hsl(var(--muted-foreground) / 0.55); }
+
+/* --- writing: a pencil fills a page line by line, then the page clears --- */
+.es-write-line { stroke-dasharray: 48; stroke-dashoffset: 48; animation: es-write-1 5s linear infinite; }
+.es-write-line:nth-of-type(2) { animation-name: es-write-2; }
+.es-write-line:nth-of-type(3) { animation-name: es-write-3; }
+.es-write-line.es-short { stroke-dasharray: 32; stroke-dashoffset: 32; animation-name: es-write-4; }
+@keyframes es-write-1 { 0% { stroke-dashoffset: 48; opacity: 1 } 18%, 88% { stroke-dashoffset: 0; opacity: 1 } 96%, 100% { stroke-dashoffset: 0; opacity: 0 } }
+@keyframes es-write-2 { 0%, 22% { stroke-dashoffset: 48; opacity: 1 } 40%, 88% { stroke-dashoffset: 0; opacity: 1 } 96%, 100% { stroke-dashoffset: 0; opacity: 0 } }
+@keyframes es-write-3 { 0%, 44% { stroke-dashoffset: 48; opacity: 1 } 62%, 88% { stroke-dashoffset: 0; opacity: 1 } 96%, 100% { stroke-dashoffset: 0; opacity: 0 } }
+@keyframes es-write-4 { 0%, 66% { stroke-dashoffset: 32; opacity: 1 } 78%, 88% { stroke-dashoffset: 0; opacity: 1 } 96%, 100% { stroke-dashoffset: 0; opacity: 0 } }
+.es-pencil { animation: es-pencil 5s ease-in-out infinite; }
+@keyframes es-pencil {
+  0% { transform: translate(56px, 40px) }
+  18% { transform: translate(104px, 40px) }
+  22% { transform: translate(56px, 54px) }
+  40% { transform: translate(104px, 54px) }
+  44% { transform: translate(56px, 68px) }
+  62% { transform: translate(104px, 68px) }
+  66% { transform: translate(56px, 82px) }
+  78%, 88% { transform: translate(88px, 82px) }
+  96%, 100% { transform: translate(56px, 40px) }
+}
+
+/* --- plan: checklist boxes tick one after another --- */
+.es-tick { stroke-dasharray: 14; stroke-dashoffset: 14; animation: es-tick-1 4.5s ease-out infinite; }
+.es-tick:nth-of-type(2) { animation-name: es-tick-2; }
+.es-tick:nth-of-type(3) { animation-name: es-tick-3; }
+@keyframes es-tick-1 { 0%, 10% { stroke-dashoffset: 14; opacity: 1 } 20%, 85% { stroke-dashoffset: 0; opacity: 1 } 95%, 100% { stroke-dashoffset: 0; opacity: 0 } }
+@keyframes es-tick-2 { 0%, 30% { stroke-dashoffset: 14; opacity: 1 } 40%, 85% { stroke-dashoffset: 0; opacity: 1 } 95%, 100% { stroke-dashoffset: 0; opacity: 0 } }
+@keyframes es-tick-3 { 0%, 50% { stroke-dashoffset: 14; opacity: 1 } 60%, 85% { stroke-dashoffset: 0; opacity: 1 } 95%, 100% { stroke-dashoffset: 0; opacity: 0 } }
+
+/* --- inbox: an empty tray with a check badge floating above it --- */
+.es-float { animation: es-float 3s ease-in-out infinite; }
+@keyframes es-float { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
+.es-spark { transform-box: fill-box; transform-origin: center; animation: es-spark 2.4s ease-in-out infinite; }
+.es-spark:nth-of-type(2) { animation-delay: 0.8s; }
+.es-spark:nth-of-type(3) { animation-delay: 1.6s; }
+@keyframes es-spark { 0%, 100% { opacity: 0; transform: scale(0.4) } 50% { opacity: 1; transform: scale(1) } }
+
+/* --- chart: bars rise and settle, waiting for numbers --- */
+.es-bar { transform-box: fill-box; transform-origin: bottom; animation: es-bar 3.2s ease-in-out infinite; }
+.es-bar:nth-of-type(2) { animation-delay: 0.25s; }
+.es-bar:nth-of-type(3) { animation-delay: 0.5s; }
+.es-bar:nth-of-type(4) { animation-delay: 0.75s; }
+@keyframes es-bar { 0%, 100% { transform: scaleY(0.25) } 50% { transform: scaleY(1) } }
+
+@media (prefers-reduced-motion: reduce) {
+  .es-art * { animation: none !important; }
+  .es-write-line, .es-tick { stroke-dashoffset: 0; }
+  .es-pencil { transform: translate(88px, 82px); }
+}

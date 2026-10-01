@@ -6,6 +6,7 @@ import { computeReportRow, formatRatio, formatWeight, rollUp, type ReportRow } f
 import { REPORT_COLUMNS, statusClass } from "./performance-report-columns";
 import { PerformanceReportGrid, type GridActivity, type GridPillar } from "./performance-report-grid";
 import { PeriodSelect } from "./period-select";
+import { EmptyState } from "@/components/empty-state";
 
 type Activity = Pillar['objectives'][number]['initiatives'][number]['activities'][number];
 
@@ -38,7 +39,7 @@ const STATUS_TEXT: Record<string, string> = {
  */
 export function PerformanceReportTable({ planId, pillars, periods, selected, entries }: { planId: string; pillars: Pillar[]; periods: PerformancePeriod[]; selected: PerformancePeriod | null; entries: PerformanceEntry[] }) {
   if (!selected) {
-    return <p className="text-sm text-muted-foreground">There are no reporting periods yet. Create one from Reporting Periods first.</p>;
+    return <EmptyState art="chart" title="No reporting periods yet" description="Create a reporting period first; performance results appear here as reports are approved." className="rounded-xl border border-dashed border-border/70 bg-card/60" />;
   }
 
   if (entries.length === 0) {
@@ -48,9 +49,12 @@ export function PerformanceReportTable({ planId, pillars, periods, selected, ent
           <span className="text-sm text-muted-foreground">Reporting period:</span>
           <PeriodSelect periods={periods} value={selected.id} planId={planId} />
         </div>
-        <p className="text-sm text-muted-foreground">
-          No reports have been requested for {selected.name} yet. Send a report request from Reporting Periods; results appear here as reports are approved.
-        </p>
+        <EmptyState
+          art="chart"
+          title="No results yet"
+          description={<>No reports have been requested for {selected.name} yet. Send a report request from Reporting Periods; results appear here as reports are approved.</>}
+          className="rounded-xl border border-dashed border-border/70 bg-card/60"
+        />
       </div>
     );
   }

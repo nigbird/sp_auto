@@ -4,8 +4,9 @@ import { RootLayoutClient } from "@/components/root-layout-client";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Corp-Plan Dashboard",
+  title: "Strategic Plan | Nib International Bank",
   description: "Corporate Activity Plan & Dashboard Automation System",
+  icons: { icon: "/niblogo.png", apple: "/niblogo.png" },
 };
 
 export default function RootLayout({

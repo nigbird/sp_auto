@@ -23,6 +23,7 @@ import { ReportEvidence } from "../reports/report-evidence";
 import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } from "../list-controls";
 import { isRangeSet, matchesSearch, overlapsDateRange, type DateRangeValue } from "@/lib/list-filters";
 import type { EvidenceMeta } from "@/actions/evidence";
+import { EmptyState } from "@/components/empty-state";
 
 export interface PeriodReportEntry {
   id: string;
@@ -385,10 +386,16 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
           <span className={cn("text-sm", toFill > 0 ? "text-primary" : "text-muted-foreground")}>
             · {toFill > 0 ? `${toFill} ${toFill === 1 ? 'report needs' : 'reports need'} to be filled in` : 'nothing waiting on you'}
           </span>
-        ) : (
-          <span className="text-sm text-muted-foreground">· No reports have been requested from you yet.</span>
-        )}
+        ) : null}
       </div>
+      {entries.length === 0 && (
+        <EmptyState
+          art="writing"
+          title="No reports to write yet"
+          description="When a reporting period opens and a report is requested for one of your activities, it will appear here for you to fill in."
+          className="rounded-xl border border-dashed border-border/70 bg-card/60"
+        />
+      )}
       {entries.length > 0 && (
         <ListToolbar count={narrowed ? `${matching.length} of ${entries.length} reports match` : undefined}>
           <SearchBox value={query} onChange={setQuery} placeholder="Search activity, initiative or period" className="sm:w-80" />

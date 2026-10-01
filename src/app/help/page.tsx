@@ -9,7 +9,7 @@ export default function HelpPage() {
     <div className="flex-1 space-y-6">
       <div className="mb-8">
         <h1 className="text-4xl font-bold tracking-tight">Help & Support</h1>
-        <p className="text-lg text-muted-foreground mt-2">We're here to help you get the most out of the Corp-Plan Dashboard.</p>
+        <p className="text-lg text-muted-foreground mt-2">We're here to help you get the most out of the Strategic Plan workspace.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -18,7 +18,7 @@ export default function HelpPage() {
             <CardHeader>
               <CardTitle>Frequently Asked Questions</CardTitle>
               <CardDescription>
-                Find answers to common questions about the Corp-Plan Dashboard.
+                Find answers to common questions about the Strategic Plan workspace.
               </CardDescription>
             </CardHeader>
             <CardContent>

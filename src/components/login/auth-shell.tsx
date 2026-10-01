@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { AlertCircle, CheckCircle2, Eye, EyeOff, Loader2, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LoginIllustration } from "@/components/login/login-illustration";
-import { NibMark } from "@/components/login/nib-mark";
+import Image from "next/image";
 import "@/components/login/login.css";
 
 /**
@@ -23,6 +23,14 @@ export function AuthShell({ children }: { children: ReactNode }) {
           <div className="pointer-events-none absolute -inset-6 rounded-[40px] bg-[radial-gradient(ellipse_at_center,rgba(255,250,240,0.55),rgba(230,194,122,0.10)_55%,transparent_75%)] blur-2xl" />
 
           <div className="relative rounded-3xl border border-[#C9A36A]/40 bg-[#F4EEE5]/[0.5] px-7 py-8 shadow-[0_22px_50px_-24px_rgba(121,86,63,0.38),0_2px_6px_-2px_rgba(121,86,63,0.08)] ring-1 ring-inset ring-[#FFFDF8]/60 backdrop-blur-lg sm:px-9">
+            {/* On small screens the illustration panel (and its logo) is hidden, so brand the card itself. */}
+            <div className="a-enter mb-6 flex items-center gap-2.5 lg:hidden">
+              <Image src="/niblogo.png" alt="" width={32} height={32} priority className="h-8 w-8 shrink-0" />
+              <div className="leading-tight">
+                <p className="text-sm font-bold tracking-tight text-[#5B4030]">Nib International Bank</p>
+                <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-[#8A7361]">Strategic Plan</p>
+              </div>
+            </div>
             {children}
           </div>
         </div>
@@ -78,7 +86,7 @@ function IllustrationPanel() {
   return (
     <section className="relative hidden min-h-screen flex-col px-10 py-10 lg:flex xl:px-14">
       <div className="a-enter relative z-10 flex items-center gap-3">
-        <NibMark className="h-11 w-11 shrink-0 drop-shadow-[0_4px_10px_rgba(121,86,63,0.18)]" />
+        <Image src="/niblogo.png" alt="Nib International Bank" width={44} height={44} priority className="h-11 w-11 shrink-0 drop-shadow-[0_4px_10px_rgba(121,86,63,0.18)]" />
         <div className="leading-tight">
           <p className="text-lg font-bold tracking-tight text-[#5B4030]">Nib International Bank</p>
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#8A7361]">Strategic Plan</p>

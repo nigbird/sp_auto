@@ -15,6 +15,7 @@ import { monthKey, monthsBetween, type TargetAggregation, type TargetType } from
 import { BreakdownStrip } from "../my-activity/breakdown-editor";
 import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } from "../list-controls";
 import { isRangeSet, matchesSearch, overlapsDateRange, type DateRangeValue } from "@/lib/list-filters";
+import { EmptyState } from "@/components/empty-state";
 
 export interface PendingActivityPlan {
   id: string;
@@ -92,11 +93,12 @@ export function PlanApprovalList({ plans: initialPlans }: { plans: PendingActivi
 
   if (plans.length === 0) {
     return (
-      <Card>
-        <CardContent className="pt-6">
-          <p className="text-center text-muted-foreground">No monthly breakdowns are waiting for approval.</p>
-        </CardContent>
-      </Card>
+      <EmptyState
+        art="inbox"
+        title="All caught up"
+        description="No monthly breakdowns are waiting for your approval."
+        className="rounded-xl border border-dashed border-border/70 bg-card/60"
+      />
     );
   }
 
