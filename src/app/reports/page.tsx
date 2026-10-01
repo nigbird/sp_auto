@@ -6,6 +6,7 @@ import { PerformanceReportTable, type PerformanceEntry, type PerformancePeriod }
 import { PlanSelect } from "@/components/reports/plan-select";
 import { ExportMenu } from "@/components/export-menu";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/empty-state";
 
 export default async function PerformanceReportsPage({ searchParams }: { searchParams: Promise<{ plan?: string; period?: string }> }) {
   const { user, denied } = await guardPage('reports:view', 'reports:view-own');
@@ -73,7 +74,7 @@ export default async function PerformanceReportsPage({ searchParams }: { searchP
           </CardContent>
         </Card>
       ) : (
-        <p className="text-sm text-muted-foreground">There is no strategic plan yet. Create or import one under Planning → Strategic Plans.</p>
+        <EmptyState art="chart" title="No strategic plan yet" description="Create or import a plan first; performance results appear here as reports are approved." action={{ href: "/strategic-plan", label: "Go to Strategic Plans" }} className="rounded-xl border border-dashed border-border/70 bg-card/60" />
       )}
     </div>
   );

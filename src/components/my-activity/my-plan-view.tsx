@@ -11,6 +11,7 @@ import { updateActivity } from "@/actions/activities";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ActivityForm } from "@/components/dashboard/activity-form";
+import { EmptyState } from "@/components/empty-state";
 
 type TabId = "activities" | "breakdown";
 
@@ -82,7 +83,7 @@ export function MyPlanView({ plans, plan, activities, reports, periods, users }:
       </div>
 
       {!plan ? (
-        <p className="text-sm text-muted-foreground">There is no published strategic plan yet.</p>
+        <EmptyState art="plan" title="No published plan yet" description="Your activities will show here once a strategic plan is published and activities are assigned to you." className="rounded-xl border border-dashed border-border/70 bg-card/60" />
       ) : (
         <Tabs value={tab} onValueChange={v => setTab(v as TabId)} className={isPending ? "opacity-60 transition-opacity" : undefined}>
           <TabsList>

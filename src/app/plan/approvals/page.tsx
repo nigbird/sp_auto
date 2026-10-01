@@ -4,7 +4,7 @@ import { getPendingActivityPlans } from "@/actions/activity-plan-submissions";
 import type { PendingActivityPlan } from "@/components/approvals/plan-approval-list";
 import { PlanApprovalsBoard } from "@/components/approvals/plan-approvals-board";
 import { PlanSelect } from "@/components/reports/plan-select";
-import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/empty-state";
 
 export default async function PlanApprovalsPage({ searchParams }: { searchParams: Promise<{ plan?: string }> }) {
   const { denied } = await guardPage('plan-approvals:view');
@@ -33,7 +33,7 @@ export default async function PlanApprovalsPage({ searchParams }: { searchParams
       </div>
 
       {overview.planId === null ? (
-        <Card><CardContent className="pt-6"><p className="text-center text-muted-foreground">There is no strategic plan yet.</p></CardContent></Card>
+        <EmptyState art="inbox" title="Nothing to approve yet" description="There is no strategic plan yet. New activities and monthly breakdowns will wait here for your approval once one is created." action={{ href: "/strategic-plan", label: "Go to Strategic Plans" }} className="rounded-xl border border-dashed border-border/70 bg-card/60" />
       ) : (
         <PlanApprovalsBoard activities={activities} pendingPlans={pendingPlans} newActivities={newActivities} defaultTab={defaultTab} />
       )}

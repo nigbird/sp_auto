@@ -25,6 +25,7 @@ import { Progress } from "../ui/progress";
 import { BreakdownStrip } from "./breakdown-editor";
 import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } from "../list-controls";
 import { isRangeSet, matchesSearch, overlapsDateRange, type DateRangeValue } from "@/lib/list-filters";
+import { EmptyState } from "@/components/empty-state";
 
 /** The latest requested period report for an activity (from getMyPeriodReports). */
 export interface LatestReport {
@@ -339,11 +340,7 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
 
   if (activities.length === 0) {
     return (
-      <Card>
-        <CardContent className="pt-6">
-          <p className="text-center text-muted-foreground">You aren't responsible for any activities in this plan.</p>
-        </CardContent>
-      </Card>
+      <EmptyState art="plan" title="No activities assigned to you" description="You aren't responsible for any activities in this plan yet. They'll appear here once they're assigned to you." className="rounded-xl border border-dashed border-border/70 bg-card/60" />
     );
   }
 

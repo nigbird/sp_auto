@@ -333,11 +333,7 @@ export function MyActivityPlanList({ activities, plan, onChanged }: { activities
 
   if (activities.length === 0) {
     return (
-      <Card>
-        <CardContent className="pt-6">
-          <p className="text-center text-muted-foreground">You have no activities in this plan.</p>
-        </CardContent>
-      </Card>
+      <EmptyState art="plan" title="No activities assigned to you" description="Once an activity in this plan is assigned to you, its monthly breakdown will be planned here." className="rounded-xl border border-dashed border-border/70 bg-card/60" />
     );
   }
 

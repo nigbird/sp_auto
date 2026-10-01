@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
-import { CalendarRange, PlusCircle, Trash2, Edit, Save, X, Lock, LockOpen } from "lucide-react";
+import { PlusCircle, Trash2, Edit, Save, X, Lock, LockOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import { ReportRequestButton, ReportSummaryBadges, type ReportSummary } from "@/
 import { usePermissions } from "@/components/permissions-provider";
 import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
 import { cn } from "@/lib/utils";
+import { EmptyState } from "@/components/empty-state";
 
 type EditableFields = { name: string; startDate: string; endDate: string; cutOffDate: string };
 
@@ -188,9 +189,8 @@ export default function ReportingPeriodsPage() {
             <TableBody>
               {periods.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                    <CalendarRange className="mx-auto mb-2 h-6 w-6" />
-                    No reporting periods defined for this plan yet.
+                  <TableCell colSpan={7} className="p-0">
+                    <EmptyState art="plan" title="No reporting periods yet" description="Add a reporting period to start requesting reports for this plan." />
                   </TableCell>
                 </TableRow>
               )}
