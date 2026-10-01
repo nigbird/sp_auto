@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/auth/session';
 import { requirePermission } from '@/lib/auth/permissions-server';
+import { changedFields, recordAudit } from '@/lib/auth/audit';
 import type { ReportingPeriodStatus } from '@prisma/client';
 
 export interface ReportingPeriodInput {
@@ -33,6 +34,11 @@ export async function createReportingPeriod(strategicPlanId: string, data: Repor
       endDate: new Date(data.endDate),
       cutOffDate: new Date(data.cutOffDate),
     },
+  });
+  await recordAudit({
+    action: 'REPORTING_PERIOD_CREATED', entityType: 'ReportingPeriod', entityId: newPeriod.id,
+    summary: `Created reporting period "${newPeriod.name}"`,
+    metadata: { strategicPlanId, startDate: data.startDate, endDate: data.endDate, cutOffDate: data.cutOffDate },
   });
 
   // No activities can be tied to a brand-new period yet, so there's no other
@@ -78,6 +84,16 @@ export async function updateReportingPeriod(
     where: { id },
     data: updateData,
   });
+  const changes = before ? changedFields(before, updateData) : {};
+  if (Object.keys(changes).length > 0) {
+    await recordAudit({
+      action: 'REPORTING_PERIOD_UPDATED', entityType: 'ReportingPeriod', entityId: id,
+      summary: changes.status
+        ? `Changed reporting period "${updatedPeriod.name}" status to ${updatedPeriod.status.toLowerCase()}`
+        : `Edited reporting period "${updatedPeriod.name}" (${Object.keys(changes).join(', ')})`,
+      metadata: { changes },
+    });
+  }
 
   if (before && before.status !== 'CLOSED' && updatedPeriod.status === 'CLOSED') {
     const activities = await prisma.activity.findMany({
@@ -104,6 +120,10 @@ export async function updateReportingPeriod(
 export async function deleteReportingPeriod(id: string) {
   await requirePermission('settings:manage');
 
-  await prisma.reportingPeriod.delete({ where: { id } });
+  const period = await prisma.reportingPeriod.delete({ where: { id } });
+  await recordAudit({
+    action: 'REPORTING_PERIOD_DELETED', entityType: 'ReportingPeriod', entityId: id,
+    summary: `Deleted reporting period "${period.name}"`, metadata: { strategicPlanId: period.strategicPlanId },
+  });
   revalidatePath('/settings/reporting-periods');
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth/session';
 import { userCan } from '@/lib/auth/permissions-server';
+import { recordAudit } from '@/lib/auth/audit';
 import { loadDashboard } from '@/lib/dashboard-data';
 import { delayFilterFromParams, describeDelayFilter, filterDelayRows } from '@/lib/activity-delay-table';
 import { buildActivityDelayPdf, buildActivityDelayWorkbook } from '@/lib/dashboard-export/activity-delay-export';
@@ -38,6 +39,11 @@ export async function GET(request: NextRequest) {
 
   const safeName = `${data.plan.name} - Activity delays - ${data.period.name}`.replace(/[^\w\s.-]+/g, '').replace(/\s+/g, ' ').trim() || 'activity-delays';
   const extension = asPdf ? 'pdf' : 'xlsx';
+  await recordAudit({
+    action: 'ACTIVITIES_EXPORTED', entityType: 'StrategicPlan', entityId: data.plan.id,
+    summary: `Exported ${rows.length} activity delay rows for "${data.plan.name}" (${data.period.name}) as ${asPdf ? 'PDF' : 'Excel'}`,
+    metadata: { format: extension, reportingPeriodId: data.period.id, rows: rows.length, filter: describeDelayFilter(filter) },
+  });
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       'Content-Type': asPdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

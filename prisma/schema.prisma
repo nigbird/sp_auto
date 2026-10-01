@@ -422,7 +422,15 @@ model AuditLog {
   id         String   @id @default(cuid())
   action     String
   identifier String?
+  /// The user the event is about (the person signing in, the account being deactivated, ...).
   userId     String?
+  /// Who performed the action, when someone signed in did it.
+  actorId    String?
+  /// What was changed, e.g. "StrategicPlan" + its id.
+  entityType String?
+  entityId   String?
+  /// One readable line for the audit log screen.
+  summary    String?
   ip         String?
   userAgent  String?
   success    Boolean
@@ -431,6 +439,10 @@ model AuditLog {
 
   @@index([identifier, createdAt])
   @@index([ip, createdAt])
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
 }
 
 model Notification {

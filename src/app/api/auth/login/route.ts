@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { ACCESS_TOKEN_TTL_SECONDS } from '@/lib/auth/config';
 import { originIsTrusted } from '@/lib/auth/origin';
-import { getRequestIp, isIdentifierLocked, isIpLocked } from '@/lib/auth/rate-limit';
+import { getRequestIp, isIdentifierLocked, isIpLocked, loginIdentifierForLog } from '@/lib/auth/rate-limit';
 import { createSessionWithTokens } from '@/lib/auth/issue';
 import { setAuthCookies } from '@/lib/auth/cookies';
 import { writeAuditLog } from '@/lib/auth/audit';
@@ -40,8 +40,9 @@ export async function POST(request: NextRequest) {
 
   const identifier = parsed.data.identifier.trim().toLowerCase();
   const { password } = parsed.data;
+  const logIdentifier = loginIdentifierForLog(identifier);
 
-  if ((await isIpLocked(ip)) || (await isIdentifierLocked(identifier))) {
+  if ((await isIpLocked(ip)) || (await isIdentifierLocked(logIdentifier))) {
     return NextResponse.json({ error: 'Too many attempts. Try again later.', code: 'LOCKED' }, { status: 429 });
   }
 
@@ -50,8 +51,8 @@ export async function POST(request: NextRequest) {
   const isValid = !!user && user.status === 'ACTIVE' && passwordMatches;
 
   if (!isValid) {
-    await writeAuditLog({ action: 'LOGIN_FAILURE', success: false, identifier, userId: user?.id, ip, userAgent });
-    const lockedNow = (await isIdentifierLocked(identifier)) || (await isIpLocked(ip));
+    await writeAuditLog({ action: 'LOGIN_FAILURE', success: false, identifier: logIdentifier, userId: user?.id, summary: `Failed sign-in for ${user ? identifier : logIdentifier === identifier ? `unknown account ${identifier}` : 'an unrecognised name (not an email address)'}${user && user.status !== 'ACTIVE' ? ' (account deactivated)' : ''}`, ip, userAgent });
+    const lockedNow = (await isIdentifierLocked(logIdentifier)) || (await isIpLocked(ip));
     return NextResponse.json(
       { error: 'Invalid email or password.', ...(lockedNow ? { code: 'LOCKED' } : {}) },
       { status: lockedNow ? 429 : 401 }
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
   });
 
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-  await writeAuditLog({ action: 'LOGIN_SUCCESS', success: true, identifier, userId: user.id, ip, userAgent });
+  await writeAuditLog({ action: 'LOGIN_SUCCESS', success: true, identifier, userId: user.id, actorId: user.id, summary: `${user.name} signed in`, ip, userAgent });
 
   const response = NextResponse.json({
     expiresIn: ACCESS_TOKEN_TTL_SECONDS,

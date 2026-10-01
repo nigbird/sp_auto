@@ -5,7 +5,15 @@ import {
   Bell,
   Search,
   Menu,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
+import {
+  NOTIFICATIONS_CHANGED_EVENT,
+  announceNotificationsChanged,
+  playNotificationSound,
+  useNotificationSound,
+} from "@/lib/notification-client";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { SidebarTrigger } from "./ui/sidebar";
@@ -14,11 +22,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { getNotifications, markNotificationRead, markAllNotificationsRead } from "@/actions/notifications";
+import { getNotifications, pollNotifications, markNotificationRead, markAllNotificationsRead } from "@/actions/notifications";
 import { getCurrentUserAction } from "@/actions/auth";
 import type { Notification } from "@/lib/types";
 import type { SessionUser } from "@/lib/auth/session";
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { formatDistanceToNow } from "date-fns";
 import {
   DropdownMenu,
@@ -34,49 +42,92 @@ import { LayoutDashboard, UserCheck, LogOut } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
 
+const POLL_INTERVAL_MS = 30_000;
+const BELL_PREVIEW_COUNT = 8;
+
 function Notifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [open, setOpen] = useState(false);
+  const { enabled: soundOn, setEnabled: setSoundOn } = useNotificationSound();
+  // Ids seen so far; null until the first load, so existing notifications
+  // don't chime on page load — only ones that arrive while the page is open.
+  const seenIds = useRef<Set<string> | null>(null);
 
-  const refresh = () => {
-    getNotifications().then(setNotifications);
-  };
+  const apply = useCallback((list: Notification[]) => {
+    const seen = seenIds.current;
+    if (seen && list.some((n) => !n.read && !seen.has(n.id))) playNotificationSound();
+    seenIds.current = new Set(list.map((n) => n.id));
+    setNotifications(list);
+  }, []);
+
+  const refresh = useCallback(() => {
+    getNotifications().then(apply);
+  }, [apply]);
 
   useEffect(() => {
     refresh();
-  }, []);
+    const poll = () => {
+      if (document.visibilityState === "visible") pollNotifications().then(apply).catch(() => {});
+    };
+    const timer = window.setInterval(poll, POLL_INTERVAL_MS);
+    document.addEventListener("visibilitychange", poll);
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, poll);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", poll);
+      window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, poll);
+    };
+  }, [refresh, apply]);
 
   const handleMarkAllRead = async () => {
     await markAllNotificationsRead();
-    refresh();
+    announceNotificationsChanged();
   };
 
   const handleNotificationClick = async (notification: Notification) => {
     if (notification.read) return;
     await markNotificationRead(notification.id);
-    refresh();
+    announceNotificationsChanged();
   };
 
-  const hasUnread = notifications.some((n) => !n.read);
+  const unreadCount = notifications.filter((n) => !n.read).length;
+  const hasUnread = unreadCount > 0;
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={(next) => { setOpen(next); if (next) refresh(); }}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
-          {hasUnread && <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-accent" />}
+          {hasUnread && (
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold leading-none text-accent-foreground">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
           <span className="sr-only">Toggle notifications</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <p className="font-medium">Notifications</p>
-          <Button variant="link" size="sm" className="p-0 h-auto" onClick={handleMarkAllRead} disabled={!hasUnread}>Mark all as read</Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setSoundOn(!soundOn)}
+              title={soundOn ? "Sound on — click to mute" : "Sound off — click to unmute"}
+            >
+              {soundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4 text-muted-foreground" />}
+              <span className="sr-only">{soundOn ? "Turn notification sound off" : "Turn notification sound on"}</span>
+            </Button>
+            <Button variant="link" size="sm" className="p-0 h-auto" onClick={handleMarkAllRead} disabled={!hasUnread}>Mark all as read</Button>
+          </div>
         </div>
         <div className="mt-4 space-y-4 max-h-96 overflow-y-auto">
           {notifications.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-4">No notifications.</p>
           )}
-          {notifications.map((notification) => (
+          {notifications.slice(0, BELL_PREVIEW_COUNT).map((notification) => (
              <button
                 key={notification.id}
                 onClick={() => handleNotificationClick(notification)}
@@ -89,6 +140,11 @@ function Notifications() {
               </div>
             </button>
           ))}
+        </div>
+        <div className="mt-3 border-t pt-2 text-center">
+          <Link href="/notifications" onClick={() => setOpen(false)} className="text-sm font-medium text-primary hover:underline">
+            View all notifications
+          </Link>
         </div>
       </PopoverContent>
     </Popover>

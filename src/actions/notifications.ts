@@ -17,6 +17,19 @@ export async function getNotifications(): Promise<Notification[]> {
     });
 }
 
+/**
+ * The bell's periodic check for new notifications. Skips the time-based sync
+ * (the background timer in instrumentation.ts already runs it), so polling
+ * every open tab stays a single cheap query.
+ */
+export async function pollNotifications(): Promise<Notification[]> {
+    const user = await requireUser();
+    return await prisma.notification.findMany({
+        where: { userId: user.id },
+        orderBy: { date: 'desc' },
+    });
+}
+
 export async function markNotificationRead(id: string): Promise<void> {
     const user = await requireUser();
     await prisma.notification.updateMany({

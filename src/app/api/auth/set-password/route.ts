@@ -43,6 +43,8 @@ export async function POST(request: NextRequest) {
     success: true,
     identifier: found.email,
     userId: found.userId,
+    actorId: found.userId,
+    summary: found.purpose === 'INVITE' ? 'Accepted invitation and set password' : 'Reset password from emailed link',
     ip: getRequestIp(request),
     userAgent: request.headers.get('user-agent'),
     metadata: { purpose: found.purpose },

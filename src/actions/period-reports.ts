@@ -4,6 +4,7 @@ import { publicUserSelect } from '@/lib/user-select';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requirePermission, userCan } from '@/lib/auth/permissions-server';
+import { recordAudit } from '@/lib/auth/audit';
 import { requireUser } from '@/lib/auth/session';
 import { isPeriodClosedForSubmissions } from '@/lib/reporting-period';
 import { computeReportRow, planToDateForPeriod } from '@/lib/report-calculations';
@@ -120,6 +121,11 @@ export async function sendReportRequest(periodId: string, message: string): Prom
         });
     }
 
+    await recordAudit({
+        action: 'REPORT_REQUESTS_SENT', entityType: 'ReportingPeriod', entityId: periodId,
+        summary: `Requested "${period.name}" reports for ${toRequest.length} ${toRequest.length === 1 ? 'activity' : 'activities'}`,
+        metadata: { requested: toRequest.length, owners: countByUser.size, message: trimmed },
+    });
     revalidateReportPages();
     return { success: true, count: toRequest.length };
 }
@@ -246,6 +252,11 @@ export async function submitPeriodReport(entryId: string, input: PeriodReportInp
             submittedAt: new Date(),
         },
     });
+    await recordAudit({
+        action: 'REPORT_SUBMITTED', entityType: 'ReportEntry', entityId: entryId,
+        summary: `Submitted the "${period.name}" report for "${activity.title}"${entry.reportStatus === 'RETURNED' ? ' (resubmission)' : ''}`,
+        metadata: { activityId: activity.id, reportingPeriodId: period.id, actualToDate: actual, planToDate: row.planToDate, behindPlan: row.isBehindPlan },
+    });
 
     if (period.reportRequestSentById && period.reportRequestSentById !== user.id) {
         await prisma.notification.create({
@@ -334,6 +345,11 @@ export async function approvePeriodReport(entryId: string): Promise<ReportAction
             reportingPeriodId: period.id,
         },
     });
+    await recordAudit({
+        action: 'REPORT_APPROVED', entityType: 'ReportEntry', entityId: entryId,
+        summary: `Approved the "${period.name}" report for "${activity.title}"`,
+        metadata: { activityId: activity.id, reportingPeriodId: period.id, actualToDate: entry.actualToDate, progress: overallProgress, status: laterApproved ? null : newStatus },
+    });
 
     revalidateReportPages();
     return { success: true };
@@ -352,6 +368,11 @@ export async function returnPeriodReport(entryId: string, reason: string): Promi
     await prisma.activityPeriodEntry.update({
         where: { id: entryId },
         data: { reportStatus: 'RETURNED', declineReason: trimmed },
+    });
+    await recordAudit({
+        action: 'REPORT_RETURNED', entityType: 'ReportEntry', entityId: entryId,
+        summary: `Returned the "${entry.reportingPeriod.name}" report for "${entry.activity.title}"`,
+        metadata: { activityId: entry.activityId, reportingPeriodId: entry.reportingPeriodId, reason: trimmed },
     });
 
     await prisma.notification.create({

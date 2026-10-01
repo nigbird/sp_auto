@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/auth/session';
 import { requirePermission } from '@/lib/auth/permissions-server';
 import { ALL_PERMISSIONS } from '@/lib/auth/permissions';
+import { recordAudit } from '@/lib/auth/audit';
 
 export async function getRoles() {
     await requirePermission('users:view', 'users:manage', 'roles:manage');
@@ -51,6 +52,11 @@ export async function createRole(name: string, permissions: string[]) {
             permissions: { create: permissions.map((permission) => ({ permission })) },
         },
     });
+    await recordAudit({
+        action: 'ROLE_CREATED', entityType: 'Role', entityId: role.id,
+        summary: `Created role "${role.name}" with ${permissions.length} permission${permissions.length === 1 ? '' : 's'}`,
+        metadata: { permissions },
+    });
 
     revalidatePath('/users/roles');
     return role;
@@ -64,12 +70,26 @@ export async function updateRolePermissions(roleId: string, permissions: string[
         throw new Error("You can't remove 'Create, edit and delete roles' from your own role.");
     }
 
+    const role = await prisma.role.findUnique({ where: { id: roleId }, include: { permissions: { select: { permission: true } } } });
+    if (!role) throw new Error('This role no longer exists.');
+    const before = role.permissions.map((p) => p.permission);
+
     await prisma.$transaction([
         prisma.rolePermission.deleteMany({ where: { roleId } }),
         prisma.rolePermission.createMany({
             data: permissions.map((permission) => ({ roleId, permission })),
         }),
     ]);
+
+    const added = permissions.filter((p) => !before.includes(p));
+    const removed = before.filter((p) => !permissions.includes(p));
+    if (added.length > 0 || removed.length > 0) {
+        await recordAudit({
+            action: 'ROLE_PERMISSIONS_UPDATED', entityType: 'Role', entityId: roleId,
+            summary: `Changed "${role.name}" permissions: ${[added.length && `+${added.length} granted`, removed.length && `${removed.length} removed`].filter(Boolean).join(', ')}`,
+            metadata: { added, removed },
+        });
+    }
 
     revalidatePath('/users/roles');
 }
@@ -89,5 +109,6 @@ export async function deleteRole(roleId: string) {
     }
 
     await prisma.role.delete({ where: { id: roleId } });
+    await recordAudit({ action: 'ROLE_DELETED', entityType: 'Role', entityId: roleId, summary: `Deleted role "${role.name}"` });
     revalidatePath('/users/roles');
 }

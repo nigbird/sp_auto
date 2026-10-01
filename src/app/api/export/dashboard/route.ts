@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth/session';
 import { userCan } from '@/lib/auth/permissions-server';
+import { recordAudit } from '@/lib/auth/audit';
 import { loadDashboard } from '@/lib/dashboard-data';
 import { renderDashboardCharts } from '@/lib/dashboard-export/dashboard-charts';
 import { buildDashboardWorkbook } from '@/lib/dashboard-export/build-dashboard-workbook';
@@ -35,6 +36,11 @@ export async function GET(request: NextRequest) {
 
   const safeName = `${data.plan.name} - Dashboard - ${data.period.name}`.replace(/[^\w\s.-]+/g, '').replace(/\s+/g, ' ').trim() || 'dashboard';
   const extension = asPdf ? 'pdf' : 'xlsx';
+  await recordAudit({
+    action: 'DASHBOARD_EXPORTED', entityType: 'StrategicPlan', entityId: data.plan.id,
+    summary: `Exported the dashboard for "${data.plan.name}" (${data.period.name}) as ${asPdf ? 'PDF' : 'Excel'}`,
+    metadata: { format: extension, reportingPeriodId: data.period.id },
+  });
 
   return new NextResponse(new Uint8Array(buffer), {
     headers: {

@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
     success: emailed,
     identifier: email,
     userId: user?.id,
+    summary: `Password reset requested for ${email}${emailed ? '' : ' (no email sent)'}`,
     ip,
     userAgent,
     metadata: { eligible },

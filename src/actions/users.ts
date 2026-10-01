@@ -7,7 +7,7 @@ import type { User } from '@/lib/types';
 import { requireUser } from '@/lib/auth/session';
 import { requirePermission } from '@/lib/auth/permissions-server';
 import { sendPasswordLink, type SentLink } from '@/lib/auth/password-tokens';
-import { writeAuditLog } from '@/lib/auth/audit';
+import { changedFields, recordAudit, writeAuditLog } from '@/lib/auth/audit';
 
 const userListSelect = {
     ...publicUserSelect,
@@ -91,7 +91,12 @@ export async function createUser(data: UserInput): Promise<UserActionResult> {
             avatar: `https://picsum.photos/seed/${Math.random()}/100`, // random placeholder
             status: 'ACTIVE',
         },
-        select: { id: true, name: true, email: true },
+        select: { id: true, name: true, email: true, role: { select: { name: true } } },
+    });
+    await recordAudit({
+        action: 'USER_CREATED', entityType: 'User', entityId: created.id, userId: created.id,
+        summary: `Registered ${created.name} (${created.email}) as ${created.role.name}`,
+        metadata: { roleId: data.roleId, leadOwnerId: data.leadOwnerId || null, department: data.department || null },
     });
     const invite = await deliverInvite(created);
     revalidatePath('/users');
@@ -101,7 +106,12 @@ export async function createUser(data: UserInput): Promise<UserActionResult> {
 async function deliverInvite(user: { id: string; name: string; email: string }): Promise<InviteOutcome> {
     const actor = await requireUser();
     const sent: SentLink = await sendPasswordLink(user, 'INVITE');
-    await writeAuditLog({ action: 'INVITE_SENT', success: sent.emailed, identifier: user.email, userId: user.id, metadata: { by: actor.id } });
+    await writeAuditLog({
+        action: 'INVITE_SENT', success: sent.emailed, identifier: user.email, userId: user.id, actorId: actor.id,
+        entityType: 'User', entityId: user.id,
+        summary: sent.emailed ? `Emailed an invitation to ${user.name}` : `Created an invitation link for ${user.name} (email not sent)`,
+        metadata: { by: actor.id },
+    });
     return sent.emailed ? { emailed: true } : { emailed: false, link: sent.link };
 }
 
@@ -144,11 +154,23 @@ export async function updateUser(email: string, data: { name?: string; roleId?: 
     const updateData: Record<string, unknown> = { ...data };
     if ('leadOwnerId' in data) updateData.leadOwnerId = data.leadOwnerId || null;
     if ('department' in data) updateData.department = data.department || null;
+    const before = await prisma.user.findUnique({ where: { email }, select: { name: true, roleId: true, leadOwnerId: true, department: true, role: { select: { name: true } } } });
     const updatedUser = await prisma.user.update({
         where: { email },
         data: updateData,
         select: publicUserSelect,
     });
+    const changes = before ? changedFields(before, updateData) : {};
+    if (Object.keys(changes).length > 0) {
+        const roleChange = 'roleId' in changes ? await prisma.role.findUnique({ where: { id: String(updateData.roleId) }, select: { name: true } }) : null;
+        await recordAudit({
+            action: 'USER_UPDATED', entityType: 'User', entityId: updatedUser.id, userId: updatedUser.id,
+            summary: roleChange
+                ? `Changed ${updatedUser.name}'s role from ${before!.role.name} to ${roleChange.name}`
+                : `Edited ${updatedUser.name} (${Object.keys(changes).join(', ')})`,
+            metadata: { changes },
+        });
+    }
     revalidatePath('/users');
     return updatedUser;
 }
@@ -172,7 +194,12 @@ export async function setUserStatus(userId: string, status: 'ACTIVE' | 'INACTIVE
         where: { id: user.id },
         data: status === 'INACTIVE' ? { status, sessionVersion: { increment: 1 } } : { status },
     });
-    await writeAuditLog({ action: status === 'INACTIVE' ? 'USER_DEACTIVATED' : 'USER_ACTIVATED', success: true, identifier: user.email, userId: user.id, metadata: { by: actor.id } });
+    await recordAudit({
+        action: status === 'INACTIVE' ? 'USER_DEACTIVATED' : 'USER_ACTIVATED',
+        identifier: user.email, userId: user.id, entityType: 'User', entityId: user.id,
+        summary: `${status === 'INACTIVE' ? 'Deactivated' : 'Activated'} ${user.name}`,
+        metadata: { by: actor.id },
+    });
     revalidatePath('/users');
     return { success: true };
 }

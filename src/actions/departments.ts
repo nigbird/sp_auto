@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/auth/session';
 import { requirePermission } from '@/lib/auth/permissions-server';
+import { recordAudit } from '@/lib/auth/audit';
 
 export type DepartmentResult = { success: true } | { success: false; message: string };
 
@@ -47,7 +48,8 @@ export async function createDepartment(name: string): Promise<DepartmentResult> 
   const clash = await prisma.department.findFirst({ where: { name: { equals: trimmed, mode: 'insensitive' } } });
   if (clash) return { success: false, message: `"${clash.name}" already exists.` };
 
-  await prisma.department.create({ data: { name: trimmed } });
+  const created = await prisma.department.create({ data: { name: trimmed } });
+  await recordAudit({ action: 'DEPARTMENT_CREATED', entityType: 'Department', entityId: created.id, summary: `Created department "${trimmed}"` });
   revalidate();
   return { success: true };
 }
@@ -74,6 +76,10 @@ export async function updateDepartment(id: string, name: string): Promise<Depart
     prisma.user.updateMany({ where: { department: current.name }, data: { department: trimmed } }),
     prisma.leadOwner.updateMany({ where: { department: current.name }, data: { department: trimmed } }),
   ]);
+  await recordAudit({
+    action: 'DEPARTMENT_RENAMED', entityType: 'Department', entityId: id,
+    summary: `Renamed department "${current.name}" to "${trimmed}"`, metadata: { from: current.name, to: trimmed },
+  });
   revalidate();
   revalidatePath('/strategic-plan', 'layout');
   return { success: true };
@@ -95,6 +101,7 @@ export async function deleteDepartment(id: string): Promise<DepartmentResult> {
     prisma.leadOwner.updateMany({ where: { department: current.name }, data: { department: null } }),
     prisma.department.delete({ where: { id } }),
   ]);
+  await recordAudit({ action: 'DEPARTMENT_DELETED', entityType: 'Department', entityId: id, summary: `Deleted department "${current.name}"` });
   revalidate();
   return { success: true };
 }

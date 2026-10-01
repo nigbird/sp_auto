@@ -5,7 +5,7 @@ import { cookies, headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/auth/session';
-import { writeAuditLog } from '@/lib/auth/audit';
+import { recordAudit, writeAuditLog } from '@/lib/auth/audit';
 import { checkPasswordStrength } from '@/lib/auth/password-policy';
 import { ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME } from '@/lib/auth/config';
 
@@ -23,7 +23,12 @@ export async function updateMyName(name: string): Promise<ProfileActionResult> {
   if (trimmed.length < 2) return { success: false, message: 'Name must be at least 2 characters.', field: 'name' };
   if (trimmed.length > 100) return { success: false, message: 'Name must be at most 100 characters.', field: 'name' };
 
+  if (trimmed === user.name) return { success: true };
   await prisma.user.update({ where: { id: user.id }, data: { name: trimmed } });
+  await recordAudit({
+    action: 'PROFILE_UPDATED', entityType: 'User', entityId: user.id, userId: user.id,
+    summary: `Changed name from "${user.name}" to "${trimmed}"`,
+  });
   revalidatePath('/', 'layout');
   return { success: true };
 }
@@ -52,7 +57,7 @@ export async function changeMyPassword(currentPassword: string, newPassword: str
   const record = await prisma.user.findUnique({ where: { id: user.id }, select: { passwordHash: true } });
   const matches = !!record?.passwordHash && await bcrypt.compare(currentPassword, record.passwordHash);
   if (!matches) {
-    await writeAuditLog({ action: 'PASSWORD_CHANGE', success: false, identifier: user.email, userId: user.id, ip, userAgent });
+    await writeAuditLog({ action: 'PASSWORD_CHANGE', success: false, identifier: user.email, userId: user.id, actorId: user.id, entityType: 'User', entityId: user.id, summary: 'Wrong current password when changing password', ip, userAgent });
     return { success: false, message: 'Your current password is incorrect.', field: 'currentPassword' };
   }
 
@@ -72,7 +77,7 @@ export async function changeMyPassword(currentPassword: string, newPassword: str
     await tx.refreshToken.updateMany({ where: { sessionId: { in: sessionIds }, revokedAt: null }, data: { revokedAt: now } });
   });
 
-  await writeAuditLog({ action: 'PASSWORD_CHANGE', success: true, identifier: user.email, userId: user.id, ip, userAgent });
+  await writeAuditLog({ action: 'PASSWORD_CHANGE', success: true, identifier: user.email, userId: user.id, actorId: user.id, entityType: 'User', entityId: user.id, summary: 'Changed password (signed out of all sessions)', ip, userAgent });
   const cookieStore = await cookies();
   cookieStore.delete(ACCESS_COOKIE_NAME);
   cookieStore.delete(REFRESH_COOKIE_NAME);

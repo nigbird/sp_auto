@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma';
 import { requirePermission, userCan } from '@/lib/auth/permissions-server';
+import { recordAudit } from '@/lib/auth/audit';
 import { requireUser } from '@/lib/auth/session';
 import { isPeriodClosedForSubmissions } from '@/lib/reporting-period';
 import { EVIDENCE_MAX_BYTES, EVIDENCE_MAX_FILES, detectEvidenceType, sanitizeFileName } from '@/lib/evidence-files';
@@ -76,6 +77,11 @@ export async function uploadReportEvidence(entryId: string, formData: FormData):
     },
     select: evidenceMetaSelect,
   });
+  await recordAudit({
+    action: 'EVIDENCE_UPLOADED', entityType: 'Evidence', entityId: evidence.id,
+    summary: `Uploaded "${fileName}" to a report`,
+    metadata: { periodEntryId: entry.id, activityId: entry.activityId, mimeType: detected.mimeType, fileSize: bytes.length },
+  });
 
   revalidatePath('/reports/submit');
   return { success: true, evidence };
@@ -84,13 +90,18 @@ export async function uploadReportEvidence(entryId: string, formData: FormData):
 export async function deleteReportEvidence(evidenceId: string): Promise<EvidenceActionResult> {
   const user = await requirePermission('my-reports:submit');
 
-  const evidence = await prisma.evidence.findUnique({ where: { id: evidenceId }, select: { id: true, periodEntryId: true } });
+  const evidence = await prisma.evidence.findUnique({ where: { id: evidenceId }, select: { id: true, periodEntryId: true, fileName: true, activityId: true } });
   if (!evidence?.periodEntryId) return fail('This file no longer exists.');
 
   const loaded = await loadEditableEntry(evidence.periodEntryId, user.id);
   if ('error' in loaded) return fail(loaded.error!);
 
   await prisma.evidence.delete({ where: { id: evidence.id } });
+  await recordAudit({
+    action: 'EVIDENCE_DELETED', entityType: 'Evidence', entityId: evidence.id,
+    summary: `Removed "${evidence.fileName}" from a report`,
+    metadata: { periodEntryId: evidence.periodEntryId, activityId: evidence.activityId },
+  });
   revalidatePath('/reports/submit');
   return { success: true };
 }

@@ -3,7 +3,7 @@ import type { Permission } from "@/lib/auth/permissions";
 export type NavItemDef = {
   href: string;
   label: string;
-  icon: "dashboard" | "plans" | "myPlan" | "planApprovals" | "myReports" | "reportApprovals" | "performance" | "users" | "settings";
+  icon: "dashboard" | "plans" | "myPlan" | "planApprovals" | "myReports" | "reportApprovals" | "performance" | "users" | "settings" | "audit";
   /** Shown only to users holding at least one of these. The page itself enforces the same rule. */
   anyOf: Permission[];
   /** Match only the exact path, not sub-paths (for items whose sub-paths are other menu items). */
@@ -35,6 +35,7 @@ export const NAV_GROUPS: { label?: string; items: NavItemDef[] }[] = [
     items: [
       { href: "/users", label: "Users & Roles", icon: "users", anyOf: ["users:view"] },
       { href: "/settings", label: "Configuration", icon: "settings", anyOf: ["settings:view"] },
+      { href: "/audit", label: "Audit Log", icon: "audit", anyOf: ["audit:view"] },
     ],
   },
 ];

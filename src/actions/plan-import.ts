@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/auth/permissions-server';
+import { recordAudit } from '@/lib/auth/audit';
 import { parseStrategicPlanWorkbook, type ParsedWorkbook } from '@/lib/plan-import/parse-workbook';
 import { writeImportedPlan } from '@/lib/plan-import/write-plan';
 
@@ -113,6 +114,12 @@ export async function importStrategicPlan(formData: FormData): Promise<ImportRes
     return { success: false, message: 'The import failed because of a server error. Nothing was saved — please try again.' };
   }
 
+  const sourceFile = formData.get('file');
+  await recordAudit({
+    action: 'PLAN_IMPORTED', entityType: 'StrategicPlan', entityId: planId,
+    summary: `Imported plan "${name}" (${version}) from ${sourceFile instanceof File ? sourceFile.name : 'a workbook'}`,
+    metadata: { startYear, endYear, leadOwners: parsed.leadOwners.length, importBreakdowns: !!options.importBreakdowns, warnings: parsed.issues.length },
+  });
   revalidatePath('/strategic-plan');
   return { success: true, planId };
 }

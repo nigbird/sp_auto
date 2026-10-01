@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/auth/session';
 import { requirePermission, userCan } from '@/lib/auth/permissions-server';
+import { recordAudit } from '@/lib/auth/audit';
 
 export async function getDeliverables(activityId: string) {
   await requireUser();
@@ -28,6 +29,10 @@ export async function createDeliverable(activityId: string, title: string, descr
       dueDate: dueDate ? new Date(dueDate) : null,
     },
   });
+  await recordAudit({
+    action: 'DELIVERABLE_CREATED', entityType: 'Deliverable', entityId: deliverable.id,
+    summary: `Added deliverable "${deliverable.title}"`, metadata: { activityId },
+  });
   revalidatePath('/plan');
   return deliverable;
 }
@@ -48,6 +53,11 @@ export async function toggleDeliverableDelivered(id: string, delivered: boolean)
       deliveredDate: delivered ? new Date() : null,
     },
   });
+  await recordAudit({
+    action: delivered ? 'DELIVERABLE_DELIVERED' : 'DELIVERABLE_UNDELIVERED', entityType: 'Deliverable', entityId: id,
+    summary: `Marked deliverable "${deliverable.title}" as ${delivered ? 'delivered' : 'not delivered'}`,
+    metadata: { activityId: deliverable.activityId },
+  });
   revalidatePath('/plan');
   return deliverable;
 }
@@ -55,6 +65,10 @@ export async function toggleDeliverableDelivered(id: string, delivered: boolean)
 export async function deleteDeliverable(id: string) {
   await requirePermission('strategic-plan:edit');
 
-  await prisma.deliverable.delete({ where: { id } });
+  const deliverable = await prisma.deliverable.delete({ where: { id } });
+  await recordAudit({
+    action: 'DELIVERABLE_DELETED', entityType: 'Deliverable', entityId: id,
+    summary: `Deleted deliverable "${deliverable.title}"`, metadata: { activityId: deliverable.activityId },
+  });
   revalidatePath('/plan');
 }

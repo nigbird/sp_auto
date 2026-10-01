@@ -24,6 +24,7 @@ import {
   FileText,
   FileCheck2,
   Users,
+  ScrollText,
 } from "lucide-react";
 import Image from "next/image";
 import { usePermissions } from "./permissions-provider";
@@ -39,6 +40,7 @@ const ICONS: Record<NavItemDef["icon"], LucideIcon> = {
   performance: BarChart3,
   users: Users,
   settings: Settings,
+  audit: ScrollText,
 };
 
 export function AppSidebar() {

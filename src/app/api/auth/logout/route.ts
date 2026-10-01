@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     await revokeSessionById(sessionId);
   }
 
-  await writeAuditLog({ action: 'LOGOUT', success: true, userId, ip, userAgent });
+  await writeAuditLog({ action: 'LOGOUT', success: true, userId, actorId: userId, summary: 'Signed out', ip, userAgent });
 
   const response = NextResponse.json({ success: true });
   clearAuthCookies(response);

@@ -7,6 +7,7 @@ import { calculateActivityStatus, type StatusRule } from '@/lib/utils';
 import { computeAchievementPercent } from '@/lib/period-achievement';
 import { isPeriodClosedForSubmissions } from '@/lib/reporting-period';
 import { requirePermission } from '@/lib/auth/permissions-server';
+import { recordAudit } from '@/lib/auth/audit';
 import { requireUser } from '@/lib/auth/session';
 import { ensurePeriodEntriesForActivity } from '@/lib/period-entries';
 
@@ -153,6 +154,11 @@ export async function submitPeriodUpdate(
         }),
         prisma.activity.update({ where: { id: activityId }, data: activityUpdateData }),
     ]);
+    await recordAudit({
+        action: 'PROGRESS_UPDATE_SUBMITTED', entityType: 'Activity', entityId: activityId,
+        summary: `Submitted ${actualProgress}% progress for "${activity.title}"`,
+        metadata: { periodEntryId: entry.id, actualProgress, plannedProgress: entry.plannedProgress },
+    });
 
     revalidatePath('/plan');
 }
@@ -217,6 +223,12 @@ export async function approvePeriodEntry(activityId: string) {
             activityId: activity.id,
         },
     });
+    await recordAudit({
+        action: 'PROGRESS_UPDATE_APPROVED', entityType: 'Activity', entityId: activityId,
+        summary: entry?.pendingActualProgress != null
+            ? `Approved ${entry.pendingActualProgress}% progress for "${activity.title}"`
+            : `Approved activity "${activity.title}"`,
+    });
 
     revalidatePath('/plan');
 }
@@ -258,6 +270,10 @@ export async function declinePeriodEntry(activityId: string, reason: string) {
             userId: activity.responsibleId,
             activityId: activity.id,
         },
+    });
+    await recordAudit({
+        action: 'PROGRESS_UPDATE_RETURNED', entityType: 'Activity', entityId: activityId,
+        summary: `Returned the update for "${activity.title}"`, metadata: { reason },
     });
 
     revalidatePath('/plan');

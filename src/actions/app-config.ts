@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { requireUser } from '@/lib/auth/session';
 import { requirePermission } from '@/lib/auth/permissions-server';
+import { recordAudit } from '@/lib/auth/audit';
 import { DEFAULT_RATING_THRESHOLDS, parseRatingThresholds, validateRatingThresholds, type RatingThresholds } from '@/lib/rating-bands';
 
 export async function getAppConfig() {
@@ -24,11 +25,19 @@ export async function updateAchievementCap(value: number) {
     throw new Error("The achievement cap must be a number of at least 100.");
   }
 
+  const before = await prisma.appConfig.findUnique({ where: { id: 'singleton' }, select: { achievementCapPercent: true } });
   const config = await prisma.appConfig.upsert({
     where: { id: 'singleton' },
     update: { achievementCapPercent: value },
     create: { id: 'singleton', achievementCapPercent: value },
   });
+  if (before?.achievementCapPercent !== value) {
+    await recordAudit({
+      action: 'ACHIEVEMENT_CAP_UPDATED', entityType: 'AppConfig', entityId: 'singleton',
+      summary: `Changed the achievement cap${before ? ` from ${before.achievementCapPercent}%` : ''} to ${value}%`,
+      metadata: { from: before?.achievementCapPercent ?? null, to: value },
+    });
+  }
   revalidatePath('/settings/rules');
   return config;
 }
@@ -51,10 +60,16 @@ export async function updateRatingThresholds(input: RatingThresholds): Promise<R
   const problem = validateRatingThresholds(thresholds);
   if (problem) throw new Error(problem);
 
+  const before = await getRatingThresholds();
   await prisma.appConfig.upsert({
     where: { id: 'singleton' },
     update: { ratingBands: { ...thresholds } },
     create: { id: 'singleton', ratingBands: { ...thresholds } },
+  });
+  await recordAudit({
+    action: 'RATING_THRESHOLDS_UPDATED', entityType: 'AppConfig', entityId: 'singleton',
+    summary: `Changed rating thresholds to Outstanding ≥${thresholds.outstanding}%, Very good ≥${thresholds.veryGood}%, Good ≥${thresholds.good}%, Fair ≥${thresholds.fair}%`,
+    metadata: { from: before, to: thresholds },
   });
   revalidatePath('/settings/rules');
   revalidatePath('/');
@@ -67,6 +82,10 @@ export async function resetRatingThresholds(): Promise<RatingThresholds> {
     where: { id: 'singleton' },
     update: { ratingBands: Prisma.DbNull },
     create: { id: 'singleton' },
+  });
+  await recordAudit({
+    action: 'RATING_THRESHOLDS_RESET', entityType: 'AppConfig', entityId: 'singleton',
+    summary: 'Reset rating thresholds to the defaults', metadata: { to: DEFAULT_RATING_THRESHOLDS },
   });
   revalidatePath('/settings/rules');
   revalidatePath('/');

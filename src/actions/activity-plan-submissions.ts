@@ -4,6 +4,7 @@ import { publicUserSelect } from '@/lib/user-select';
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma';
 import { requirePermission, userCan } from '@/lib/auth/permissions-server';
+import { recordAudit } from '@/lib/auth/audit';
 import { requireUser } from '@/lib/auth/session';
 import { ensurePeriodEntriesForActivity } from '@/lib/period-entries';
 import { monthKey, monthKeyToDate, plannedPercentAtMonth, validateBreakdown, type BreakdownEntry, type TargetAggregation, type TargetType } from '@/lib/monthly-breakdown';
@@ -143,6 +144,11 @@ export async function submitActivityBreakdown(activityId: string, input: Breakdo
             },
         }),
     ]);
+    await recordAudit({
+        action: 'BREAKDOWN_SUBMITTED', entityType: 'Activity', entityId: activityId,
+        summary: `Submitted the monthly breakdown for "${activity.title}"`,
+        metadata: { targetType: input.targetType, aggregation: aggregationOf(input), annualTarget, months: entries.length },
+    });
 
     if (activity.planRequestSentById && activity.planRequestSentById !== user.id) {
         await prisma.notification.create({
@@ -202,7 +208,7 @@ export async function proposeActivityWithBreakdown(siblingActivityId: string, in
     }
 
     const now = new Date();
-    await prisma.$transaction(async (tx) => {
+    const createdId = await prisma.$transaction(async (tx) => {
         const created = await tx.activity.create({
             data: {
                 title,
@@ -233,6 +239,12 @@ export async function proposeActivityWithBreakdown(siblingActivityId: string, in
             },
         });
         await tx.activityMonthlyTarget.createMany({ data: breakdownRows(created.id, entries) });
+        return created.id;
+    });
+    await recordAudit({
+        action: 'ACTIVITY_PROPOSED', entityType: 'Activity', entityId: createdId,
+        summary: `Proposed new activity "${title}" next to "${sibling.title}"`,
+        metadata: { siblingActivityId, annualTarget, months: entries.length },
     });
 
     revalidateBreakdownPages();
@@ -269,6 +281,10 @@ export async function approveActivityPlan(activityId: string): Promise<Breakdown
         },
     });
     await syncPlannedProgressFromBreakdown(activityId);
+    await recordAudit({
+        action: 'BREAKDOWN_APPROVED', entityType: 'Activity', entityId: activityId,
+        summary: `Approved the monthly breakdown for "${activity.title}"${activity.proposedByOwner && activity.approvalStatus === 'PENDING' ? ' (and the new activity)' : ''}`,
+    });
 
     await prisma.notification.create({
         data: {
@@ -298,6 +314,10 @@ export async function declineActivityPlan(activityId: string, reason: string): P
     await prisma.activity.update({
         where: { id: activityId },
         data: { planSubmissionStatus: 'DECLINED', planDeclineReason: trimmed },
+    });
+    await recordAudit({
+        action: 'BREAKDOWN_RETURNED', entityType: 'Activity', entityId: activityId,
+        summary: `Returned the monthly breakdown for "${activity.title}"`, metadata: { reason: trimmed },
     });
 
     await prisma.notification.create({
@@ -357,11 +377,16 @@ async function sendRequests(where: { initiativeId?: string; strategicPlanId?: st
 /** The "send monthly breakdown requests" button on a published plan. */
 export async function sendPlanRequestsForPlan(planId: string): Promise<BreakdownActionResult & { sent?: number }> {
     const sender = await requirePermission('plan-approvals:request');
-    const plan = await prisma.strategicPlan.findUnique({ where: { id: planId }, select: { status: true } });
+    const plan = await prisma.strategicPlan.findUnique({ where: { id: planId }, select: { status: true, name: true } });
     if (!plan) return fail("This plan no longer exists.");
     if (plan.status !== 'PUBLISHED') return fail("Publish the plan before sending breakdown requests.");
     const sent = await sendRequests({ strategicPlanId: planId }, sender.id);
     if (sent === 0) return fail("Every activity in this plan already has a breakdown request.");
+    await recordAudit({
+        action: 'BREAKDOWN_REQUESTS_SENT', entityType: 'StrategicPlan', entityId: planId,
+        summary: `Sent breakdown requests for ${sent} ${sent === 1 ? 'activity' : 'activities'} in "${plan.name}"`,
+        metadata: { sent },
+    });
     return { success: true, sent };
 }
 

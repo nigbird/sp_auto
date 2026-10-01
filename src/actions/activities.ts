@@ -9,6 +9,7 @@ import { calculateActivityStatus, type StatusRule } from '@/lib/utils';
 import type { ApprovalStatus, User } from '@prisma/client';
 import { requireUser } from '@/lib/auth/session';
 import { requirePermission, hasPermission, userCan } from '@/lib/auth/permissions-server';
+import { changedFields, recordAudit } from '@/lib/auth/audit';
 import { ensurePeriodEntriesForActivity } from '@/lib/period-entries';
 
 /** The live, admin-configurable status thresholds from Settings > Rules. */
@@ -119,6 +120,11 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
     });
 
     await ensurePeriodEntriesForActivity(newActivity.id);
+    await recordAudit({
+        action: 'ACTIVITY_CREATED', entityType: 'Activity', entityId: newActivity.id,
+        summary: `Created activity "${newActivity.title}"${approvalStatus === 'PENDING' ? ' (pending approval)' : ''}`,
+        metadata: { strategicPlanId: data.strategicPlanId, initiativeId: data.initiativeId, responsibleId: data.responsible, weight: data.weight, department: data.department },
+    });
 
     if (data.responsible !== creator.id) {
         await prisma.notification.create({
@@ -207,6 +213,17 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
             await prisma.deliverable.createMany({ data: toCreate.map(title => ({ activityId, title })) });
         }
     }
+
+    const { updatedAt: _updatedAt, ...changedData } = activityData;
+    await recordAudit({
+        action: 'ACTIVITY_UPDATED', entityType: 'Activity', entityId: activityId,
+        summary: `Edited activity "${updatedActivity.title}"${isOwnerResubmittingDeclined ? ' (owner resubmitting after it was returned)' : ''}`,
+        metadata: {
+            changes: changedFields(currentActivity, changedData),
+            ...(kpi !== undefined ? { kpi } : {}),
+            ...(deliverables !== undefined ? { deliverables } : {}),
+        },
+    });
 
     revalidatePath('/plan');
     return updatedActivity;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/auth/session';
 import { userCan } from '@/lib/auth/permissions-server';
+import { recordAudit } from '@/lib/auth/audit';
 import { buildPlanWorkbook } from '@/lib/plan-export/build-plan-workbook';
 import { buildPerformancePdf } from '@/lib/plan-export/build-performance-pdf';
 
@@ -65,6 +66,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const buffer = asPdf ? buildPerformancePdf(plan, period, entries) : buildPlanWorkbook(plan, period, entries);
   const safeName = `${plan.name} v${plan.version}${period ? ` - ${period.name}` : ''}${asPdf ? ' - performance report' : ''}`.replace(/[^\w\s.-]+/g, '').trim() || 'strategic-plan';
   const extension = asPdf ? 'pdf' : 'xlsx';
+  await recordAudit({
+    action: 'PLAN_EXPORTED', entityType: 'StrategicPlan', entityId: plan.id,
+    summary: `Exported "${plan.name}"${asPdf ? ' performance report as PDF' : ' as Excel'}${period ? ` for ${period.name}` : ' (plan only)'}`,
+    metadata: { format: extension, reportingPeriodId: period?.id ?? null },
+  });
 
   return new NextResponse(new Uint8Array(buffer), {
     headers: {

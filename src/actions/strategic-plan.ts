@@ -11,6 +11,9 @@ import { requirePermission } from '@/lib/auth/permissions-server';
 import { validateWeightReconciliation } from '@/lib/utils';
 import { planFormSchema, zodIssuesToPlanIssues, type PlanFormValues, type PlanIssue } from '@/lib/plan-schema';
 import { newPillarData, syncPlanTree } from '@/lib/plan-sync';
+import { changedFields, recordAudit } from '@/lib/auth/audit';
+
+const planLabel = (p: { name: string; version: string }) => `"${p.name}" (${p.version})`;
 
 type PlanPillar = PlanFormValues['pillars'][number];
 type PlanInitiative = PlanPillar['objectives'][number]['initiatives'][number];
@@ -176,20 +179,27 @@ export async function createStrategicPlan(formData: FormData): Promise<SavePlanF
     if (!validation.ok) return validation.result;
     const { data, status } = validation;
 
+    let planId: string;
     try {
-        await prisma.$transaction(async (tx) => {
+        planId = await prisma.$transaction(async (tx) => {
             const plan = await tx.strategicPlan.create({
                 data: { name: data.name.trim(), startYear: data.startYear, endYear: data.endYear, version: data.version.trim(), status },
             });
             for (const p of data.pillars) {
                 await tx.pillar.create({ data: newPillarData(p, plan.id) });
             }
+            return plan.id;
         }, TRANSACTION_OPTIONS);
     } catch (error) {
         console.error("Error during strategic plan creation:", error);
         return failure("The plan couldn't be saved because of a server error. Nothing was saved — please try again.");
     }
 
+    await recordAudit({
+        action: 'PLAN_CREATED', entityType: 'StrategicPlan', entityId: planId,
+        summary: `Created plan ${planLabel({ name: data.name.trim(), version: data.version.trim() })} as ${status.toLowerCase()}`,
+        metadata: { startYear: data.startYear, endYear: data.endYear, status, pillars: data.pillars.length },
+    });
     revalidatePath('/strategic-plan');
     redirect('/strategic-plan');
 }
@@ -198,7 +208,7 @@ export async function createStrategicPlan(formData: FormData): Promise<SavePlanF
 export async function updateStrategicPlan(id: string, formData: FormData): Promise<SavePlanFailure | void> {
     await requirePermission('strategic-plan:edit');
 
-    const existingPlan = await prisma.strategicPlan.findUnique({ where: { id }, select: { id: true } });
+    const existingPlan = await prisma.strategicPlan.findUnique({ where: { id }, select: { id: true, name: true, version: true, startYear: true, endYear: true, status: true } });
     if (!existingPlan) return failure("This plan no longer exists. It may have been deleted.");
 
     const validation = await validatePlanSubmission(formData);
@@ -218,6 +228,16 @@ export async function updateStrategicPlan(id: string, formData: FormData): Promi
         return failure("The plan couldn't be saved because of a server error. Your changes were not applied — please try again.");
     }
 
+    await recordAudit({
+        action: 'PLAN_UPDATED', entityType: 'StrategicPlan', entityId: id,
+        summary: `Edited plan ${planLabel({ name: data.name.trim(), version: data.version.trim() })}`,
+        metadata: {
+            changes: changedFields(
+                { name: existingPlan.name, version: existingPlan.version, startYear: existingPlan.startYear, endYear: existingPlan.endYear, status: existingPlan.status },
+                { name: data.name.trim(), version: data.version.trim(), startYear: data.startYear, endYear: data.endYear, status },
+            ),
+        },
+    });
     revalidatePath('/strategic-plan');
     revalidatePath(`/strategic-plan/${id}`);
     redirect(`/strategic-plan/${id}`);
@@ -239,6 +259,7 @@ export async function publishStrategicPlan(id: string) {
         where: { id },
         data: { status: 'PUBLISHED' },
     });
+    await recordAudit({ action: 'PLAN_PUBLISHED', entityType: 'StrategicPlan', entityId: id, summary: `Published plan ${planLabel(plan)}` });
     revalidatePath('/strategic-plan');
     revalidatePath(`/strategic-plan/${id}`);
 }
@@ -246,9 +267,14 @@ export async function publishStrategicPlan(id: string) {
 export async function setStrategicPlanActive(id: string, isActive: boolean) {
     await requirePermission('strategic-plan:edit');
 
-    await prisma.strategicPlan.update({
+    const plan = await prisma.strategicPlan.update({
         where: { id },
         data: { isActive },
+        select: { name: true, version: true },
+    });
+    await recordAudit({
+        action: isActive ? 'PLAN_ACTIVATED' : 'PLAN_DEACTIVATED', entityType: 'StrategicPlan', entityId: id,
+        summary: `${isActive ? 'Activated' : 'Deactivated'} plan ${planLabel(plan)}`,
     });
     revalidatePath('/strategic-plan');
     revalidatePath(`/strategic-plan/${id}`);
@@ -257,18 +283,20 @@ export async function setStrategicPlanActive(id: string, isActive: boolean) {
 export async function deleteStrategicPlan(id: string) {
     await requirePermission('strategic-plan:delete');
 
-    // Make sure to delete related records in the correct order if cascading delete is not set up
+    // Related records are removed by the database's cascading deletes.
     const plan = await prisma.strategicPlan.findUnique({
         where: { id },
-        include: { pillars: { include: { objectives: { include: { initiatives: { include: { activities: true }}}}}}}
+        select: { name: true, version: true, status: true, _count: { select: { activities: true } } },
     });
 
-    if (plan) {
-        // This is complex, for now we will rely on cascading delete in the DB
-        // Or handle it manually. For this app, let's assume cascade is on.
-    }
-    
     await prisma.strategicPlan.delete({ where: { id } });
+    if (plan) {
+        await recordAudit({
+            action: 'PLAN_DELETED', entityType: 'StrategicPlan', entityId: id,
+            summary: `Deleted plan ${planLabel(plan)} and its ${plan._count.activities} activities`,
+            metadata: { status: plan.status, activities: plan._count.activities },
+        });
+    }
 
     revalidatePath('/strategic-plan');
     redirect('/strategic-plan');

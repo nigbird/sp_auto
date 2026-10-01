@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/auth/permissions-server';
+import { recordAudit } from '@/lib/auth/audit';
 import { monthKey, type TargetAggregation, type TargetType } from '@/lib/monthly-breakdown';
 
 export type PlanApprovalResult = { success: true } | { success: false; message: string };
@@ -155,6 +156,7 @@ export async function approveNewActivity(activityId: string): Promise<PlanApprov
   await prisma.notification.create({
     data: { type: 'UPDATE_APPROVED', message: `Your new activity "${activity.title}" was approved.`, date: new Date(), read: false, userId: activity.responsibleId, activityId },
   });
+  await recordAudit({ action: 'NEW_ACTIVITY_APPROVED', entityType: 'Activity', entityId: activityId, summary: `Approved new activity "${activity.title}"` });
   revalidate();
   return { success: true };
 }
@@ -174,6 +176,7 @@ export async function returnNewActivity(activityId: string, reason: string): Pro
   await prisma.notification.create({
     data: { type: 'UPDATE_DECLINED', message: `Your new activity "${activity.title}" was returned: ${trimmed}`, date: new Date(), read: false, userId: activity.responsibleId, activityId },
   });
+  await recordAudit({ action: 'NEW_ACTIVITY_RETURNED', entityType: 'Activity', entityId: activityId, summary: `Returned new activity "${activity.title}"`, metadata: { reason: trimmed } });
   revalidate();
   return { success: true };
 }

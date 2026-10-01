@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import {
   IDENTIFIER_LOCKOUT_MAX_ATTEMPTS,
@@ -18,6 +19,16 @@ async function countFailures(where: { identifier?: string; ip?: string }, window
   });
 }
 
+/**
+ * What a sign-in attempt is logged (and locked out) under. Anything that isn't
+ * an email address is stored only as a hash, because people sometimes type
+ * their password into the email box and it must never be saved as typed.
+ */
+export function loginIdentifierForLog(identifier: string): string {
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) return identifier;
+  return `hash:${createHash('sha256').update(identifier).digest('hex').slice(0, 32)}`;
+}
+
 export async function isIdentifierLocked(identifier: string): Promise<boolean> {
   const failures = await countFailures({ identifier }, IDENTIFIER_LOCKOUT_WINDOW_SECONDS);
   return failures >= IDENTIFIER_LOCKOUT_MAX_ATTEMPTS;
@@ -30,9 +41,14 @@ export async function isIpLocked(ip: string): Promise<boolean> {
 }
 
 export function getRequestIp(request: Request): string {
-  const forwardedFor = request.headers.get('x-forwarded-for');
+  return ipFromHeaders(request.headers);
+}
+
+/** Same as getRequestIp, for server actions (which only have `headers()`). */
+export function ipFromHeaders(headers: Pick<Headers, 'get'>): string {
+  const forwardedFor = headers.get('x-forwarded-for');
   if (forwardedFor) return forwardedFor.split(',')[0]!.trim();
-  const realIp = request.headers.get('x-real-ip');
+  const realIp = headers.get('x-real-ip');
   if (realIp) return realIp.trim();
   return 'unknown';
 }
