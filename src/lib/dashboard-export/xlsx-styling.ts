@@ -14,8 +14,8 @@ export type StyleRole =
   | 'group' | 'groupPct' | 'groupWeight' | 'groupInt'
   | 'total' | 'totalPct' | 'totalWeight' | 'totalInt';
 
-// numFmt ids: 1 = "0", 164 = 0.0%, 165 = weight in percent units, 166 = 0.0
-const NUMFMTS = `<numFmts count="3"><numFmt numFmtId="164" formatCode="0.0%"/><numFmt numFmtId="165" formatCode="0.00&quot;%&quot;"/><numFmt numFmtId="166" formatCode="0.0"/></numFmts>`;
+// numFmt ids: 1 = "0", 164 = 0.0%, 165 = weight in percent units, 166 = score in percent units
+const NUMFMTS = `<numFmts count="3"><numFmt numFmtId="164" formatCode="0.0%"/><numFmt numFmtId="165" formatCode="0.00&quot;%&quot;"/><numFmt numFmtId="166" formatCode="0.0&quot;%&quot;"/></numFmts>`;
 
 // fonts: 0 normal, 1 bold, 2 title, 3 subtitle, 4 header, 5 section, 6 kpi value, 7 muted
 const FONTS = [

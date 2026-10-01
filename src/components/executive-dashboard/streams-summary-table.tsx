@@ -61,13 +61,13 @@ export function StreamsSummaryTable({ streams }: { streams: StreamSummary[] }) {
   const sortBy = (key: SortKey) => setSort(s => ({ key, dir: s.key === key ? (s.dir === 1 ? -1 : 1) : key === "name" ? 1 : -1 }));
   const toggleRating = (r: Rating) => setRatings(prev => (prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]));
 
-  const csvHeaders = ["#", "Stream / director", "Plan %", "Actual %", "Achievement %", "After delays %", "Score /30", "Rating"];
+  const csvHeaders = ["#", "Stream / director", "Plan %", "Actual %", "Achievement %", "After delays %", "Score (of 30%)", "Rating"];
   const csvRows = rows.map((s, i) => {
     const { rollup, coverage } = s.summary;
     const hasPlan = rollup.weightedPlan > 0 && coverage.approved > 0;
     return [i + 1, s.name, weightPct(rollup.weightedPlan), weightPct(rollup.weightedActual),
       hasPlan ? pct(rollup.achievedResult) : "—", hasPlan ? pct(rollup.achievedWithDelay) : "—",
-      s.score30 == null ? "—" : s.score30.toFixed(1), s.rating];
+      s.score30 == null ? "—" : `${s.score30.toFixed(1)}%`, s.rating];
   });
 
   return (
@@ -104,7 +104,7 @@ export function StreamsSummaryTable({ streams }: { streams: StreamSummary[] }) {
               <th className="px-2 pb-3 text-right font-medium">Actual</th>
               <SortTh label="Achievement" k="achievement" sort={sort} onSort={sortBy} className="w-44" />
               <th className="px-2 pb-3 text-right font-medium">After delays</th>
-              <SortTh label="Score /30" k="score" sort={sort} onSort={sortBy} right />
+              <SortTh label="Score (of 30%)" k="score" sort={sort} onSort={sortBy} right />
               <th className="px-2 pb-3 font-medium">Rating</th>
             </tr>
           </thead>
@@ -125,7 +125,7 @@ export function StreamsSummaryTable({ streams }: { streams: StreamSummary[] }) {
                     </div>
                   </td>
                   <td className="px-2 py-3 text-right tabular-nums">{hasPlan ? pct(rollup.achievedWithDelay) : "—"}</td>
-                  <td className="px-2 py-3 text-right font-semibold tabular-nums">{s.score30 == null ? "—" : s.score30.toFixed(1)}</td>
+                  <td className="px-2 py-3 text-right font-semibold tabular-nums">{s.score30 == null ? "—" : `${s.score30.toFixed(1)}%`}</td>
                   <td className="px-2 py-3"><RatingChip rating={s.rating} /></td>
                 </tr>
               );

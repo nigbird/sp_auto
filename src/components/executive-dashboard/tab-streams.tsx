@@ -21,7 +21,7 @@ export function StreamsTab({ m, previous }: { m: DashboardMetrics; previous: Das
   const notSubmittedReports = missingReports - pendingReports;
   const totals = streamTotals(m);
 
-  const streamCsvHeaders = ["#", "Stream / director", "Initiatives", "Activities", "Planned activities", "Total weight %", "Weighted plan %", "Weighted actual %", "Achievement %", "After delays %", "Score /30", "Rating", "vs last period %", "Initiatives due", "Initiatives done", "Activities due", "Activities done", "Not submitted", "Pending approval"];
+  const streamCsvHeaders = ["#", "Stream / director", "Initiatives", "Activities", "Planned activities", "Total weight %", "Weighted plan %", "Weighted actual %", "Achievement %", "After delays %", "Score (of 30%)", "Rating", "vs last period %", "Initiatives due", "Initiatives done", "Activities due", "Activities done", "Not submitted", "Pending approval"];
   const streamCsvRows = m.streams.map((s, i) => {
     const { rollup, totalWeight, coverage } = s.summary;
     const hasPlan = rollup.weightedPlan > 0 && coverage.approved > 0;
@@ -32,7 +32,7 @@ export function StreamsTab({ m, previous }: { m: DashboardMetrics; previous: Das
       i + 1, s.name, s.initiatives, coverage.activities, coverage.planned,
       weightPct(totalWeight), weightPct(rollup.weightedPlan), weightPct(rollup.weightedActual),
       hasPlan ? pct(rollup.achievedResult) : "—", hasPlan ? pct(rollup.achievedWithDelay) : "—",
-      s.score30 == null ? "—" : s.score30.toFixed(1), s.rating, delta == null ? "—" : pct(delta),
+      s.score30 == null ? "—" : `${s.score30.toFixed(1)}%`, s.rating, delta == null ? "—" : pct(delta),
       s.initiativesDue, s.initiativesCompleted, s.activitiesDue, s.activitiesCompleted,
       coverage.missing - coverage.pending, coverage.pending,
     ];
@@ -42,7 +42,7 @@ export function StreamsTab({ m, previous }: { m: DashboardMetrics; previous: Das
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <MiniStat label="Streams & departments" value={String(m.streams.length)} note={`${measured.length} measured this period`} />
-        <MiniStat label="Average score" value={avgScore == null ? "—" : `${avgScore.toFixed(1)} / 30`} note="achievement × 30, measured streams" />
+        <MiniStat label="Average score" value={avgScore == null ? "—" : `${avgScore.toFixed(1)}%`} note="out of 30% (achievement × 30%), measured streams" />
         <MiniStat label="Rated Outstanding" value={String(m.streams.filter(s => s.rating === "Outstanding").length)} note={`${m.ratingThresholds.outstanding}% or more of their period plan`} />
         <MiniStat label="Not submitted" value={String(notSubmittedReports)} note="no report sent in yet — counts as zero" />
         <MiniStat label="Pending approval" value={String(pendingReports)} note="submitted, waiting on an approver" />
@@ -111,7 +111,7 @@ export function StreamsTab({ m, previous }: { m: DashboardMetrics; previous: Das
                 <th className="px-2 pb-3 text-right font-medium">Actual</th>
                 <th className="w-40 px-2 pb-3 font-medium">Achievement</th>
                 <th className="px-2 pb-3 text-right font-medium">After delays</th>
-                <th className="px-2 pb-3 text-right font-medium">Score /30</th>
+                <th className="px-2 pb-3 text-right font-medium">Score<br />(of 30%)</th>
                 <th className="px-2 pb-3 font-medium">Rating</th>
                 <th className="px-2 pb-3 font-medium">vs last period</th>
                 <th className="px-2 pb-3 text-center font-medium">Initiatives<br /><span className="normal-case tracking-normal">due · done · dev</span></th>
@@ -152,7 +152,7 @@ export function StreamsTab({ m, previous }: { m: DashboardMetrics; previous: Das
                       </div>
                     </td>
                     <td className="px-2 py-3 text-right tabular-nums">{hasPlan ? pct(rollup.achievedWithDelay) : "—"}</td>
-                    <td className="px-2 py-3 text-right font-semibold tabular-nums">{s.score30 == null ? "—" : s.score30.toFixed(1)}</td>
+                    <td className="px-2 py-3 text-right font-semibold tabular-nums">{s.score30 == null ? "—" : `${s.score30.toFixed(1)}%`}</td>
                     <td className="px-2 py-3"><RatingChip rating={s.rating} /></td>
                     <td className="px-2 py-3">
                       {hasPlan && prevHasPlan ? <DeltaChip value={(rollup.achievedResult ?? 0) - (prev!.summary.rollup.achievedResult ?? 0)} /> : <span className="text-xs text-muted-foreground">—</span>}
@@ -190,7 +190,7 @@ export function StreamsTab({ m, previous }: { m: DashboardMetrics; previous: Das
           </table>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          Streams are the lead-owner offices. Score /30 = achievement × 30. Ratings: {describeRatingBands(m.ratingThresholds)}.
+          Streams are the lead-owner offices. Score = achievement × 30% (the result out of 30 in the performance report). Ratings: {describeRatingBands(m.ratingThresholds)}.
         </p>
       </SectionCard>
     </div>

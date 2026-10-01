@@ -202,7 +202,7 @@ export function buildDashboardWorkbook(data: Ready, charts: Record<ChartKey, Cha
   st.blank();
   const stHeader = st.row([
     '#', 'Stream / director', 'Initiatives', 'Activities', 'Planned activities', 'Total weight', 'Weighted plan', 'Weighted actual',
-    'Achievement', 'After delays', 'Score /30', 'Rating', 'vs last period', 'Initiatives due', 'Initiatives done', 'Deviation',
+    'Achievement', 'After delays', 'Score (of 30%)', 'Rating', 'vs last period', 'Initiatives due', 'Initiatives done', 'Deviation',
     'Activities due', 'Activities done', 'Deviation', 'Not submitted', 'Pending approval',
   ], 'header');
   st.rowHeights.set(stHeader, 42);
@@ -231,7 +231,7 @@ export function buildDashboardWorkbook(data: Ready, charts: Record<ChartKey, Cha
   totalRow('Total, without duplication', [totals.initiativesWithoutDuplication, totals.activities, '']);
   totalRow('Duplicated (shared initiatives)', [totals.initiativesDuplicated, 0, '']);
   st.blank();
-  st.row([{ v: `Score /30 = achievement × 30. Ratings (Configuration): ${describeRatingBands(m.ratingThresholds)}. "vs last period" is the change in achievement since ${data.previousMetrics ? 'the previous reporting period' : '— (no previous period)'}.`, role: 'label' }]);
+  st.row([{ v: `Score = achievement × 30%. Ratings (Configuration): ${describeRatingBands(m.ratingThresholds)}. "vs last period" is the change in achievement since ${data.previousMetrics ? 'the previous reporting period' : '— (no previous period)'}.`, role: 'label' }]);
   st.stackImages([
     chart('streamWorkload', 'Lead owner involvement'), chart('streamAchievement', 'Achievement by stream'), chart('streamDelivery', 'Activities due vs completed'),
   ], 21, stHeader, 0.75);

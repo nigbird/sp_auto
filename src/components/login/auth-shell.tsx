@@ -92,7 +92,7 @@ function IllustrationPanel() {
           className="a-enter mt-2 max-w-md text-center text-sm leading-relaxed text-[#8A7361]"
           style={{ animationDelay: "0.3s" }}
         >
-          Plan, track and report on strategic initiatives across every branch and department, all in one place.
+          Plan, track and report on strategic initiatives across every streams and department, all in one place.
         </p>
       </div>
     </section>

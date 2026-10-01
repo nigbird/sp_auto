@@ -269,7 +269,7 @@ export function buildDashboardPdf(data: Ready, charts: Record<ChartKey, ChartIma
     const prevHas = prev && prev.summary.rollup.weightedPlan > 0 && prev.summary.coverage.approved > 0;
     const delta = hasPlan && prevHas ? (s.summary.rollup.achievedResult ?? 0) - (prev!.summary.rollup.achievedResult ?? 0) : null;
     return [String(k + 1), s.name, String(s.initiatives), String(s.summary.coverage.activities), String(s.summary.coverage.planned), w(s.summary.totalWeight), w(s.summary.rollup.weightedPlan), w(s.summary.rollup.weightedActual),
-      hasPlan ? pct(s.summary.rollup.achievedResult) : '—', hasPlan ? pct(s.summary.rollup.achievedWithDelay) : '—', s.score30 == null ? '—' : s.score30.toFixed(1), s.rating,
+      hasPlan ? pct(s.summary.rollup.achievedResult) : '—', hasPlan ? pct(s.summary.rollup.achievedWithDelay) : '—', s.score30 == null ? '—' : `${s.score30.toFixed(1)}%`, s.rating,
       delta == null ? '—' : `${delta >= 0 ? '+' : ''}${(delta * 100).toFixed(1)} pts`, String(s.activitiesDue), String(s.activitiesCompleted),
       String(s.summary.coverage.missing - s.summary.coverage.pending), String(s.summary.coverage.pending)];
   });
@@ -280,12 +280,12 @@ export function buildDashboardPdf(data: Ready, charts: Record<ChartKey, ChartIma
     ['', 'Duplicated (shared initiatives)', String(totals.initiativesDuplicated), '0', ...blanks(13)],
   );
   table(
-    ['#', 'Stream / director', 'Init.', 'Act.', 'Planned', 'Weight', 'Plan', 'Actual', 'Achievement', 'After delays', 'Score /30', 'Rating', 'vs last', 'Act. due', 'Act. done', 'Not sub.', 'Pending'],
+    ['#', 'Stream / director', 'Init.', 'Act.', 'Planned', 'Weight', 'Plan', 'Actual', 'Achievement', 'After delays', 'Score (of 30%)', 'Rating', 'vs last', 'Act. due', 'Act. done', 'Not sub.', 'Pending'],
     streamRows,
     { fontSize: 7.5, totalRows: new Set([m.streams.length, m.streams.length + 1, m.streams.length + 2]), columnStyles: { 0: { cellWidth: 7 }, 1: { cellWidth: 58 }, ...Object.fromEntries([2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16].map(i => [i, { halign: 'right' }])) } }
   );
   doc.setFontSize(8); setColor(MUTED);
-  const note = doc.splitTextToSize(pdfText(`Score /30 = achievement × 30. Ratings (set in Configuration): ${describeRatingBands(m.ratingThresholds)}. Achievement = weighted actual ÷ weighted plan for the period, from approved reports only; planned activities without an approved report count as zero.`), PW - 2 * M) as string[];
+  const note = doc.splitTextToSize(pdfText(`Score = achievement × 30%. Ratings (set in Configuration): ${describeRatingBands(m.ratingThresholds)}. Achievement = weighted actual ÷ weighted plan for the period, from approved reports only; planned activities without an approved report count as zero.`), PW - 2 * M) as string[];
   ensure(note.length * 4);
   doc.text(note, M, y);
 
