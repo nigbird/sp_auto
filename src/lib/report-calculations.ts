@@ -147,9 +147,12 @@ export interface ReportRollup {
   status: ReportStatusLabel;        // BD
 }
 
+/** The parts of a report row that roll up. */
+export type WeightedValues = Pick<ReportRow, 'weightedPlan' | 'weightedActual' | 'weightedActualWithDelay' | 'weightedActualNoDup'>;
+
 /** Initiative (IV), objective, pillar or whole-plan totals over a set of rows. */
-export function rollUp(rows: ReportRow[]): ReportRollup {
-  const sum = (pick: (r: ReportRow) => number | null) => rows.reduce((total, r) => total + (pick(r) ?? 0), 0);
+export function rollUp(rows: WeightedValues[]): ReportRollup {
+  const sum = (pick: (r: WeightedValues) => number | null) => rows.reduce((total, r) => total + (pick(r) ?? 0), 0);
   const weightedPlan = sum(r => r.weightedPlan);
   const weightedActual = sum(r => r.weightedActual);
   const weightedActualWithDelay = sum(r => r.weightedActualWithDelay);

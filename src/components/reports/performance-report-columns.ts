@@ -10,7 +10,7 @@ import { formatRatio, formatWeight, type ReportRollup, type ReportRow } from "@/
 
 export interface ReportEntryValues {
   actualToDate: number | null;
-  completionDate: string | null;
+  completionDate: string | Date | null;
   comment: string | null;
   reasonForVariation: string | null;
   wayForward: string | null;

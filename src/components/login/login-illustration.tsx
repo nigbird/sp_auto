@@ -83,9 +83,18 @@ function rimPath(from: number, to: number, lift: number) {
   return `M${pts.join(" L")}`;
 }
 
-const BACK_PANELS = buildPanels("b", 200, 340, 5, BACK_H, ["line", "bars", "donut", "kpi", "rows"]);
-const FRONT_RIGHT = buildPanels("fr", 28, 64, 2, FRONT_H, ["donut", "bars"]);
-const FRONT_LEFT = buildPanels("fl", 116, 152, 2, FRONT_H, ["bars", "kpi"]);
+const BACK_PANELS = buildPanels("b", 195, 345, 8, BACK_H, [
+  "rows",
+  "line",
+  "bars",
+  "kpi",
+  "donut",
+  "bars",
+  "line",
+  "rows",
+]);
+const FRONT_RIGHT = buildPanels("fr", 22, 68, 3, FRONT_H, ["bars", "donut", "line"]);
+const FRONT_LEFT = buildPanels("fl", 112, 158, 3, FRONT_H, ["kpi", "bars", "rows"]);
 
 function PanelContent({ kind, w, h, index }: { kind: PanelKind; w: number; h: number; index: number }) {
   const p = Math.max(5, w * 0.13);
@@ -490,7 +499,7 @@ function IsoBox({
 export function LoginIllustration({ className }: { className?: string }) {
   return (
     <svg
-      viewBox="0 40 640 480"
+      viewBox="0 40 640 400"
       className={className}
       role="img"
       aria-label="Nib Bank team members collaborating around a ring of live financial dashboards"
@@ -526,10 +535,27 @@ export function LoginIllustration({ className }: { className?: string }) {
       <RingPanels panels={BACK_PANELS} glow />
       <Rim from={195} to={345} h={BACK_H} />
 
-      {/* presenter inside the ring */}
+      {/* people inside the ring */}
+      <g className="a-walk" style={delay(-3)}>
+        <Person
+          x={392}
+          y={276}
+          scale={0.78}
+          skin="#6b4428"
+          hair="#4A3628"
+          hairStyle="short"
+          top={C.brownMid}
+          pants={C.brownDark}
+          legs="walk"
+          armL={{ s: 0, e: -8, anim: "a-swing", delay: -0.5 }}
+          armR={{ s: 0, e: 8, anim: "a-swing" }}
+          headAnim="a-look"
+        />
+      </g>
+
       <Person
-        x={320}
-        y={318}
+        x={268}
+        y={312}
         scale={0.9}
         skin="#8d5a3b"
         hair="#503A2B"
@@ -542,49 +568,34 @@ export function LoginIllustration({ className }: { className?: string }) {
         holding={<Tablet x={-2} y={-73} w={12} h={16} rotate={-6} />}
       />
 
+      <Person
+        x={352}
+        y={338}
+        scale={0.92}
+        skin="#6b4428"
+        hair="#4A3628"
+        hairStyle="short"
+        top={C.paper}
+        pants="#6A4D3A"
+        armL={{ s: 0, e: -65, fl: 11 }}
+        armR={{ s: 0, e: 65, fl: 11, eAnim: "a-tap", delay: 0.4 }}
+        headAnim="a-nod"
+        front={<Tablet x={0} y={-61} rotate={-4} />}
+      />
+
       {/* front halves of the ring */}
       <RingPanels panels={FRONT_LEFT} />
       <Rim from={112} to={158} h={FRONT_H} />
       <RingPanels panels={FRONT_RIGHT} />
       <Rim from={22} to={68} h={FRONT_H} />
 
-      {/* centre: two colleagues discussing */}
-      <Person
-        x={284}
-        y={492}
-        scale={1.08}
-        skin="#7a4a2c"
-        hair="#4A3628"
-        hairStyle="curly"
-        top={C.paper}
-        pants={C.brown}
-        armL={{ s: -8, e: -80, fl: 14 }}
-        armR={{ s: -25, e: -130, eAnim: "a-gesture", delay: 1.2 }}
-        headAnim="a-look"
-        headDelay={1.5}
-        holding={<Tablet x={2} y={-73} w={11} h={15} rotate={-8} />}
-      />
-      <Person
-        x={358}
-        y={490}
-        scale={1.12}
-        skin="#5c3a22"
-        hair="#4A3628"
-        hairStyle="short"
-        top={C.brownMid}
-        jacket={{ shirt: C.paper, tie: C.gold }}
-        pants={C.brownDark}
-        armL={{ s: 4, e: 6 }}
-        armR={{ s: -28, e: -95, eAnim: "a-gesture" }}
-        headAnim="a-look"
-        headDelay={3}
-      />
-
       {/* sparkles */}
       {[
         [110, 150, 0],
         [540, 130, 1.4],
-        [470, 90, 2.8],
+        [600, 420, 2.6],
+        [40, 420, 3.4],
+        [470, 90, 4.2],
       ].map(([cx, cy, dl]) => (
         <circle key={`${cx}`} className="a-float" style={delay(dl)} cx={cx} cy={cy} r={3} fill={C.gold} opacity={0.7} />
       ))}

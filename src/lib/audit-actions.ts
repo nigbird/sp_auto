@@ -98,6 +98,7 @@ export const AUDIT_ACTIONS = {
   // Exports
   PLAN_EXPORTED: { label: 'Exported a plan', category: 'Exports' },
   DASHBOARD_EXPORTED: { label: 'Exported the dashboard', category: 'Exports' },
+  PERFORMANCE_REPORT_EXPORTED: { label: 'Exported a performance report', category: 'Exports' },
   ACTIVITIES_EXPORTED: { label: 'Exported activities', category: 'Exports' },
   AUDIT_LOG_EXPORTED: { label: 'Exported the audit log', category: 'Exports' },
 } as const satisfies Record<string, { label: string; category: AuditCategory }>;

@@ -20,7 +20,8 @@ import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
 import { formatTargetValue, type TargetAggregation, type TargetType } from "@/lib/monthly-breakdown";
 import { computeReportRow, formatRatio } from "@/lib/report-calculations";
 import { ReportEvidence } from "../reports/report-evidence";
-import { ReportActivityCell, ReportDrawer, ReportRow, ReportTh, useReportSelection } from "../reports/report-drawer";
+import { ReportActivityCell, ReportDrawer } from "../reports/report-drawer";
+import { ClickableRow, TableHeadCell, useListSelection } from "../detail-drawer";
 import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } from "../list-controls";
 import { isRangeSet, matchesSearch, overlapsDateRange, type DateRangeValue } from "@/lib/list-filters";
 import type { EvidenceMeta } from "@/actions/evidence";
@@ -298,7 +299,7 @@ function ReportListRow({ entry, selected, onOpen }: { entry: PeriodReportEntry; 
   const t = entry.activity.targetType;
   const hasActual = entry.actualToDate != null;
   return (
-    <ReportRow selected={selected} onOpen={onOpen} label={`Open report for ${entry.activity.title}`}>
+    <ClickableRow selected={selected} onOpen={onOpen} label={`Open report for ${entry.activity.title}`}>
       <ReportActivityCell entry={entry} />
       <td className="hidden w-24 px-4 py-3 text-right tabular-nums text-foreground/90 md:table-cell">{formatTargetValue(row.planToDate, t)}</td>
       <td className="hidden w-24 px-4 py-3 text-right tabular-nums text-foreground/90 md:table-cell">{hasActual ? formatTargetValue(entry.actualToDate!, t) : '—'}</td>
@@ -306,7 +307,7 @@ function ReportListRow({ entry, selected, onOpen }: { entry: PeriodReportEntry; 
         {hasActual && row.planToDate > 0 ? formatRatio(row.achievement) : '—'}
       </td>
       <td className="w-px whitespace-nowrap px-4 py-3 text-right"><ReportStatusBadge status={entry.reportStatus} /></td>
-    </ReportRow>
+    </ClickableRow>
   );
 }
 
@@ -369,7 +370,7 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
   ), [entries, query, range, periodId]);
   const activeTest = REPORT_FILTERS.find(f => f.id === filter)!.test;
   const inCategory = React.useMemo(() => matching.filter(activeTest), [matching, activeTest]);
-  const selection = useReportSelection(inCategory, entries ?? []);
+  const selection = useListSelection(inCategory, entries ?? []);
   const pagination = usePagination(inCategory, `${filter}|${query}|${range.from}|${range.to}|${periodId}`);
 
   const { index: selectedIndex } = selection;
@@ -484,11 +485,11 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
               <table className="w-full table-fixed text-sm">
                 <thead>
                   <tr>
-                    <ReportTh>Activity</ReportTh>
-                    <ReportTh className="hidden w-24 text-right md:table-cell">Plan</ReportTh>
-                    <ReportTh className="hidden w-24 text-right md:table-cell">Actual</ReportTh>
-                    <ReportTh className="hidden w-24 text-right sm:table-cell">Achiev't</ReportTh>
-                    <ReportTh className="w-[13rem] text-right">Status</ReportTh>
+                    <TableHeadCell>Activity</TableHeadCell>
+                    <TableHeadCell className="hidden w-24 text-right md:table-cell">Plan</TableHeadCell>
+                    <TableHeadCell className="hidden w-24 text-right md:table-cell">Actual</TableHeadCell>
+                    <TableHeadCell className="hidden w-24 text-right sm:table-cell">Achiev't</TableHeadCell>
+                    <TableHeadCell className="w-[13rem] text-right">Status</TableHeadCell>
                     <th className="w-8" />
                   </tr>
                 </thead>

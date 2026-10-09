@@ -2,149 +2,19 @@
 import { getStrategicPlanById } from "@/actions/strategic-plan";
 import { getUsers } from "@/actions/users";
 import { notFound } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { getObjectiveWeight, getInitiativeWeight, getPillarWeight } from "@/lib/utils";
-import type { Pillar, Objective, Initiative, Activity } from "@/lib/types";
-import { ArrowLeft, BarChart3, Edit, User as UserIcon, Users, Calendar, Weight, Info, PackageCheck } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ArrowLeft, BarChart3, Edit } from "lucide-react";
 import { PublishButton } from "@/components/strategic-plan/publish-button";
 import { DeletePlanButton } from "@/components/strategic-plan/delete-plan-button";
 import { SendBreakdownRequestsButton } from "@/components/strategic-plan/send-breakdown-requests-button";
 import { MonthlyBreakdownTable } from "@/components/strategic-plan/monthly-breakdown-table";
 import { ExportMenu } from "@/components/export-menu";
 import { Can } from "@/components/permissions-provider";
-
-function HierarchyView({ pillars, userNames }: { pillars: Pillar[]; userNames: Map<string, string> }) {
-    return (
-        <div className="space-y-4">
-            {pillars.map(pillar => <PillarItem key={pillar.id} pillar={pillar} userNames={userNames} />)}
-        </div>
-    )
-}
-
-function PillarItem({ pillar, userNames }: { pillar: Pillar; userNames: Map<string, string> }) {
-    const weight = getPillarWeight(pillar);
-    return (
-        <Card className="overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between p-4 bg-muted/30">
-                <h3 className="flex-1 text-lg font-semibold">{pillar.title}</h3>
-                <p className="font-semibold text-sm">Wt: {weight.toFixed(1)}%</p>
-            </CardHeader>
-            {pillar.objectives.length > 0 && (
-                <CardContent className="p-4 space-y-4">
-                    {pillar.objectives.map(objective => <ObjectiveItem key={objective.id} objective={objective} userNames={userNames} />)}
-                </CardContent>
-            )}
-        </Card>
-    )
-}
-
-function ObjectiveItem({ objective, userNames }: { objective: Objective; userNames: Map<string, string> }) {
-    const weight = getObjectiveWeight(objective);
-    const title = objective.statement || objective.title;
-    return (
-        <Card className="overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between p-3 bg-muted/20">
-                <h4 className="flex-1 font-semibold">{title}</h4>
-                <p className="font-semibold text-sm">Wt: {weight.toFixed(1)}%</p>
-            </CardHeader>
-            {objective.initiatives.length > 0 && (
-                <CardContent className="p-3 space-y-3">
-                    {objective.initiatives.map(initiative => <InitiativeItem key={initiative.id} initiative={initiative} userNames={userNames} />)}
-                </CardContent>
-            )}
-        </Card>
-    )
-}
-
-function InitiativeItem({ initiative, userNames }: { initiative: Initiative; userNames: Map<string, string> }) {
-    const weight = getInitiativeWeight(initiative);
-    const owners = [initiative.owner?.name, ...(initiative.coOwners ?? []).map(id => userNames.get(id) ?? 'Unknown user')].filter(Boolean);
-    return (
-        <Card className="overflow-hidden bg-background/70">
-            <CardHeader className="flex flex-row items-center justify-between p-3">
-                <div>
-                    <h5 className="font-medium">{initiative.title}</h5>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1"><UserIcon className="h-3 w-3" /> {owners.length > 1 ? 'Owners' : 'Owner'}: {owners.join(', ')}</p>
-                </div>
-                <p className="font-semibold text-sm">Wt: {weight.toFixed(1)}%</p>
-            </CardHeader>
-            {initiative.activities.length > 0 && (
-                <CardContent className="px-3 pb-3 space-y-2">
-                    {initiative.activities.map(activity => <ActivityItem key={activity.id} activity={activity} />)}
-                </CardContent>
-            )}
-        </Card>
-    )
-}
-
-/** Only unfinished breakdowns get a badge; approved is the normal state (the header counts them). */
-function BreakdownBadge({ activity }: { activity: Activity }) {
-    if (activity.planSubmissionStatus === 'APPROVED') return null;
-    if (activity.planSubmissionStatus === 'PENDING') return <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-500/10">Breakdown pending approval</Badge>;
-    if (activity.planSubmissionStatus === 'DECLINED') return <Badge variant="destructive">Breakdown returned</Badge>;
-    if (activity.planRequestStatus === 'SENT' || activity.planRequestStatus === 'ACCEPTED') return <Badge variant="outline">Breakdown requested</Badge>;
-    if (activity.planRequestStatus === 'DECLINED') return <Badge variant="destructive">Request declined</Badge>;
-    return null;
-}
-
-function ActivityItem({ activity }: { activity: Activity }) {
-    const responsible = activity.responsible as { name?: string };
-    // Imported activities keep the sheet's "Responsible / Collaborating Unit" text in the description.
-    const collaborators = (activity.description ?? '').match(/^Responsible \/ collaborating unit:\s*([\s\S]*)$/i)?.[1]?.trim();
-    const otherDescription = collaborators ? '' : (activity.description ?? '').trim();
-    return (
-        <div className="p-3 rounded-md border bg-background">
-            <div className="flex flex-wrap justify-between items-start gap-2">
-                <p className="font-medium text-sm">
-                    {activity.title}
-                    {activity.approvalStatus === 'PENDING' && <span className="ml-2 text-xs font-normal text-muted-foreground">(awaiting approval)</span>}
-                </p>
-                <BreakdownBadge activity={activity} />
-            </div>
-
-            {/* Lead / Owner in full — the office, the person holding it, and their department. */}
-            <div className="mt-2 flex flex-wrap items-start gap-x-2 gap-y-1 rounded-md bg-muted/40 px-2 py-1.5 text-xs">
-                <span className="flex items-center gap-1 font-medium text-muted-foreground"><UserIcon className="h-3 w-3" /> Lead / Owner:</span>
-                <span className="font-semibold text-foreground">{activity.leadOwner || activity.department}</span>
-                <span className="text-muted-foreground">— {responsible?.name ?? 'Unassigned'}{activity.leadOwner && activity.department && activity.department !== activity.leadOwner ? `, ${activity.department}` : ''}</span>
-            </div>
-
-            <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1.5">
-                    <Calendar className="h-3 w-3" />
-                    <span>{format(new Date(activity.startDate), "MMM d")} - {format(new Date(activity.endDate), "MMM d, yyyy")}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                    <Weight className="h-3 w-3" />
-                    <span>Weight: {activity.weight}%</span>
-                </div>
-            </div>
-            {collaborators && (
-                <p className="mt-2 flex items-start gap-1.5 text-xs">
-                    <Users className="h-3 w-3 mt-0.5 text-muted-foreground" />
-                    <span><span className="font-medium">Responsible / collaborating units:</span> {collaborators}</span>
-                </p>
-            )}
-            {otherDescription && (
-                <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
-                    <Info className="h-3 w-3 mt-0.5" />
-                    <span className="whitespace-pre-wrap">{otherDescription}</span>
-                </p>
-            )}
-            {activity.deliverable && (
-                <p className="mt-2 flex items-start gap-1.5 text-xs">
-                    <PackageCheck className="h-3 w-3 mt-0.5 text-muted-foreground" />
-                    <span><span className="font-medium">Deliverable:</span> {activity.deliverable}</span>
-                </p>
-            )}
-        </div>
-    )
-}
-
+import { PlanStructureView } from "@/components/strategic-plan/plan-structure-view";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default async function StrategicPlanDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -154,7 +24,7 @@ export default async function StrategicPlanDetailPage({ params }: { params: Prom
         notFound();
     }
 
-    const userNames = new Map(users.map(u => [u.id, u.name]));
+    const userNames = Object.fromEntries(users.map(u => [u.id, u.name]));
     const activities = plan.pillars.flatMap(p => p.objectives.flatMap(o => o.initiatives.flatMap(i => i.activities)));
     const sendable = activities.filter(a => a.planRequestStatus === 'NOT_SENT' || a.planRequestStatus === 'DECLINED');
     const sendableOwnerCount = new Set(sendable.map(a => (a.responsible as { id?: string })?.id)).size;
@@ -162,17 +32,33 @@ export default async function StrategicPlanDetailPage({ params }: { params: Prom
     const isPublished = plan.status === 'PUBLISHED';
 
     return (
-        <div className="flex-1 space-y-6">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <Button asChild variant="outline" size="icon">
-                        <Link href="/strategic-plan">
+        <div className="flex-1 space-y-5">
+            <div className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-border/60 bg-white px-6 py-5">
+                <div className="flex min-w-0 items-start gap-4">
+                    <Button asChild variant="outline" size="icon" className="mt-0.5 shrink-0">
+                        <Link href="/strategic-plan" aria-label="Back to strategic plans">
                             <ArrowLeft className="h-4 w-4" />
                         </Link>
                     </Button>
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">{plan.name}</h1>
-                        <p className="text-muted-foreground">Version {plan.version} &bull; {plan.startYear} - {plan.endYear}</p>
+                    <div className="min-w-0 space-y-1">
+                        <h1 className="text-xl font-semibold tracking-tight text-foreground">{plan.name}</h1>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                            <span
+                                className={cn(
+                                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                                    isPublished ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                                )}
+                            >
+                                <span className={cn("h-1.5 w-1.5 rounded-full", isPublished ? "bg-primary" : "bg-muted-foreground/50")} />
+                                {isPublished ? "Published" : "Draft"}
+                            </span>
+                            {!plan.isActive && (
+                                <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">Deactivated</span>
+                            )}
+                            <span>Version {plan.version}</span>
+                            <span>{plan.startYear} – {plan.endYear}</span>
+                            <span>Updated {format(new Date(plan.updatedAt), "PPp")}</span>
+                        </div>
                     </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -212,32 +98,23 @@ export default async function StrategicPlanDetailPage({ params }: { params: Prom
                 </div>
             </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Plan Overview</CardTitle>
-                    <CardDescription>
-                        Status: <Badge variant={isPublished ? 'default' : 'secondary'} className={isPublished ? 'bg-green-500/20 text-green-700 border-green-400' : ''}>{plan.status}</Badge>
-                        <span className="ml-4">Last Updated: {format(new Date(plan.updatedAt), 'PPp')}</span>
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <HierarchyView pillars={plan.pillars} userNames={userNames} />
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Monthly Breakdown</CardTitle>
-                    <CardDescription>
+            <Tabs defaultValue="structure" className="space-y-4">
+                <TabsList>
+                    <TabsTrigger value="structure">Plan structure</TabsTrigger>
+                    <TabsTrigger value="breakdown">Monthly breakdown ({approvedCount}/{activities.length})</TabsTrigger>
+                </TabsList>
+                <TabsContent value="structure" className="mt-0">
+                    <PlanStructureView pillars={plan.pillars} userNames={userNames} />
+                </TabsContent>
+                <TabsContent value="breakdown" className="mt-0 space-y-3">
+                    <p className="text-sm text-muted-foreground">
                         {isPublished
                             ? `${approvedCount} of ${activities.length} activities have an approved breakdown.`
-                            : 'Publish the plan, then send breakdown requests so each activity owner can fill in their monthly targets.'}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
+                            : "Publish the plan, then send breakdown requests so each activity owner can fill in their monthly targets."}
+                    </p>
                     <MonthlyBreakdownTable pillars={plan.pillars} />
-                </CardContent>
-            </Card>
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }

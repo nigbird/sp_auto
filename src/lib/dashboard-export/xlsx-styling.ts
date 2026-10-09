@@ -12,12 +12,13 @@ export type StyleRole =
   | 'title' | 'subtitle' | 'section' | 'header' | 'text' | 'wrap' | 'pct' | 'weight' | 'int' | 'score' | 'label' | 'bold'
   | 'kpi' | 'kpiPct' | 'kpiWeight'
   | 'group' | 'groupPct' | 'groupWeight' | 'groupInt'
-  | 'total' | 'totalPct' | 'totalWeight' | 'totalInt';
+  | 'total' | 'totalPct' | 'totalWeight' | 'totalInt'
+  | 'num' | 'headerOwner' | 'sub' | 'subPct' | 'subWeight' | 'ini' | 'iniPct' | 'iniWeight';
 
 // numFmt ids: 1 = "0", 164 = 0.0%, 165 = weight in percent units, 166 = score in percent units
 const NUMFMTS = `<numFmts count="3"><numFmt numFmtId="164" formatCode="0.0%"/><numFmt numFmtId="165" formatCode="0.00&quot;%&quot;"/><numFmt numFmtId="166" formatCode="0.0&quot;%&quot;"/></numFmts>`;
 
-// fonts: 0 normal, 1 bold, 2 title, 3 subtitle, 4 header, 5 section, 6 kpi value, 7 muted
+// fonts: 0 normal, 1 bold, 2 title, 3 subtitle, 4 header, 5 section, 6 kpi value, 7 muted, 8 bold italic
 const FONTS = [
   '<font><sz val="11"/><color rgb="FF2F2A25"/><name val="Calibri"/><family val="2"/></font>',
   '<font><b/><sz val="11"/><color rgb="FF2F2A25"/><name val="Calibri"/><family val="2"/></font>',
@@ -27,11 +28,12 @@ const FONTS = [
   '<font><b/><sz val="13"/><color rgb="FF5B4030"/><name val="Calibri"/><family val="2"/></font>',
   '<font><b/><sz val="15"/><color rgb="FF2F2A25"/><name val="Calibri"/><family val="2"/></font>',
   '<font><sz val="10"/><color rgb="FF857B70"/><name val="Calibri"/><family val="2"/></font>',
+  '<font><b/><i/><sz val="11"/><color rgb="FF2F2A25"/><name val="Calibri"/><family val="2"/></font>',
 ];
 
 const solid = (rgb: string) => `<fill><patternFill patternType="solid"><fgColor rgb="FF${rgb}"/><bgColor indexed="64"/></patternFill></fill>`;
-// fills: 0 none, 1 gray125 (required), 2 header brown, 3 group, 4 total, 5 kpi card
-const FILLS = ['<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>', solid('5E4231'), solid('F3EADB'), solid('EADFCB'), solid('FAF6F0')];
+// fills: 0 none, 1 gray125 (required), 2 header brown, 3 group, 4 total, 5 kpi card / subgroup, 6 owner-filled header blue
+const FILLS = ['<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>', solid('5E4231'), solid('F3EADB'), solid('EADFCB'), solid('FAF6F0'), solid('1F5F8B')];
 
 // borders: 0 none, 1 thin bottom, 2 medium top
 const BORDERS = [
@@ -66,6 +68,14 @@ const ROLES: Record<StyleRole, Xf> = {
   totalPct: { font: 1, fill: 4, border: 2, numFmt: 164, h: 'right' },
   totalWeight: { font: 1, fill: 4, border: 2, numFmt: 165, h: 'right' },
   totalInt: { font: 1, fill: 4, border: 2, numFmt: 1, h: 'right' },
+  num: { border: 1, v: 'top', h: 'right' },
+  headerOwner: { font: 4, fill: 6, border: 1, wrap: true, h: 'center', v: 'center' },
+  sub: { font: 1, fill: 5, border: 1, h: 'left', indent: 1 },
+  subPct: { font: 1, fill: 5, border: 1, numFmt: 164, h: 'right' },
+  subWeight: { font: 1, fill: 5, border: 1, numFmt: 165, h: 'right' },
+  ini: { font: 8, border: 1, wrap: true, v: 'top', h: 'left', indent: 1 },
+  iniPct: { font: 8, border: 1, numFmt: 164, v: 'top', h: 'right' },
+  iniWeight: { font: 8, border: 1, numFmt: 165, v: 'top', h: 'right' },
 };
 
 const ROLE_ORDER = Object.keys(ROLES) as StyleRole[];

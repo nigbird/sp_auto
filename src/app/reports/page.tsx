@@ -43,6 +43,13 @@ export default async function PerformanceReportsPage({ searchParams }: { searchP
         {plan && !ownOnly && userCan(user, "reports:export") && (
           <ExportMenu options={[
             {
+              kind: "excel",
+              label: selectedPeriod ? `${selectedPeriod.name} performance report (Excel)` : "Performance report (Excel)",
+              description: selectedPeriod ? "Summary and full report, styled like the dashboard export. Use the filters below to export part of it." : "Send a report request first — there is no period to report on yet.",
+              href: selectedPeriod ? `/api/export/performance/${plan.id}?period=${selectedPeriod.id}` : undefined,
+              disabled: !selectedPeriod,
+            },
+            {
               kind: "pdf",
               label: selectedPeriod ? `${selectedPeriod.name} performance report (PDF)` : "Performance report (PDF)",
               description: selectedPeriod ? "Totals, pillar/objective/initiative results and every activity's report." : "Send a report request first — there is no period to report on yet.",
@@ -70,6 +77,7 @@ export default async function PerformanceReportsPage({ searchParams }: { searchP
               periods={performance.periods as PerformancePeriod[]}
               selected={performance.selected as PerformancePeriod | null}
               entries={performance.entries as PerformanceEntry[]}
+              canExport={!ownOnly && userCan(user, "reports:export")}
             />
           </CardContent>
         </Card>

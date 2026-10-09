@@ -16,7 +16,8 @@ import { formatTargetValue } from "@/lib/monthly-breakdown";
 import { computeReportRow, formatRatio, formatWeight } from "@/lib/report-calculations";
 import type { PeriodReportEntry } from "../my-activity/my-activity-report-list";
 import { ReportEvidence } from "../reports/report-evidence";
-import { ReportActivityCell, ReportDrawer, ReportRow, ReportTh, useReportSelection } from "../reports/report-drawer";
+import { ReportActivityCell, ReportDrawer } from "../reports/report-drawer";
+import { ClickableRow, TableHeadCell, useListSelection } from "../detail-drawer";
 import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } from "../list-controls";
 import { inDateRange, isRangeSet, matchesSearch, type DateRangeValue } from "@/lib/list-filters";
 import { EmptyState } from "@/components/empty-state";
@@ -151,7 +152,7 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
     matchesSearch(query, e.activity.title, e.activity.responsible?.name, e.activity.initiative?.title, e.reportingPeriod.name));
   const pagination = usePagination(matching, `${query}|${range.from}|${range.to}`);
   matchingRef.current = matching;
-  const selection = useReportSelection(matching);
+  const selection = useListSelection(matching);
 
   const { open: openReport, close: closeReport, index: selectedIndex } = selection;
   React.useEffect(() => {
@@ -192,13 +193,13 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
           <table className="w-full table-fixed text-sm">
             <thead>
               <tr>
-                <ReportTh>Activity</ReportTh>
-                <ReportTh className="hidden w-40 lg:table-cell">Owner</ReportTh>
-                <ReportTh className="hidden w-36 md:table-cell">Period</ReportTh>
-                <ReportTh className="hidden w-20 text-right md:table-cell">Plan</ReportTh>
-                <ReportTh className="hidden w-20 text-right md:table-cell">Actual</ReportTh>
-                <ReportTh className="hidden w-32 lg:table-cell">Submitted</ReportTh>
-                <ReportTh className="w-32 text-right">Result</ReportTh>
+                <TableHeadCell>Activity</TableHeadCell>
+                <TableHeadCell className="hidden w-40 lg:table-cell">Owner</TableHeadCell>
+                <TableHeadCell className="hidden w-36 md:table-cell">Period</TableHeadCell>
+                <TableHeadCell className="hidden w-20 text-right md:table-cell">Plan</TableHeadCell>
+                <TableHeadCell className="hidden w-20 text-right md:table-cell">Actual</TableHeadCell>
+                <TableHeadCell className="hidden w-32 lg:table-cell">Submitted</TableHeadCell>
+                <TableHeadCell className="w-32 text-right">Result</TableHeadCell>
                 <th className="w-8" />
               </tr>
             </thead>
@@ -207,7 +208,7 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
                 const row = reportRow(entry);
                 const t = entry.activity.targetType;
                 return (
-                  <ReportRow key={entry.id} selected={selection.selectedId === entry.id} onOpen={() => selection.open(entry.id)} label={`Review report for ${entry.activity.title}`}>
+                  <ClickableRow key={entry.id} selected={selection.selectedId === entry.id} onOpen={() => selection.open(entry.id)} label={`Review report for ${entry.activity.title}`}>
                     <ReportActivityCell entry={entry} />
                     <td className="hidden truncate px-4 py-3 text-foreground/90 lg:table-cell">{entry.activity.responsible?.name ?? 'Unassigned'}</td>
                     <td className="hidden truncate px-4 py-3 text-muted-foreground md:table-cell">{entry.reportingPeriod.name}</td>
@@ -215,7 +216,7 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
                     <td className="hidden px-4 py-3 text-right tabular-nums text-foreground/90 md:table-cell">{entry.actualToDate != null ? formatTargetValue(entry.actualToDate, t) : '—'}</td>
                     <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">{entry.submittedAt ? format(new Date(entry.submittedAt), 'PP') : '—'}</td>
                     <td className="px-4 py-3 text-right"><PlanBadge behind={row.isBehindPlan} /></td>
-                  </ReportRow>
+                  </ClickableRow>
                 );
               })}
             </tbody>

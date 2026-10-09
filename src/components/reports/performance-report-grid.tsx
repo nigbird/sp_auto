@@ -1,50 +1,121 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { FileSpreadsheet } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { matchesSearch } from "@/lib/list-filters";
-import { SearchBox } from "../list-controls";
+import type { DateRangeValue } from "@/lib/list-filters";
+import { formatRatio, formatWeight, rollUp, type ReportStatusLabel, type WeightedValues } from "@/lib/report-calculations";
+import {
+  filterPerformanceTree, filtersToParams, isNarrowed, treeActivities, REPORT_STATE_LABEL, RESULT_STATUSES,
+  type FilterableActivity, type PerformanceFilters, type ReportState, type TreeInitiative, type TreePillar,
+} from "@/lib/performance-report";
+import { Button } from "../ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { DateRangeFilter, ListToolbar, SearchBox } from "../list-controls";
 import { REPORT_COLUMNS, REPORT_VIEWS, statusClass, type ColumnGroup, type ReportColumn } from "./performance-report-columns";
 
 /** Plain, pre-computed report data: cells are strings in REPORT_COLUMNS order. */
-export interface GridActivity { id: string; title: string; owner: string; cells: string[] | null; statusText: string }
-export interface GridInitiative { id: string; title: string; rollup: string[]; rows: GridActivity[] }
-export interface GridObjective { id: string; statement: string; initiatives: GridInitiative[] }
-export interface GridPillar { id: string; title: string; objectives: GridObjective[] }
+export interface GridActivity extends FilterableActivity {
+  id: string;
+  cells: string[] | null;
+  /** Weighted values from an approved report, so totals follow the filters. */
+  weighted: WeightedValues | null;
+  statusText: string;
+}
+export type GridPillar = TreePillar<GridActivity>;
+type GridInitiative = TreeInitiative<GridActivity>;
 
 type View = ColumnGroup | 'all';
+
+const ALL = "__all__";
+const pick = <T extends string>(v: string) => (v === ALL ? undefined : (v as T));
+const weightedOf = (activities: GridActivity[]) => activities.map(a => a.weighted).filter((w): w is WeightedValues => w !== null);
 
 /**
  * The report table with column-group views, so each view fits on screen;
  * "All columns" keeps the full sheet layout and scrolls sideways. The header
- * and the activity column stay pinned while scrolling.
+ * and the activity column stay pinned while scrolling. Filters narrow the
+ * rows, and the totals and initiative lines follow them.
  */
-export function PerformanceReportGrid({ pillars: allPillars }: { pillars: GridPillar[] }) {
+export function PerformanceReportGrid({ pillars: allPillars, exportBase }: { pillars: GridPillar[]; exportBase: string | null }) {
   const [view, setView] = useState<View>('progress');
   const [query, setQuery] = useState('');
-  // Search keeps the pillar → objective → initiative grouping: a match on a group shows all of it.
-  const pillars = useMemo(() => {
-    if (!query.trim()) return allPillars;
-    return allPillars.map(p => ({
-      ...p,
-      objectives: p.objectives.map(o => ({
-        ...o,
-        initiatives: o.initiatives.map(i => ({
-          ...i,
-          rows: matchesSearch(query, p.title, o.statement, i.title) ? i.rows : i.rows.filter(r => matchesSearch(query, r.title, r.owner)),
-        })).filter(i => i.rows.length > 0),
-      })).filter(o => o.initiatives.length > 0),
-    })).filter(p => p.objectives.length > 0);
-  }, [allPillars, query]);
-  const total = allPillars.reduce((s, p) => s + p.objectives.reduce((s2, o) => s2 + o.initiatives.reduce((s3, i) => s3 + i.rows.length, 0), 0), 0);
-  const shown = pillars.reduce((s, p) => s + p.objectives.reduce((s2, o) => s2 + o.initiatives.reduce((s3, i) => s3 + i.rows.length, 0), 0), 0);
+  const [pillarId, setPillarId] = useState(ALL);
+  const [owner, setOwner] = useState(ALL);
+  const [report, setReport] = useState(ALL);
+  const [result, setResult] = useState(ALL);
+  const [range, setRange] = useState<DateRangeValue>({});
+
+  const filters: PerformanceFilters = { q: query, pillar: pick(pillarId), owner: pick(owner), report: pick<ReportState>(report), result: pick<ReportStatusLabel>(result), range };
+  const narrowed = isNarrowed(filters);
+  const reset = () => { setQuery(''); setPillarId(ALL); setOwner(ALL); setReport(ALL); setResult(ALL); setRange({}); };
+
+  const pillars = useMemo(
+    () => filterPerformanceTree(allPillars, { q: query, pillar: pick(pillarId), owner: pick(owner), report: pick<ReportState>(report), result: pick<ReportStatusLabel>(result), range }),
+    [allPillars, query, pillarId, owner, report, result, range]
+  );
+  const all = useMemo(() => treeActivities(allPillars), [allPillars]);
+  const shown = useMemo(() => treeActivities(pillars), [pillars]);
+  const owners = useMemo(() => [...new Set(all.map(a => a.office))].filter(o => o !== '—').sort(), [all]);
+
+  const approved = shown.filter(a => a.state === 'APPROVED').length;
+  const total = rollUp(weightedOf(shown));
+
   const columns = REPORT_COLUMNS
     .map((column, index) => ({ column, index }))
     .filter(({ column }) => view === 'all' || column.group === view);
   const colSpan = columns.length + 1;
+  const exportHref = exportBase && narrowed ? `${exportBase}&${filtersToParams(filters).toString()}` : null;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      <div className="flex flex-wrap overflow-hidden rounded-xl border border-border/50 bg-card sm:flex-nowrap">
+        <Stat label="Reports approved" value={`${approved} of ${shown.length}`} first />
+        <Stat label="Weighted plan" value={formatWeight(total.weightedPlan)} />
+        <Stat label="Weighted actual" value={formatWeight(total.weightedActual)} />
+        <Stat label="Weighted actual with delay" value={formatWeight(total.weightedActualWithDelay)} />
+        <Stat label="Achieved result" value={formatRatio(total.achievedResult)} sub={total.status} accent />
+      </div>
+
+      <ListToolbar count={narrowed ? `${shown.length} of ${all.length} activities match · totals are for these` : `${all.length} activities`}>
+        <SearchBox value={query} onChange={setQuery} placeholder="Search activity, owner, initiative or pillar" className="sm:w-80" />
+        <Select value={pillarId} onValueChange={setPillarId}>
+          <SelectTrigger className="h-9 w-full sm:w-56" aria-label="Pillar"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All pillars</SelectItem>
+            {allPillars.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={owner} onValueChange={setOwner}>
+          <SelectTrigger className="h-9 w-full sm:w-56" aria-label="Lead owner"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All lead owners</SelectItem>
+            {owners.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={report} onValueChange={setReport}>
+          <SelectTrigger className="h-9 w-full sm:w-48" aria-label="Report status"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Any report status</SelectItem>
+            {(Object.keys(REPORT_STATE_LABEL) as ReportState[]).map(s => <SelectItem key={s} value={s}>{REPORT_STATE_LABEL[s]}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={result} onValueChange={setResult}>
+          <SelectTrigger className="h-9 w-full sm:w-56" aria-label="Activity result"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Any result</SelectItem>
+            {RESULT_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <DateRangeFilter value={range} onChange={setRange} label="Any dates" hint="Shows activities that run at any point in this range." />
+        {narrowed && <Button variant="ghost" className="h-9 px-3" onClick={reset}>Reset</Button>}
+        {exportHref && (
+          <Button asChild variant="outline" className="h-9 gap-2">
+            <a href={exportHref}><FileSpreadsheet className="h-4 w-4 text-green-600" />Export filtered (Excel)</a>
+          </Button>
+        )}
+      </ListToolbar>
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div role="tablist" aria-label="Report columns" className="inline-flex flex-wrap gap-1 rounded-lg bg-muted p-1">
           {REPORT_VIEWS.map(v => (
@@ -65,42 +136,51 @@ export function PerformanceReportGrid({ pillars: allPillars }: { pillars: GridPi
         </div>
         <p className="text-xs text-muted-foreground">{REPORT_VIEWS.find(v => v.id === view)?.hint}</p>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <SearchBox value={query} onChange={setQuery} placeholder="Search activity, owner, initiative or pillar" className="sm:w-96" />
-        {query.trim() && <p className="text-sm text-muted-foreground">{shown} of {total} activities match</p>}
-      </div>
-      {query.trim() && shown === 0 && <p className="rounded-md border p-6 text-center text-sm text-muted-foreground">No activities match “{query.trim()}”.</p>}
 
-      <ScrollFrame resetKey={view}>
-        <table className="w-full border-separate border-spacing-0 text-xs">
-          <thead>
-            <tr>
-              <th className="sticky left-0 top-0 z-30 min-w-[220px] border-b bg-primary px-3 py-2.5 text-left font-semibold text-primary-foreground">Major Activities</th>
-              {columns.map(({ column }) => (
-                <th key={column.label} className={cn(
-                  "sticky top-0 z-20 border-b px-2 py-2.5 font-semibold text-primary-foreground",
-                  column.owner ? "bg-sky-700" : "bg-primary",
-                  column.kind === 'text' ? "text-left" : "text-center",
-                  widthClass(column, view)
-                )}>{column.label}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {pillars.map(pillar => (
-              <GroupRow key={pillar.id} colSpan={colSpan} className="bg-amber-400/80 font-semibold text-amber-950" title={pillar.title}>
-                {pillar.objectives.map(objective => (
-                  <GroupRow key={objective.id} colSpan={colSpan} className="bg-sky-200/70 font-medium text-sky-950 dark:bg-sky-900/50 dark:text-sky-100" title={objective.statement}>
-                    {objective.initiatives.map(initiative => (
-                      <InitiativeRows key={initiative.id} initiative={initiative} columns={columns} />
-                    ))}
-                  </GroupRow>
+      {narrowed && shown.length === 0 ? (
+        <p className="rounded-md border p-6 text-center text-sm text-muted-foreground">No activities match the search or filters.</p>
+      ) : (
+        <ScrollFrame resetKey={view}>
+          <table className="w-full border-separate border-spacing-0 text-xs">
+            <thead>
+              <tr>
+                <th className="sticky left-0 top-0 z-30 min-w-[220px] border-b bg-primary px-3 py-2.5 text-left font-semibold text-primary-foreground">Major Activities</th>
+                {columns.map(({ column }) => (
+                  <th key={column.label} className={cn(
+                    "sticky top-0 z-20 border-b px-2 py-2.5 font-semibold text-primary-foreground",
+                    column.owner ? "bg-sky-700" : "bg-primary",
+                    column.kind === 'text' ? "text-left" : "text-center",
+                    widthClass(column, view)
+                  )}>{column.label}</th>
                 ))}
-              </GroupRow>
-            ))}
-          </tbody>
-        </table>
-      </ScrollFrame>
+              </tr>
+            </thead>
+            <tbody>
+              {pillars.map(pillar => (
+                <GroupRow key={pillar.id} colSpan={colSpan} className="bg-amber-400/80 font-semibold text-amber-950" title={pillar.title}>
+                  {pillar.objectives.map(objective => (
+                    <GroupRow key={objective.id} colSpan={colSpan} className="bg-sky-200/70 font-medium text-sky-950 dark:bg-sky-900/50 dark:text-sky-100" title={objective.statement}>
+                      {objective.initiatives.map(initiative => (
+                        <InitiativeRows key={initiative.id} initiative={initiative} columns={columns} />
+                      ))}
+                    </GroupRow>
+                  ))}
+                </GroupRow>
+              ))}
+            </tbody>
+          </table>
+        </ScrollFrame>
+      )}
+    </div>
+  );
+}
+
+function Stat({ label, value, sub, accent, first }: { label: string; value: string; sub?: string; accent?: boolean; first?: boolean }) {
+  return (
+    <div className={cn("min-w-[9rem] flex-1 basis-1/2 px-4 py-3.5 sm:basis-0", !first && "border-l border-border/50")}>
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={cn("mt-2 text-2xl font-bold leading-none tracking-tight", accent ? "text-primary" : "text-foreground")}>{value}</p>
+      {sub && <p className={cn("mt-1.5 text-xs font-medium", statusClass(sub))}>{sub}</p>}
     </div>
   );
 }
@@ -161,23 +241,27 @@ function GroupRow({ title, colSpan, className, children }: { title: string; colS
 
 type IndexedColumn = { column: ReportColumn; index: number };
 
-/** The initiative line (the Excel's (IV) columns — Σ weighted values and ratios), then its activities. */
+/** The initiative line (the Excel's (IV) columns — Σ weighted values and ratios over the rows shown), then its activities. */
 function InitiativeRows({ initiative, columns }: { initiative: GridInitiative; columns: IndexedColumn[] }) {
+  const rollup = rollUp(weightedOf(initiative.activities));
   return (
     <>
       <tr className="bg-muted/60 font-medium">
         <td className="sticky left-0 z-10 border-b bg-muted px-3 py-1.5 italic">{initiative.title}</td>
-        {columns.map(({ column, index }) => (
-          <td key={column.label} className={cn(
-            "border-b px-2 py-1.5",
-            column.kind === 'num' && "text-right tabular-nums",
-            column.kind === 'status' && statusClass(initiative.rollup[index])
-          )}>
-            {initiative.rollup[index]}
-          </td>
-        ))}
+        {columns.map(({ column }) => {
+          const value = column.rollup?.(rollup) ?? '';
+          return (
+            <td key={column.label} className={cn(
+              "border-b px-2 py-1.5",
+              column.kind === 'num' && "text-right tabular-nums",
+              column.kind === 'status' && statusClass(value)
+            )}>
+              {value}
+            </td>
+          );
+        })}
       </tr>
-      {initiative.rows.map(activity => <ActivityRow key={activity.id} activity={activity} columns={columns} />)}
+      {initiative.activities.map(activity => <ActivityRow key={activity.id} activity={activity} columns={columns} />)}
     </>
   );
 }
