@@ -9,6 +9,7 @@ import {
   filterPerformanceTree, filtersToParams, isNarrowed, treeActivities, REPORT_STATE_LABEL, RESULT_STATUSES,
   type FilterableActivity, type PerformanceFilters, type ReportState, type TreeInitiative, type TreePillar,
 } from "@/lib/performance-report";
+import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { DateRangeFilter, ListToolbar, SearchBox } from "../list-controls";
@@ -64,7 +65,7 @@ export function PerformanceReportGrid({ pillars: allPillars, exportBase }: { pil
   const columns = REPORT_COLUMNS
     .map((column, index) => ({ column, index }))
     .filter(({ column }) => view === 'all' || column.group === view);
-  const colSpan = columns.length + 1;
+  const colSpan = columns.length + 2; // activity + report status + data columns
   const exportHref = exportBase && narrowed ? `${exportBase}&${filtersToParams(filters).toString()}` : null;
 
   return (
@@ -134,32 +135,39 @@ export function PerformanceReportGrid({ pillars: allPillars, exportBase }: { pil
             </button>
           ))}
         </div>
-        <p className="text-xs text-muted-foreground">{REPORT_VIEWS.find(v => v.id === view)?.hint}</p>
+        <p className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-sky-500" />Filled in by the activity owner</span>
+          <span>{REPORT_VIEWS.find(v => v.id === view)?.hint}</span>
+        </p>
       </div>
 
       {narrowed && shown.length === 0 ? (
         <p className="rounded-md border p-6 text-center text-sm text-muted-foreground">No activities match the search or filters.</p>
       ) : (
         <ScrollFrame resetKey={view}>
-          <table className="w-full border-separate border-spacing-0 text-xs">
+          <table className="w-full border-separate border-spacing-0 text-sm">
             <thead>
               <tr>
-                <th className="sticky left-0 top-0 z-30 min-w-[220px] border-b bg-primary px-3 py-2.5 text-left font-semibold text-primary-foreground">Major Activities</th>
+                <th className={cn(HEAD, "left-0 z-30 min-w-[300px] max-w-[380px] border-r text-left")}>Activity</th>
+                <th className={cn(HEAD, "z-20 min-w-[150px] text-left")}>Report</th>
                 {columns.map(({ column }) => (
                   <th key={column.label} className={cn(
-                    "sticky top-0 z-20 border-b px-2 py-2.5 font-semibold text-primary-foreground",
-                    column.owner ? "bg-sky-700" : "bg-primary",
-                    column.kind === 'text' ? "text-left" : "text-center",
+                    HEAD,
+                    "z-20 border-l",
+                    column.kind === 'num' || column.kind === 'date' ? "text-right" : "text-left",
                     widthClass(column, view)
-                  )}>{column.label}</th>
+                  )}>
+                    {column.owner && <span className="mr-1.5 inline-block h-1.5 w-1.5 -translate-y-px rounded-full bg-sky-500 align-middle" title="Filled in by the activity owner" />}
+                    {column.label}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {pillars.map(pillar => (
-                <GroupRow key={pillar.id} colSpan={colSpan} className="bg-amber-400/80 font-semibold text-amber-950" title={pillar.title}>
+                <GroupRow key={pillar.id} colSpan={colSpan} className="bg-muted/70 font-semibold text-foreground" indent="pl-4" title={pillar.title}>
                   {pillar.objectives.map(objective => (
-                    <GroupRow key={objective.id} colSpan={colSpan} className="bg-sky-200/70 font-medium text-sky-950 dark:bg-sky-900/50 dark:text-sky-100" title={objective.statement}>
+                    <GroupRow key={objective.id} colSpan={colSpan} className="bg-muted/35 font-medium text-foreground" indent="pl-8" title={objective.statement}>
                       {objective.initiatives.map(initiative => (
                         <InitiativeRows key={initiative.id} initiative={initiative} columns={columns} />
                       ))}
@@ -185,10 +193,24 @@ function Stat({ label, value, sub, accent, first }: { label: string; value: stri
   );
 }
 
+/** Header cells: the app's table header (small uppercase muted labels), pinned while scrolling. */
+const HEAD = "sticky top-0 h-11 border-b border-border/60 bg-card px-4 py-2 align-bottom text-[11px] font-medium uppercase leading-tight tracking-wide text-muted-foreground/80";
+
+/** Data cells: a light rule between columns so values line up under their heading. */
+const CELL = "border-b border-l border-border/50 px-4";
+
+/** Where an activity's report stands, as a pill like the plan page's breakdown status. */
+const STATE_PILL: Record<string, string> = {
+  APPROVED: "border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-700",
+  REQUESTED: "border-amber-500/30 bg-amber-500/[0.06] text-amber-700",
+  SUBMITTED: "border-blue-500/25 bg-blue-500/[0.06] text-blue-700",
+  RETURNED: "border-red-400/30 bg-red-500/[0.06] text-red-700",
+};
+
 function widthClass(c: ReportColumn, view: View) {
-  if (c.kind === 'text') return view === 'all' ? 'min-w-[220px]' : 'min-w-[200px] w-1/4';
-  if (c.kind === 'status') return 'min-w-[130px]';
-  return 'min-w-[92px]';
+  if (c.kind === 'text') return view === 'all' ? 'min-w-[240px]' : 'min-w-[220px] w-1/4';
+  if (c.kind === 'status') return 'min-w-[150px]';
+  return 'min-w-[110px]';
 }
 
 /** Scrolls both ways (so the header can stay sticky) and fades the right edge while there is more to see. */
@@ -213,7 +235,7 @@ function ScrollFrame({ children, resetKey }: { children: ReactNode; resetKey: st
 
   return (
     <div className="relative">
-      <div ref={ref} className="max-h-[70vh] overflow-auto rounded-xl border border-border/50">
+      <div ref={ref} className="max-h-[70vh] overflow-auto rounded-xl border border-border/50 bg-card">
         {children}
       </div>
       <div className={cn(
@@ -230,10 +252,10 @@ function ScrollFrame({ children, resetKey }: { children: ReactNode; resetKey: st
 }
 
 // A pillar/objective title spans the row; the inner div sticks left so it stays in view while scrolling.
-function GroupRow({ title, colSpan, className, children }: { title: string; colSpan: number; className: string; children: ReactNode }) {
+function GroupRow({ title, colSpan, className, indent, children }: { title: string; colSpan: number; className: string; indent: string; children: ReactNode }) {
   return (
     <>
-      <tr className={className}><td colSpan={colSpan} className="border-b py-1.5"><div className="sticky left-0 w-max px-3">{title}</div></td></tr>
+      <tr className={className}><td colSpan={colSpan} className="border-b border-border/50 py-2"><div className={cn("sticky left-0 w-max pr-4", indent)}>{title}</div></td></tr>
       {children}
     </>
   );
@@ -244,15 +266,17 @@ type IndexedColumn = { column: ReportColumn; index: number };
 /** The initiative line (the Excel's (IV) columns — Σ weighted values and ratios over the rows shown), then its activities. */
 function InitiativeRows({ initiative, columns }: { initiative: GridInitiative; columns: IndexedColumn[] }) {
   const rollup = rollUp(weightedOf(initiative.activities));
+  const approved = initiative.activities.filter(a => a.state === 'APPROVED').length;
   return (
     <>
-      <tr className="bg-muted/60 font-medium">
-        <td className="sticky left-0 z-10 border-b bg-muted px-3 py-1.5 italic">{initiative.title}</td>
+      <tr className="font-medium text-foreground/90">
+        <td className="sticky left-0 z-10 border-b border-r border-border/50 bg-card py-2 pl-12 pr-4">{initiative.title}</td>
+        <td className="whitespace-nowrap border-b border-border/50 px-4 py-2 text-xs font-normal text-muted-foreground">{approved} of {initiative.activities.length} approved</td>
         {columns.map(({ column }) => {
           const value = column.rollup?.(rollup) ?? '';
           return (
             <td key={column.label} className={cn(
-              "border-b px-2 py-1.5",
+              CELL, "py-2",
               column.kind === 'num' && "text-right tabular-nums",
               column.kind === 'status' && statusClass(value)
             )}>
@@ -266,38 +290,36 @@ function InitiativeRows({ initiative, columns }: { initiative: GridInitiative; c
   );
 }
 
+/**
+ * One activity: its report status in its own column, then a cell per report
+ * column. Until the report is approved the cells show a faint dash, so it is
+ * clear at a glance which activities have values.
+ */
 function ActivityRow({ activity, columns }: { activity: GridActivity; columns: IndexedColumn[] }) {
-  const name = (
-    <td className="sticky left-0 z-10 border-b bg-background px-3 py-2 align-top">
-      <div className="font-medium">{activity.title}</div>
-      <div className="text-muted-foreground">{activity.owner}</div>
-    </td>
-  );
-
-  if (!activity.cells) {
-    return (
-      <tr>
-        {name}
-        <td colSpan={columns.length} className="border-b px-3 py-2 italic text-muted-foreground">{activity.statusText}</td>
-      </tr>
-    );
-  }
-
   const cells = activity.cells;
   return (
-    <tr className="hover:bg-muted/30">
-      {name}
-      {columns.map(({ column, index }) => (
-        <td key={column.label} className={cn(
-          "border-b border-l px-2 py-2 align-top",
-          column.owner && "bg-sky-500/5",
-          column.kind === 'num' && "text-right tabular-nums",
-          column.kind === 'text' && "whitespace-pre-wrap break-words",
-          column.kind === 'status' && statusClass(cells[index])
-        )}>
-          {cells[index]}
-        </td>
-      ))}
+    <tr>
+      <td className="sticky left-0 z-10 max-w-[380px] border-b border-r border-border/50 bg-card py-2.5 pl-16 pr-4 align-top">
+        <div className="text-foreground">{activity.title}</div>
+        {activity.owner && <div className="mt-0.5 text-xs text-muted-foreground">{activity.owner}</div>}
+      </td>
+      <td className="border-b border-border/50 px-4 py-2.5 align-top">
+        <Badge variant="outline" className={cn("whitespace-nowrap font-medium", STATE_PILL[activity.state] ?? "border-border/60 bg-muted/60 text-muted-foreground")}>{activity.statusText}</Badge>
+      </td>
+      {columns.map(({ column, index }) => {
+        const value = cells?.[index] ?? '';
+        const empty = value === '' || value === '—';
+        return (
+          <td key={column.label} className={cn(
+            CELL, "py-2.5 align-top text-foreground/90",
+            (column.kind === 'num' || column.kind === 'date') && "whitespace-nowrap text-right tabular-nums",
+            column.kind === 'text' && "whitespace-pre-wrap break-words",
+            column.kind === 'status' && statusClass(value)
+          )}>
+            {empty ? <span className="text-muted-foreground/40" aria-label="No value">—</span> : value}
+          </td>
+        );
+      })}
     </tr>
   );
 }

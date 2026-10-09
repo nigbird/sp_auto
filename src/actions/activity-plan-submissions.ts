@@ -340,11 +340,11 @@ export async function declineActivityPlan(activityId: string, reason: string): P
  * responsible person and notifies them. Already-sent activities are left
  * alone; ones declined under the old accept/decline flow are re-sent.
  */
-async function sendRequests(where: { initiativeId?: string; strategicPlanId?: string }, senderId: string): Promise<number> {
+async function sendRequests(where: { initiativeId?: string; strategicPlanId?: string; responsibleId?: { in: string[] } }, senderId: string): Promise<{ responsibleId: string }[]> {
     const activities = await prisma.activity.findMany({
         where: { ...where, planRequestStatus: { in: ['NOT_SENT', 'DECLINED'] } },
     });
-    if (activities.length === 0) return 0;
+    if (activities.length === 0) return [];
 
     const now = new Date();
     await prisma.activity.updateMany({
@@ -371,22 +371,33 @@ async function sendRequests(where: { initiativeId?: string; strategicPlanId?: st
     });
 
     revalidateBreakdownPages();
-    return activities.length;
+    return activities;
 }
 
-/** The "send monthly breakdown requests" button on a published plan. */
-export async function sendPlanRequestsForPlan(planId: string): Promise<BreakdownActionResult & { sent?: number }> {
+/**
+ * The "send monthly breakdown requests" button on a published plan. With
+ * `ownerIds`, only those people's waiting activities are sent; the rest stay
+ * unsent for later. Returns how many activities each person was sent.
+ */
+export async function sendPlanRequestsForPlan(planId: string, ownerIds?: string[]): Promise<BreakdownActionResult & { sent?: number; sentByOwner?: Record<string, number> }> {
     const sender = await requirePermission('plan-approvals:request');
     const plan = await prisma.strategicPlan.findUnique({ where: { id: planId }, select: { status: true, name: true } });
     if (!plan) return fail("This plan no longer exists.");
     if (plan.status !== 'PUBLISHED') return fail("Publish the plan before sending breakdown requests.");
-    const sent = await sendRequests({ strategicPlanId: planId }, sender.id);
-    if (sent === 0) return fail("Every activity in this plan already has a breakdown request.");
+    if (ownerIds && ownerIds.length === 0) return fail("Choose at least one person to send requests to.");
+    const activities = await sendRequests({ strategicPlanId: planId, ...(ownerIds ? { responsibleId: { in: ownerIds } } : {}) }, sender.id);
+    if (activities.length === 0) {
+        return fail(ownerIds ? "The people you chose have no activities waiting for a request." : "Every activity in this plan already has a breakdown request.");
+    }
+    const sentByOwner: Record<string, number> = {};
+    for (const a of activities) sentByOwner[a.responsibleId] = (sentByOwner[a.responsibleId] ?? 0) + 1;
+    const sent = activities.length;
+    const people = Object.keys(sentByOwner).length;
     await recordAudit({
         action: 'BREAKDOWN_REQUESTS_SENT', entityType: 'StrategicPlan', entityId: planId,
-        summary: `Sent breakdown requests for ${sent} ${sent === 1 ? 'activity' : 'activities'} in "${plan.name}"`,
-        metadata: { sent },
+        summary: `Sent breakdown requests for ${sent} ${sent === 1 ? 'activity' : 'activities'} to ${people} ${people === 1 ? 'person' : 'people'} in "${plan.name}"`,
+        metadata: { sent, recipients: sentByOwner },
     });
-    return { success: true, sent };
+    return { success: true, sent, sentByOwner };
 }
 
