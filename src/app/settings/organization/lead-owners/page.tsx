@@ -13,8 +13,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from "@/hooks/use-toast";
 import { getLeadOwners, createLeadOwner, updateLeadOwner, deleteLeadOwner } from "@/actions/lead-owners";
 import { getDepartments } from "@/actions/departments";
+import { ListToolbar, Pagination, SearchBox, usePagination } from "@/components/list-controls";
+import { matchesSearch } from "@/lib/list-filters";
 
 const NONE = "__none__";
+const ALL = "__all__";
 
 interface LeadOwnerRow {
   id: string;
@@ -51,6 +54,17 @@ export default function LeadOwnersPage() {
   const [deleting, setDeleting] = useState<LeadOwnerRow | null>(null);
   const { toast } = useToast();
   const canManage = usePermissions().can("settings:manage");
+  const [query, setQuery] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState(ALL);
+  const [held, setHeld] = useState(ALL);
+
+  const narrowed = query.trim() !== "" || departmentFilter !== ALL || held !== ALL;
+  const matching = leadOwners.filter(l =>
+    matchesSearch(query, l.name, l.department, ...l.users.map(u => u.name)) &&
+    (departmentFilter === ALL || (departmentFilter === NONE ? !l.department : l.department === departmentFilter)) &&
+    (held === ALL || (held === "held") === (l.users.length > 0))
+  );
+  const pages = usePagination(matching, `${query}|${departmentFilter}|${held}`);
 
   const refresh = () => getLeadOwners().then(setLeadOwners);
 
@@ -128,7 +142,29 @@ export default function LeadOwnersPage() {
               </Button>
           </div>}
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {leadOwners.length > 0 && (
+            <ListToolbar count={narrowed ? `${matching.length} of ${leadOwners.length} lead owners match` : `${leadOwners.length} lead owners`}>
+              <SearchBox value={query} onChange={setQuery} placeholder="Search lead owner, department or person" className="sm:w-80" />
+              <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                <SelectTrigger className="h-9 w-full sm:w-56" aria-label="Department"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>All departments</SelectItem>
+                  <SelectItem value={NONE}>No default department</SelectItem>
+                  {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={held} onValueChange={setHeld}>
+                <SelectTrigger className="h-9 w-full sm:w-44" aria-label="Held by"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>Held or vacant</SelectItem>
+                  <SelectItem value="held">Held by someone</SelectItem>
+                  <SelectItem value="vacant">No one yet</SelectItem>
+                </SelectContent>
+              </Select>
+              {narrowed && <Button variant="ghost" className="h-9 px-3" onClick={() => { setQuery(""); setDepartmentFilter(ALL); setHeld(ALL); }}>Reset</Button>}
+            </ListToolbar>
+          )}
           <div className="overflow-x-auto rounded-xl border border-border/50">
           <Table>
             <TableHeader>
@@ -148,10 +184,13 @@ export default function LeadOwnersPage() {
                   </TableCell>
                 </TableRow>
               )}
-              {leadOwners.map((row) => (
+              {leadOwners.length > 0 && matching.length === 0 && (
+                <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">No lead owners match the search or filters.</TableCell></TableRow>
+              )}
+              {pages.items.map((row) => (
                 <TableRow key={row.id} className="border-border/50 hover:bg-muted/30">
                   <TableCell className="py-3.5 font-medium text-foreground">
-                    {!canManage ? null : editingId === row.id ? (
+                    {canManage && editingId === row.id ? (
                       <Input
                         value={editingName}
                         onChange={(e) => setEditingName(e.target.value)}
@@ -192,6 +231,7 @@ export default function LeadOwnersPage() {
             </TableBody>
           </Table>
           </div>
+          <Pagination state={pages} noun="lead owners" />
         </CardContent>
       </Card>
 

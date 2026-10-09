@@ -21,6 +21,9 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { getRoles, createRole, updateRolePermissions, deleteRole } from "@/actions/roles";
 import { RoleForm, type RoleFormValues } from "@/components/settings/role-form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ListToolbar, Pagination, SearchBox, usePagination } from "@/components/list-controls";
+import { matchesSearch } from "@/lib/list-filters";
 
 type RoleRow = {
   id: string;
@@ -38,6 +41,15 @@ export default function RolesPage() {
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const canManage = usePermissions().can("roles:manage");
+  const [query, setQuery] = useState("");
+  const [type, setType] = useState("all");
+
+  const narrowed = query.trim() !== "" || type !== "all";
+  const matchingRoles = roles.filter(r =>
+    matchesSearch(query, r.name, ...r.permissions) &&
+    (type === "all" || (type === "system") === r.isSystem)
+  );
+  const rolePages = usePagination(matchingRoles, `${query}|${type}`);
 
   const loadRoles = async () => {
     setRoles(await getRoles());
@@ -108,7 +120,19 @@ export default function RolesPage() {
           </Button>
           )}
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <ListToolbar count={narrowed ? `${matchingRoles.length} of ${roles.length} roles match` : `${roles.length} roles`}>
+            <SearchBox value={query} onChange={setQuery} placeholder="Search role or permission" className="sm:w-80" />
+            <Select value={type} onValueChange={setType}>
+              <SelectTrigger className="h-9 w-full sm:w-44" aria-label="Role type"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                <SelectItem value="system">Built-in</SelectItem>
+                <SelectItem value="custom">Custom</SelectItem>
+              </SelectContent>
+            </Select>
+            {narrowed && <Button variant="ghost" className="h-9 px-3" onClick={() => { setQuery(""); setType("all"); }}>Reset</Button>}
+          </ListToolbar>
           <div className="overflow-x-auto rounded-xl border border-border/50">
             <Table>
               <TableHeader>
@@ -126,8 +150,14 @@ export default function RolesPage() {
                       Loading roles...
                     </TableCell>
                   </TableRow>
+                ) : matchingRoles.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                      {narrowed ? "No roles match the search or filters." : "No roles yet."}
+                    </TableCell>
+                  </TableRow>
                 ) : (
-                  roles.map((role) => (
+                  rolePages.items.map((role) => (
                     <TableRow key={role.id} className="border-border/50 hover:bg-muted/30">
                       <TableCell className="py-3.5 font-medium text-foreground">{role.name}</TableCell>
                       <TableCell>
@@ -156,6 +186,7 @@ export default function RolesPage() {
               </TableBody>
             </Table>
           </div>
+          {!isLoading && <Pagination state={rolePages} noun="roles" />}
         </CardContent>
       </Card>
 

@@ -17,6 +17,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { cn } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } from "@/components/list-controls";
+import { inDateRange, isRangeSet, matchesSearch, type DateRangeValue } from "@/lib/list-filters";
 
 const TYPE_LABELS: Record<string, string> = {
   UPDATE_APPROVED: "Approved",
@@ -30,6 +33,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 type Filter = "all" | "unread";
+const ALL_TYPES = "all";
 
 function dayLabel(date: Date) {
   if (isToday(date)) return "Today";
@@ -40,6 +44,9 @@ function dayLabel(date: Date) {
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[] | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  const [query, setQuery] = useState("");
+  const [type, setType] = useState(ALL_TYPES);
+  const [range, setRange] = useState<DateRangeValue>({});
   const { enabled: soundOn, setEnabled: setSoundOn } = useNotificationSound();
 
   const refresh = useCallback(() => {
@@ -56,15 +63,23 @@ export default function NotificationsPage() {
 
   const unreadCount = notifications?.filter((n) => !n.read).length ?? 0;
 
+  const narrowed = query.trim() !== "" || type !== ALL_TYPES || isRangeSet(range);
+  const visible = useMemo(() => (notifications ?? []).filter((n) =>
+    (filter === "all" || !n.read) &&
+    (type === ALL_TYPES || n.type === type) &&
+    matchesSearch(query, n.message, TYPE_LABELS[n.type]) &&
+    inDateRange(n.date, range)
+  ), [notifications, filter, type, query, range]);
+  const pages = usePagination(visible, `${filter}|${type}|${query}|${range.from}|${range.to}`, 25);
+
   const groups = useMemo(() => {
-    const visible = (notifications ?? []).filter((n) => filter === "all" || !n.read);
     const byDay = new Map<string, Notification[]>();
-    for (const n of visible) {
+    for (const n of pages.items) {
       const label = dayLabel(new Date(n.date));
       byDay.set(label, [...(byDay.get(label) ?? []), n]);
     }
     return [...byDay.entries()];
-  }, [notifications, filter]);
+  }, [pages.items]);
 
   const handleMarkAllRead = async () => {
     await markAllNotificationsRead();
@@ -98,13 +113,25 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      <div className="flex gap-2">
-        {(["all", "unread"] as const).map((f) => (
-          <Button key={f} size="sm" variant={filter === f ? "default" : "outline"} onClick={() => setFilter(f)}>
-            {f === "all" ? "All" : `Unread${unreadCount ? ` (${unreadCount})` : ""}`}
-          </Button>
-        ))}
-      </div>
+      <ListToolbar count={notifications && (narrowed ? `${visible.length} match` : `${visible.length} notifications`)}>
+        <div className="flex gap-2">
+          {(["all", "unread"] as const).map((f) => (
+            <Button key={f} size="sm" className="h-9" variant={filter === f ? "default" : "outline"} onClick={() => setFilter(f)}>
+              {f === "all" ? "All" : `Unread${unreadCount ? ` (${unreadCount})` : ""}`}
+            </Button>
+          ))}
+        </div>
+        <SearchBox value={query} onChange={setQuery} placeholder="Search notifications" />
+        <Select value={type} onValueChange={setType}>
+          <SelectTrigger className="h-9 w-full sm:w-48" aria-label="Type"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_TYPES}>All types</SelectItem>
+            {Object.entries(TYPE_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <DateRangeFilter value={range} onChange={setRange} label="Any date" hint="Shows notifications received in this range." />
+        {narrowed && <Button variant="ghost" className="h-9 px-3" onClick={() => { setQuery(""); setType(ALL_TYPES); setRange({}); }}>Reset</Button>}
+      </ListToolbar>
 
       <Card>
         <CardContent className="p-0">
@@ -113,8 +140,8 @@ export default function NotificationsPage() {
           ) : groups.length === 0 ? (
             <EmptyState
               art="inbox"
-              title={filter === "unread" ? "No unread notifications" : "No notifications yet"}
-              description="Approvals, assignments, deadlines and reporting-period updates will show up here."
+              title={narrowed ? "No notifications match" : filter === "unread" ? "No unread notifications" : "No notifications yet"}
+              description={narrowed ? "Try a different search, type or date range." : "Approvals, assignments, deadlines and reporting-period updates will show up here."}
             />
           ) : (
             groups.map(([label, items]) => (
@@ -151,6 +178,7 @@ export default function NotificationsPage() {
           )}
         </CardContent>
       </Card>
+      <Pagination state={pages} noun="notifications" />
     </div>
   );
 }

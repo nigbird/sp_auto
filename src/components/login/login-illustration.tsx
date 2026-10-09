@@ -83,18 +83,9 @@ function rimPath(from: number, to: number, lift: number) {
   return `M${pts.join(" L")}`;
 }
 
-const BACK_PANELS = buildPanels("b", 195, 345, 8, BACK_H, [
-  "rows",
-  "line",
-  "bars",
-  "kpi",
-  "donut",
-  "bars",
-  "line",
-  "rows",
-]);
-const FRONT_RIGHT = buildPanels("fr", 22, 68, 3, FRONT_H, ["bars", "donut", "line"]);
-const FRONT_LEFT = buildPanels("fl", 112, 158, 3, FRONT_H, ["kpi", "bars", "rows"]);
+const BACK_PANELS = buildPanels("b", 200, 340, 5, BACK_H, ["line", "bars", "donut", "kpi", "rows"]);
+const FRONT_RIGHT = buildPanels("fr", 28, 64, 2, FRONT_H, ["donut", "bars"]);
+const FRONT_LEFT = buildPanels("fl", 116, 152, 2, FRONT_H, ["bars", "kpi"]);
 
 function PanelContent({ kind, w, h, index }: { kind: PanelKind; w: number; h: number; index: number }) {
   const p = Math.max(5, w * 0.13);
@@ -535,27 +526,10 @@ export function LoginIllustration({ className }: { className?: string }) {
       <RingPanels panels={BACK_PANELS} glow />
       <Rim from={195} to={345} h={BACK_H} />
 
-      {/* people inside the ring */}
-      <g className="a-walk" style={delay(-3)}>
-        <Person
-          x={392}
-          y={276}
-          scale={0.78}
-          skin="#6b4428"
-          hair="#4A3628"
-          hairStyle="short"
-          top={C.brownMid}
-          pants={C.brownDark}
-          legs="walk"
-          armL={{ s: 0, e: -8, anim: "a-swing", delay: -0.5 }}
-          armR={{ s: 0, e: 8, anim: "a-swing" }}
-          headAnim="a-look"
-        />
-      </g>
-
+      {/* presenter inside the ring */}
       <Person
-        x={268}
-        y={312}
+        x={320}
+        y={318}
         scale={0.9}
         skin="#8d5a3b"
         hair="#503A2B"
@@ -568,69 +542,16 @@ export function LoginIllustration({ className }: { className?: string }) {
         holding={<Tablet x={-2} y={-73} w={12} h={16} rotate={-6} />}
       />
 
-      <Person
-        x={352}
-        y={338}
-        scale={0.92}
-        skin="#6b4428"
-        hair="#4A3628"
-        hairStyle="short"
-        top={C.paper}
-        pants="#6A4D3A"
-        armL={{ s: 0, e: -65, fl: 11 }}
-        armR={{ s: 0, e: 65, fl: 11, eAnim: "a-tap", delay: 0.4 }}
-        headAnim="a-nod"
-        front={<Tablet x={0} y={-61} rotate={-4} />}
-      />
-
       {/* front halves of the ring */}
       <RingPanels panels={FRONT_LEFT} />
       <Rim from={112} to={158} h={FRONT_H} />
       <RingPanels panels={FRONT_RIGHT} />
       <Rim from={22} to={68} h={FRONT_H} />
 
-      {/* left: desk with laptop, analyst with tablet */}
-      <IsoBox x={88} y={486} a={46} b={40} h={46} />
-      <g transform="translate(90 440)">
-        <polygon points="-22,-2 20,-2 27,9 -29,9" fill="#E6DDCF" />
-        <polygon points="-18,0 16,0 20,6 -22,6" fill="#D3C6B2" />
-        <rect x={-22} y={-34} width={42} height={32} rx={2.5} fill={C.brownDark} />
-        <rect x={-19} y={-31} width={36} height={26} rx={1.5} fill={C.brownMid} />
-        {[0.45, 0.7, 0.55, 0.9, 0.75].map((bh, j) => (
-          <rect
-            key={j}
-            className="nib-self-bottom a-bar"
-            style={delay(j * 0.35)}
-            x={-16 + j * 6.6}
-            y={-7 - 20 * bh}
-            width={4.2}
-            height={20 * bh}
-            rx={1}
-            fill={j % 2 ? C.goldLight : C.gold}
-          />
-        ))}
-      </g>
-
-      <Person
-        x={176}
-        y={470}
-        scale={1.1}
-        skin="#6b4428"
-        hair="#4A3628"
-        hairStyle="short"
-        top={C.gold}
-        pants={C.brownDark}
-        armL={{ s: 0, e: -65, fl: 11 }}
-        armR={{ s: 0, e: 65, fl: 11, eAnim: "a-tap" }}
-        headAnim="a-nod"
-        headDelay={0.7}
-        front={<Tablet x={0} y={-61} rotate={3} />}
-      />
-
       {/* centre: two colleagues discussing */}
       <Person
-        x={300}
-        y={494}
+        x={284}
+        y={492}
         scale={1.08}
         skin="#7a4a2c"
         hair="#4A3628"
@@ -644,7 +565,7 @@ export function LoginIllustration({ className }: { className?: string }) {
         holding={<Tablet x={2} y={-73} w={11} h={15} rotate={-8} />}
       />
       <Person
-        x={374}
+        x={358}
         y={490}
         scale={1.12}
         skin="#5c3a22"
@@ -659,42 +580,11 @@ export function LoginIllustration({ className }: { className?: string }) {
         headDelay={3}
       />
 
-      {/* right: seated colleague typing */}
-      <IsoBox x={522} y={482} a={34} b={34} h={40} />
-      <Person
-        x={522}
-        y={478}
-        scale={1.02}
-        skin="#8d5a3b"
-        hair="#503A2B"
-        hairStyle="pony"
-        top={C.gold}
-        pants={C.brownDark}
-        legs="sit"
-        armL={{ s: -14, e: -40, fl: 12, anim: "a-type" }}
-        armR={{ s: 14, e: 40, fl: 12, anim: "a-type", delay: -0.21 }}
-        headAnim="a-nod"
-        front={
-          <g>
-            <rect x={-15} y={-64} width={30} height={4} rx={1.5} fill="#E6DDCF" />
-            <rect x={-13} y={-84} width={26} height={20} rx={2} fill={C.brown} />
-            <circle cx={0} cy={-74} r={3.2} fill={C.gold} />
-          </g>
-        }
-      />
-      {[0, 1.2, 2.4].map((dl, i) => (
-        <g key={dl} className="a-rise" style={delay(dl)}>
-          <rect x={538 + i * 9} y={356} width={9} height={6} rx={1.5} fill={i === 1 ? C.goldLight : C.gold} />
-        </g>
-      ))}
-
       {/* sparkles */}
       {[
         [110, 150, 0],
         [540, 130, 1.4],
-        [600, 420, 2.6],
-        [40, 420, 3.4],
-        [470, 90, 4.2],
+        [470, 90, 2.8],
       ].map(([cx, cy, dl]) => (
         <circle key={`${cx}`} className="a-float" style={delay(dl)} cx={cx} cy={cy} r={3} fill={C.gold} opacity={0.7} />
       ))}

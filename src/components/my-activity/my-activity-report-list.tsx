@@ -3,7 +3,7 @@
 import * as React from "react";
 import { format } from "date-fns";
 import { AlertCircle, AlertTriangle, Check, CheckCircle2, ClipboardList, Hourglass, Info, List, Loader2, PencilLine, ShieldQuestion, ShieldX, TrendingDown, Undo2 } from "lucide-react";
-import { Card, CardContent, CardHeader } from "../ui/card";
+import { Card, CardContent } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -20,6 +20,7 @@ import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
 import { formatTargetValue, type TargetAggregation, type TargetType } from "@/lib/monthly-breakdown";
 import { computeReportRow, formatRatio } from "@/lib/report-calculations";
 import { ReportEvidence } from "../reports/report-evidence";
+import { ReportActivityCell, ReportDrawer, ReportRow, ReportTh, useReportSelection } from "../reports/report-drawer";
 import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } from "../list-controls";
 import { isRangeSet, matchesSearch, overlapsDateRange, type DateRangeValue } from "@/lib/list-filters";
 import type { EvidenceMeta } from "@/actions/evidence";
@@ -266,41 +267,46 @@ function ReportSummaryView({ entry }: { entry: PeriodReportEntry }) {
   );
 }
 
-function ReportCard({ entry, onChanged }: { entry: PeriodReportEntry; onChanged: () => Promise<void> }) {
-  const { activity, reportingPeriod: period } = entry;
-  const closed = isPeriodClosedForSubmissions(period);
+/** The panel body for one report: the form while it can be filled in, otherwise the read-only summary. */
+function ReportDetail({ entry, onChanged }: { entry: PeriodReportEntry; onChanged: () => Promise<void> }) {
+  const closed = isPeriodClosedForSubmissions(entry.reportingPeriod);
   const { can } = usePermissions();
-  const editable = can('my-reports:submit') && (entry.reportStatus === 'REQUESTED' || entry.reportStatus === 'RETURNED') && !closed;
+  const editable = can('my-reports:submit') && isEditableStatus(entry) && !closed;
 
   return (
-    <Card className="rounded-xl border-border/50 shadow-[0_1px_2px_rgba(16,24,40,0.03),0_4px_12px_-8px_rgba(16,24,40,0.06)]">
-      <CardHeader className="flex flex-row items-start justify-between gap-4 pb-3">
-        <div className="space-y-1">
-          <h3 className="text-[15px] font-semibold leading-snug text-foreground">{activity.title}</h3>
-          {activity.initiative && <p className="text-xs text-muted-foreground/90">{activity.initiative.objective.pillar.title} → {activity.initiative.title}</p>}
-          <p className="text-xs text-muted-foreground/90">
-            {format(new Date(activity.startDate), 'PP')} – {format(new Date(activity.endDate), 'PP')} · Target {activity.annualTarget != null ? formatTargetValue(activity.annualTarget, activity.targetType) : '—'}
-          </p>
-          {activity.deliverable && <p className="text-sm"><span className="font-medium text-foreground/80">Deliverable:</span> {activity.deliverable}</p>}
-        </div>
-        <ReportStatusBadge status={entry.reportStatus} />
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {entry.reportStatus === 'RETURNED' && entry.declineReason && (
-          <Alert className="border-red-400/30 bg-red-500/[0.06] text-red-800 [&>svg]:text-red-600">
-            <AlertCircle className="h-4 w-4" /><AlertDescription><span className="font-semibold">Returned by approver:</span> {entry.declineReason}</AlertDescription>
-          </Alert>
-        )}
-        {editable
-          ? <ReportForm entry={entry} onSubmitted={onChanged} />
-          : <>
-              {closed && (entry.reportStatus === 'REQUESTED' || entry.reportStatus === 'RETURNED') && (
-                <p className="text-sm text-destructive">This period is closed or past its cut-off date, so this report can no longer be submitted.</p>
-              )}
-              {(entry.reportStatus === 'SUBMITTED' || entry.reportStatus === 'APPROVED') && <ReportSummaryView entry={entry} />}
-            </>}
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      {entry.reportStatus === 'RETURNED' && entry.declineReason && (
+        <Alert className="border-red-400/30 bg-red-500/[0.06] text-red-800 [&>svg]:text-red-600">
+          <AlertCircle className="h-4 w-4" /><AlertDescription><span className="font-semibold">Returned by approver:</span> {entry.declineReason}</AlertDescription>
+        </Alert>
+      )}
+      {editable
+        ? <ReportForm key={entry.id} entry={entry} onSubmitted={onChanged} />
+        : <>
+            {closed && isEditableStatus(entry) && (
+              <p className="text-sm text-destructive">This period is closed or past its cut-off date, so this report can no longer be submitted.</p>
+            )}
+            {(entry.reportStatus === 'SUBMITTED' || entry.reportStatus === 'APPROVED') && <ReportSummaryView entry={entry} />}
+          </>}
+    </div>
+  );
+}
+
+/** One compact row per report; the numbers are the same ones the panel shows. */
+function ReportListRow({ entry, selected, onOpen }: { entry: PeriodReportEntry; selected: boolean; onOpen: () => void }) {
+  const row = approvedRow(entry);
+  const t = entry.activity.targetType;
+  const hasActual = entry.actualToDate != null;
+  return (
+    <ReportRow selected={selected} onOpen={onOpen} label={`Open report for ${entry.activity.title}`}>
+      <ReportActivityCell entry={entry} />
+      <td className="hidden w-24 px-4 py-3 text-right tabular-nums text-foreground/90 md:table-cell">{formatTargetValue(row.planToDate, t)}</td>
+      <td className="hidden w-24 px-4 py-3 text-right tabular-nums text-foreground/90 md:table-cell">{hasActual ? formatTargetValue(entry.actualToDate!, t) : '—'}</td>
+      <td className={cn("hidden w-24 px-4 py-3 text-right font-medium tabular-nums sm:table-cell", hasActual && row.planToDate > 0 ? (row.isBehindPlan ? "text-red-700" : "text-emerald-700") : "text-muted-foreground")}>
+        {hasActual && row.planToDate > 0 ? formatRatio(row.achievement) : '—'}
+      </td>
+      <td className="w-px whitespace-nowrap px-4 py-3 text-right"><ReportStatusBadge status={entry.reportStatus} /></td>
+    </ReportRow>
   );
 }
 
@@ -362,7 +368,15 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
     matchesSearch(query, e.activity.title, e.activity.initiative?.title, e.activity.deliverable, e.reportingPeriod.name)
   ), [entries, query, range, periodId]);
   const activeTest = REPORT_FILTERS.find(f => f.id === filter)!.test;
-  const pagination = usePagination(matching.filter(activeTest), `${filter}|${query}|${range.from}|${range.to}|${periodId}`);
+  const inCategory = React.useMemo(() => matching.filter(activeTest), [matching, activeTest]);
+  const selection = useReportSelection(inCategory, entries ?? []);
+  const pagination = usePagination(inCategory, `${filter}|${query}|${range.from}|${range.to}|${periodId}`);
+
+  const { index: selectedIndex } = selection;
+  const { pageSize, setPage } = pagination;
+  React.useEffect(() => {
+    if (selectedIndex >= 0) setPage(Math.floor(selectedIndex / pageSize) + 1);
+  }, [selectedIndex, pageSize]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (entries == null) {
     return <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading reports…</p>;
@@ -397,20 +411,6 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
         />
       )}
       {entries.length > 0 && (
-        <ListToolbar count={narrowed ? `${matching.length} of ${entries.length} reports match` : undefined}>
-          <SearchBox value={query} onChange={setQuery} placeholder="Search activity, initiative or period" className="sm:w-80" />
-          <Select value={periodId} onValueChange={setPeriodId}>
-            <SelectTrigger className="h-9 w-full sm:w-64" aria-label="Reporting period"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_PERIODS}>All reporting periods</SelectItem>
-              {periods.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <DateRangeFilter value={range} onChange={setRange} label="Any dates" hint="Shows reports for periods that fall in this range." />
-          {narrowed && <Button variant="ghost" className="h-9 px-3" onClick={() => { setQuery(''); setRange({}); setPeriodId(ALL_PERIODS); }}>Reset</Button>}
-        </ListToolbar>
-      )}
-      {entries.length > 0 && (
         <div className="space-y-2.5">
           <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border/50 bg-border/50 sm:grid-cols-4" role="tablist" aria-label="Filter reports">
             {REPORT_FILTERS.map(f => (
@@ -436,10 +436,21 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
               </button>
             ))}
           </div>
-          <p className="text-sm text-muted-foreground">
-            Showing <span className="font-medium text-foreground">{activeFilter.label.toLowerCase()}</span> ({pagination.total}){filter !== 'all' && <> · <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => setFilter('all')}>show all</button></>}
-          </p>
         </div>
+      )}
+      {entries.length > 0 && (
+        <ListToolbar count={<>{narrowed && `${matching.length} of ${entries.length} match · `}Showing <span className="font-medium text-foreground">{activeFilter.label.toLowerCase()}</span> ({pagination.total}){filter !== 'all' && <> · <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => setFilter('all')}>show all</button></>}</>}>
+          <SearchBox value={query} onChange={setQuery} placeholder="Search activity, initiative or period" className="sm:w-80" />
+          <Select value={periodId} onValueChange={setPeriodId}>
+            <SelectTrigger className="h-9 w-full sm:w-64" aria-label="Reporting period"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_PERIODS}>All reporting periods</SelectItem>
+              {periods.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <DateRangeFilter value={range} onChange={setRange} label="Any dates" hint="Shows reports for periods that fall in this range." />
+          {narrowed && <Button variant="ghost" className="h-9 px-3" onClick={() => { setQuery(''); setRange({}); setPeriodId(ALL_PERIODS); }}>Reset</Button>}
+        </ListToolbar>
       )}
       {entries.length > 0 && pagination.total === 0 && (
         <Card><CardContent className="pt-6"><p className="text-center text-muted-foreground">{narrowed ? 'No reports in this category match the search or dates.' : 'No reports in this category.'}</p></CardContent></Card>
@@ -469,11 +480,41 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
                 </Tooltip>
               </TooltipProvider>
             </div>
-            {periodEntries.map(e => <ReportCard key={e.id} entry={e} onChanged={load} />)}
+            <div className="overflow-x-auto rounded-xl border border-border/50 bg-card">
+              <table className="w-full table-fixed text-sm">
+                <thead>
+                  <tr>
+                    <ReportTh>Activity</ReportTh>
+                    <ReportTh className="hidden w-24 text-right md:table-cell">Plan</ReportTh>
+                    <ReportTh className="hidden w-24 text-right md:table-cell">Actual</ReportTh>
+                    <ReportTh className="hidden w-24 text-right sm:table-cell">Achiev't</ReportTh>
+                    <ReportTh className="w-[13rem] text-right">Status</ReportTh>
+                    <th className="w-8" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {periodEntries.map(e => <ReportListRow key={e.id} entry={e} selected={selection.selectedId === e.id} onOpen={() => selection.open(e.id)} />)}
+                </tbody>
+              </table>
+            </div>
           </section>
         );
       })}
       <Pagination state={pagination} noun="reports" />
+
+      <ReportDrawer
+        entry={selection.selected}
+        open={selection.selected !== null}
+        onOpenChange={o => { if (!o) selection.close(); }}
+        badge={selection.selected && <ReportStatusBadge status={selection.selected.reportStatus} />}
+        meta={selection.selected && <>Submit by {format(new Date(selection.selected.reportingPeriod.cutOffDate), 'PP')}</>}
+        index={selection.index}
+        count={selection.count}
+        onPrev={selection.prev}
+        onNext={selection.next}
+      >
+        {selection.selected && <ReportDetail entry={selection.selected} onChanged={load} />}
+      </ReportDrawer>
     </div>
   );
 }

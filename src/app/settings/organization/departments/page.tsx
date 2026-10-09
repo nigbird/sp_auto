@@ -11,6 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ListToolbar, Pagination, SearchBox, usePagination } from "@/components/list-controls";
+import { matchesSearch } from "@/lib/list-filters";
 import { getDepartmentOverview, createDepartment, updateDepartment, deleteDepartment } from "@/actions/departments";
 
 interface DepartmentRow {
@@ -30,6 +33,16 @@ export default function DepartmentsPage() {
   const [deleting, setDeleting] = useState<DepartmentRow | null>(null);
   const { toast } = useToast();
   const canManage = usePermissions().can("settings:manage");
+  const [query, setQuery] = useState("");
+  const [use, setUse] = useState("all");
+
+  const inUse = (d: DepartmentRow) => d.activities + d.people + d.leadOwners.length > 0;
+  const narrowed = query.trim() !== "" || use !== "all";
+  const matching = (departments ?? []).filter(d =>
+    matchesSearch(query, d.name, ...d.leadOwners) &&
+    (use === "all" || (use === "used") === inUse(d))
+  );
+  const pages = usePagination(matching, `${query}|${use}`);
 
   const refresh = () => getDepartmentOverview().then(setDepartments);
 
@@ -110,7 +123,21 @@ export default function DepartmentsPage() {
           </Button>
         </div>}
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {departments !== null && departments.length > 0 && (
+          <ListToolbar count={narrowed ? `${matching.length} of ${departments.length} departments match` : `${departments.length} departments`}>
+            <SearchBox value={query} onChange={setQuery} placeholder="Search department or lead owner" className="sm:w-80" />
+            <Select value={use} onValueChange={setUse}>
+              <SelectTrigger className="h-9 w-full sm:w-44" aria-label="Usage"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All departments</SelectItem>
+                <SelectItem value="used">In use</SelectItem>
+                <SelectItem value="unused">Not in use</SelectItem>
+              </SelectContent>
+            </Select>
+            {narrowed && <Button variant="ghost" className="h-9 px-3" onClick={() => { setQuery(""); setUse("all"); }}>Reset</Button>}
+          </ListToolbar>
+        )}
         <div className="overflow-x-auto rounded-xl border border-border/50">
         <Table>
           <TableHeader>
@@ -134,10 +161,13 @@ export default function DepartmentsPage() {
                 </TableCell>
               </TableRow>
             )}
-            {departments?.map((department) => (
+            {departments !== null && departments.length > 0 && matching.length === 0 && (
+              <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">No departments match the search or filters.</TableCell></TableRow>
+            )}
+            {pages.items.map((department) => (
               <TableRow key={department.id} className="border-border/50 hover:bg-muted/30">
                 <TableCell className="py-3.5 font-medium text-foreground">
-                  {!canManage ? null : editingId === department.id ? (
+                  {canManage && editingId === department.id ? (
                     <Input
                       value={editingName}
                       onChange={(e) => setEditingName(e.target.value)}
@@ -175,7 +205,8 @@ export default function DepartmentsPage() {
           </TableBody>
         </Table>
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">
+        <Pagination state={pages} noun="departments" />
+        <p className="text-xs text-muted-foreground">
           Lead owners are listed under their default department — set it on the <Link href="/settings/organization/lead-owners" className="underline underline-offset-2">Lead Owners</Link> tab.
         </p>
       </CardContent>

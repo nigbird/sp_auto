@@ -26,6 +26,8 @@ import { usePermissions } from "@/components/permissions-provider";
 import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/empty-state";
+import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } from "@/components/list-controls";
+import { isRangeSet, matchesSearch, overlapsDateRange, type DateRangeValue } from "@/lib/list-filters";
 
 type EditableFields = { name: string; startDate: string; endDate: string; cutOffDate: string };
 
@@ -54,6 +56,20 @@ export default function ReportingPeriodsPage() {
   const canManage = can("settings:manage");
   const canRequestReports = can("report-approvals:request");
   const selectedPlan = plans.find((p) => p.id === selectedPlanId);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [range, setRange] = useState<DateRangeValue>({});
+
+  const narrowed = query.trim() !== "" || statusFilter !== "ALL" || isRangeSet(range);
+  const resetFilters = () => { setQuery(""); setStatusFilter("ALL"); setRange({}); };
+  const matchingPeriods = periods.filter((p) =>
+    p.id === editingId || (
+      matchesSearch(query, p.name) &&
+      (statusFilter === "ALL" || p.status === statusFilter) &&
+      overlapsDateRange(p.startDate, p.endDate, range)
+    )
+  );
+  const periodPages = usePagination(matchingPeriods, `${selectedPlanId}|${query}|${statusFilter}|${range.from}|${range.to}`);
 
   useEffect(() => {
     listStrategicPlans().then((plans) => {
@@ -111,6 +127,7 @@ export default function ReportingPeriodsPage() {
 
   const handleAddPeriod = async () => {
     if (!selectedPlanId) return;
+    resetFilters();
     const today = format(new Date(), "yyyy-MM-dd");
     const newPeriod = await createReportingPeriod(selectedPlanId, {
       name: "New Period",
@@ -171,8 +188,23 @@ export default function ReportingPeriodsPage() {
             </Select>
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {editError && <p className="mb-3 text-sm font-medium text-destructive">{editError}</p>}
+        <CardContent className="space-y-4">
+          {periods.length > 0 && (
+            <ListToolbar count={narrowed ? `${matchingPeriods.length} of ${periods.length} periods match` : `${periods.length} periods`}>
+              <SearchBox value={query} onChange={setQuery} placeholder="Search period name" />
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-9 w-full sm:w-40" aria-label="Status"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All statuses</SelectItem>
+                  <SelectItem value="OPEN">Open</SelectItem>
+                  <SelectItem value="CLOSED">Closed</SelectItem>
+                </SelectContent>
+              </Select>
+              <DateRangeFilter value={range} onChange={setRange} label="Any dates" hint="Shows periods that run at any point in this range." />
+              {narrowed && <Button variant="ghost" className="h-9 px-3" onClick={resetFilters}>Reset</Button>}
+            </ListToolbar>
+          )}
+          {editError && <p className=" text-sm font-medium text-destructive">{editError}</p>}
           <div className="overflow-x-auto rounded-xl border border-border/50">
           <Table>
             <TableHeader>
@@ -194,7 +226,12 @@ export default function ReportingPeriodsPage() {
                   </TableCell>
                 </TableRow>
               )}
-              {periods.map((period) => {
+              {periods.length > 0 && matchingPeriods.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">No periods match the search or filters.</TableCell>
+                </TableRow>
+              )}
+              {periodPages.items.map((period) => {
                 const isEditing = editingId === period.id;
                 return (
                   <TableRow key={period.id} className="border-border/50 hover:bg-muted/30">
@@ -278,6 +315,7 @@ export default function ReportingPeriodsPage() {
             </TableBody>
           </Table>
           </div>
+          <Pagination state={periodPages} noun="periods" />
         </CardContent>
       </Card>
     </div>
