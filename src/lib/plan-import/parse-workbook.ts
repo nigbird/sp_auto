@@ -14,8 +14,7 @@ import { monthKey, validateBreakdown, type BreakdownEntry, type TargetAggregatio
  */
 
 export type IssueSeverity = 'error' | 'warning';
-/** topic 'report': about the sheet's report columns rather than the plan. */
-export interface ImportIssue { row: number | null; severity: IssueSeverity; message: string; topic?: 'report' }
+export interface ImportIssue { row: number | null; severity: IssueSeverity; message: string }
 
 export const REPORT_MONTH_UNKNOWN = `The sheet's report can't be placed: its "Plan up to the reporting period" column has no =SUM(...) of month columns to show which month it runs to.`;
 
@@ -217,10 +216,10 @@ export function parseStrategicPlanWorkbook(data: ArrayBuffer | Buffer, requested
     const percent = targetType ? targetType === 'PERCENT' : isPercentCell(r, col.actualToDate);
     if (actualToDate != null && percent) actualToDate = round(actualToDate * 100);
     if (actualToDate != null && actualToDate < 0) {
-      issues.push({ row: r + 1, severity: 'warning', message: `Activity ${code} "${title}": the actual is negative — not imported.`, topic: 'report' });
+      issues.push({ row: r + 1, severity: 'warning', message: `Activity ${code} "${title}": the actual is negative — not imported.` });
       actualToDate = null;
     } else if (actualToDate != null && percent && actualToDate > 100) {
-      issues.push({ row: r + 1, severity: 'warning', message: `Activity ${code} "${title}": the actual is ${actualToDate}%, over 100% — not imported.`, topic: 'report' });
+      issues.push({ row: r + 1, severity: 'warning', message: `Activity ${code} "${title}": the actual is ${actualToDate}%, over 100% — not imported.` });
       actualToDate = null;
     }
     const completion = col.completionDate != null ? serialToDate(cellAt(r, col.completionDate)?.v) : null;
@@ -235,7 +234,7 @@ export function parseStrategicPlanWorkbook(data: ArrayBuffer | Buffer, requested
     if (report.actualToDate != null) return report;
     // Without an actual there's nothing to approve (the sheet leaves such a row out of its totals too).
     if (report.completionDate || report.accomplishedTasks || report.reasonForVariation || report.wayForward || report.escalationIssues) {
-      issues.push({ row: r + 1, severity: 'warning', message: `Activity ${code} "${title}": has report comments but no "Actual up to the reporting period" — its report is not imported.`, topic: 'report' });
+      issues.push({ row: r + 1, severity: 'warning', message: `Activity ${code} "${title}": has report comments but no "Actual up to the reporting period" — its report is not imported.` });
     }
     return null;
   };

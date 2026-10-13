@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, FileSpreadsheet, Loader2, AlertCircle, AlertTriangle, Upload, CheckCircle2, UserPlus, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, FileSpreadsheet, Loader2, AlertCircle, AlertTriangle, Upload, CheckCircle2, UserPlus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -220,6 +220,11 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
+            <Button asChild variant="outline" size="sm">
+              <a href="/api/template/plan" download>
+                <Download className="mr-2 h-4 w-4" /> Download template
+              </a>
+            </Button>
             <Input type="file" accept=".xlsx,.xlsm,.xls" className="max-w-md" onChange={(e) => handleFile(e.target.files?.[0] ?? null)} disabled={isReading || isImporting} />
             {isReading && <span className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Reading…</span>}
           </div>

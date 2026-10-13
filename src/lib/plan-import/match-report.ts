@@ -1,5 +1,3 @@
-import type { ImportActivity, ParsedWorkbook } from './parse-workbook';
-
 /** A plan activity as the matcher sees it, in plan (sheet) order. */
 export interface MatchableActivity {
   id: string;
@@ -7,8 +5,15 @@ export interface MatchableActivity {
   leadOwner: string | null;
 }
 
-export interface ReportMatch<A extends MatchableActivity> {
-  sheet: ImportActivity;
+/** A sheet row as the matcher sees it, in sheet order. */
+export interface MatchableRow {
+  title: string;
+  leadOwner: string;
+  hasReport: boolean;
+}
+
+export interface ReportMatch<R, A> {
+  sheet: R;
   activity: A | null;
   /** Matched by title alone: the activity's lead owner was changed in the app since. */
   ownerChanged: boolean;
@@ -24,7 +29,7 @@ const norm = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').tr
  * alone, but only when exactly one unclaimed activity has that title — an
  * activity whose lead owner was reassigned in the app.
  */
-export function matchReportRows<A extends MatchableActivity>(parsed: ParsedWorkbook, planActivities: A[]): ReportMatch<A>[] {
+export function matchReportRows<R extends MatchableRow, A extends MatchableActivity>(rows: R[], planActivities: A[]): ReportMatch<R, A>[] {
   const group = (key: (a: A) => string) => {
     const map = new Map<string, A[]>();
     for (const a of planActivities) map.set(key(a), [...(map.get(key(a)) ?? []), a]);
@@ -33,7 +38,6 @@ export function matchReportRows<A extends MatchableActivity>(parsed: ParsedWorkb
   const byTitleAndOwner = group(a => `${norm(a.title)}|${norm(a.leadOwner)}`);
   const byTitle = group(a => norm(a.title));
 
-  const rows = parsed.pillars.flatMap(p => p.objectives.flatMap(o => o.initiatives.flatMap(i => i.activities)));
   const claimed = new Set<string>();
   const assigned = rows.map(sheet => {
     const activity = (byTitleAndOwner.get(`${norm(sheet.title)}|${norm(sheet.leadOwner)}`) ?? []).find(a => !claimed.has(a.id)) ?? null;
@@ -49,5 +53,5 @@ export function matchReportRows<A extends MatchableActivity>(parsed: ParsedWorkb
       match.ownerChanged = true;
     }
   }
-  return assigned.filter(m => m.sheet.report);
+  return assigned.filter(m => m.sheet.hasReport);
 }

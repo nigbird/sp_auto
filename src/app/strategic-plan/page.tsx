@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { listStrategicPlans } from '@/actions/strategic-plan';
 import { Button } from '@/components/ui/button';
-import { FileSpreadsheet, PlusCircle } from 'lucide-react';
+import { Download, FileSpreadsheet, PlusCircle } from 'lucide-react';
 import { PlanListTable } from '@/components/strategic-plan/plan-list-table';
 import { Can } from '@/components/permissions-provider';
 import { EmptyState } from "@/components/empty-state";
@@ -24,7 +24,13 @@ export default async function StrategicPlanListPage() {
             <p className="mt-0.5 text-sm text-muted-foreground">Manage every plan the organization runs on.</p>
           </div>
           <Can anyOf={["strategic-plan:edit"]}>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="ghost">
+              <a href="/api/template/plan" download>
+                <Download className="mr-2 h-4 w-4" />
+                Download template
+              </a>
+            </Button>
             <Button asChild variant="outline">
               <Link href="/strategic-plan/import">
                 <FileSpreadsheet className="mr-2 h-4 w-4" />

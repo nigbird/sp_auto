@@ -42,7 +42,7 @@ export default async function PerformanceReportsPage({ searchParams }: { searchP
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {plan && !ownOnly && userCan(user, "report-approvals:approve") && <ReportImportDialog planId={plan.id} />}
+          {plan && !ownOnly && userCan(user, "report-approvals:approve") && <ReportImportDialog planId={plan.id} selectedPeriodId={selectedPeriod?.id ?? null} />}
           {plan && !ownOnly && userCan(user, "reports:export") && (
             <ExportMenu options={[
               {

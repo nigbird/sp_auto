@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, AlertTriangle, Loader2, Upload } from "lucide-react";
+import { AlertCircle, AlertTriangle, Download, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -23,14 +23,16 @@ const OUTCOME: Record<ReportRowOutcome, { label: string; variant: "default" | "s
   "already-reported": { label: "Already reported", variant: "secondary" },
   "below-previous": { label: "Below last period", variant: "destructive" },
   "no-breakdown": { label: "No breakdown", variant: "outline" },
+  invalid: { label: "Invalid value", variant: "destructive" },
   unmatched: { label: "Not matched", variant: "outline" },
 };
 
 /**
- * "Import report" on the Performance Report: loads the report columns of the
- * cascaded workbook into a period of this plan, as approved reports.
+ * "Import report" on the Performance Report: loads a report sheet (the
+ * report template, or the full cascaded workbook) into a period of this
+ * plan, as approved reports.
  */
-export function ReportImportDialog({ planId }: { planId: string }) {
+export function ReportImportDialog({ planId, selectedPeriodId }: { planId: string; selectedPeriodId?: string | null }) {
   const router = useRouter();
   const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
@@ -65,8 +67,10 @@ export function ReportImportDialog({ planId }: { planId: string }) {
       setPreview(p);
       setNewPeriod(prev => prev ?? p.suggestedPeriod);
       if (!period) {
-        const fitting = p.periods.find(x => x.fits);
-        setPeriodId(fitting ? fitting.id : p.canCreatePeriod && p.suggestedPeriod ? NEW : "");
+        // The period open on the page if it can take the report, else the latest one that can.
+        const fitting = p.periods.filter(x => x.fits);
+        const pick = fitting.find(x => x.id === selectedPeriodId) ?? fitting[fitting.length - 1];
+        setPeriodId(pick ? pick.id : p.canCreatePeriod ? NEW : "");
       }
     } catch {
       setError("The file couldn't be uploaded. Check your connection and try again.");
@@ -82,7 +86,7 @@ export function ReportImportDialog({ planId }: { planId: string }) {
 
   const counts = (preview?.rows ?? []).reduce<Record<ReportRowOutcome, number>>(
     (acc, r) => ({ ...acc, [r.outcome]: acc[r.outcome] + 1 }),
-    { import: 0, "already-reported": 0, "below-previous": 0, "no-breakdown": 0, unmatched: 0 }
+    { import: 0, "already-reported": 0, "below-previous": 0, "no-breakdown": 0, invalid: 0, unmatched: 0 }
   );
   const through = preview?.throughMonth ? monthLabel(preview.throughMonth) : null;
   const fittingPeriods = preview?.periods.filter(p => p.fits) ?? [];
@@ -102,7 +106,7 @@ export function ReportImportDialog({ planId }: { planId: string }) {
         setProblems(result.problems ?? [result.message]);
         return;
       }
-      toast({ title: "Report imported", description: `${result.imported} approved ${result.imported === 1 ? "report" : "reports"} up to ${through} were saved.` });
+      toast({ title: "Report imported", description: `${result.imported} approved ${result.imported === 1 ? "report was" : "reports were"} saved.` });
       setOpen(false);
       reset();
       router.push(`/reports?plan=${planId}&period=${result.periodId}`);
@@ -120,13 +124,13 @@ export function ReportImportDialog({ planId }: { planId: string }) {
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Import a report from Excel</DialogTitle>
-          <DialogDescription>
-            Reads the cascaded plan sheet's report columns ("Actual up to the reporting period", Completion Date, Accomplished Tasks, Reasons for Variation, Way Forward, Issues that need Escalation) and saves them as approved reports. Reports already submitted or approved for the period are kept as they are.
-          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
+            <Button variant="outline" size="sm" asChild>
+              <a href="/api/template/report" download><Download className="mr-2 h-4 w-4" /> Download template</a>
+            </Button>
             <Input type="file" accept=".xlsx,.xlsm,.xls" className="max-w-sm" disabled={busy !== null}
               onChange={(e) => { const f = e.target.files?.[0] ?? null; reset(); setFile(f); if (f) read(f); }} />
             {busy === "reading" && <span className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Reading…</span>}
@@ -135,16 +139,16 @@ export function ReportImportDialog({ planId }: { planId: string }) {
 
           {preview && (
             <>
-              <p className="text-sm">
-                Sheet "{preview.sheetName}" reports <span className="font-medium">up to {through ?? "an unknown month"}</span>.
-              </p>
+              {through && (
+                <p className="text-sm">Sheet "{preview.sheetName}" reports <span className="font-medium">up to {through}</span>.</p>
+              )}
 
               <div className="space-y-2">
                 <Label>Reporting period</Label>
                 {fittingPeriods.length === 0 && !preview.canCreatePeriod ? (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>This plan has no period ending in {through}. Ask someone who manages reporting periods to add one, then import again.</AlertDescription>
+                    <AlertDescription>This plan has no {through ? `period ending in ${through}` : "reporting period"}. Ask someone who manages reporting periods to add one, then import again.</AlertDescription>
                   </Alert>
                 ) : (
                   <Select value={periodId} onValueChange={choosePeriod} disabled={busy !== null}>
@@ -153,13 +157,14 @@ export function ReportImportDialog({ planId }: { planId: string }) {
                       {fittingPeriods.map(p => (
                         <SelectItem key={p.id} value={p.id}>{p.name}{p.approvedReports ? ` — ${p.approvedReports} approved already` : ""}</SelectItem>
                       ))}
-                      {preview.canCreatePeriod && preview.suggestedPeriod && <SelectItem value={NEW}>Create a new period…</SelectItem>}
+                      {preview.canCreatePeriod && <SelectItem value={NEW}>Create a new period…</SelectItem>}
                     </SelectContent>
                   </Select>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Only a period that ends in {through} can take this report — its actuals run up to that month.
-                  {preview.periods.length > fittingPeriods.length && ` ${preview.periods.length - fittingPeriods.length} other period${preview.periods.length - fittingPeriods.length === 1 ? "" : "s"} of this plan end in other months.`}
+                  {through
+                    ? `Only a period that ends in ${through} can take this report — its actuals run up to that month.`
+                    : "Actuals are up to the end of the period you pick, counted from the start of the plan."}
                 </p>
                 {periodId === NEW && newPeriod && (
                   <div className="grid grid-cols-1 gap-3 rounded-md border p-3 sm:grid-cols-4">
