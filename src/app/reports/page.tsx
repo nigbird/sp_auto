@@ -5,6 +5,7 @@ import { getPlanPerformance } from "@/actions/period-reports";
 import { PerformanceReportTable, type PerformanceEntry, type PerformancePeriod } from "@/components/reports/performance-report-table";
 import { PlanSelect } from "@/components/reports/plan-select";
 import { ExportMenu } from "@/components/export-menu";
+import { ReportImportDialog } from "@/components/reports/report-import-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 
@@ -40,31 +41,34 @@ export default async function PerformanceReportsPage({ searchParams }: { searchP
             {ownOnly ? "Plan vs. actual for your activities, by reporting period." : "Plan vs. actual by reporting period."}
           </p>
         </div>
-        {plan && !ownOnly && userCan(user, "reports:export") && (
-          <ExportMenu options={[
-            {
-              kind: "excel",
-              label: selectedPeriod ? `${selectedPeriod.name} performance report (Excel)` : "Performance report (Excel)",
-              description: selectedPeriod ? "Summary and full report, styled like the dashboard export. Use the filters below to export part of it." : "Send a report request first — there is no period to report on yet.",
-              href: selectedPeriod ? `/api/export/performance/${plan.id}?period=${selectedPeriod.id}` : undefined,
-              disabled: !selectedPeriod,
-            },
-            {
-              kind: "pdf",
-              label: selectedPeriod ? `${selectedPeriod.name} performance report (PDF)` : "Performance report (PDF)",
-              description: selectedPeriod ? "Totals, pillar/objective/initiative results and every activity's report." : "Send a report request first — there is no period to report on yet.",
-              href: selectedPeriod ? `/api/export/plan/${plan.id}?period=${selectedPeriod.id}&format=pdf` : undefined,
-              disabled: !selectedPeriod,
-            },
-            {
-              kind: "excel",
-              label: selectedPeriod ? `Plan & ${selectedPeriod.name} report (Excel)` : "Plan & report (Excel)",
-              description: "Plan with monthly targets and report values.",
-              href: selectedPeriod ? `/api/export/plan/${plan.id}?period=${selectedPeriod.id}` : undefined,
-              disabled: !selectedPeriod,
-            },
-          ]} />
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {plan && !ownOnly && userCan(user, "report-approvals:approve") && <ReportImportDialog planId={plan.id} />}
+          {plan && !ownOnly && userCan(user, "reports:export") && (
+            <ExportMenu options={[
+              {
+                kind: "excel",
+                label: selectedPeriod ? `${selectedPeriod.name} performance report (Excel)` : "Performance report (Excel)",
+                description: selectedPeriod ? "Summary and full report, styled like the dashboard export. Use the filters below to export part of it." : "Send a report request first — there is no period to report on yet.",
+                href: selectedPeriod ? `/api/export/performance/${plan.id}?period=${selectedPeriod.id}` : undefined,
+                disabled: !selectedPeriod,
+              },
+              {
+                kind: "pdf",
+                label: selectedPeriod ? `${selectedPeriod.name} performance report (PDF)` : "Performance report (PDF)",
+                description: selectedPeriod ? "Totals, pillar/objective/initiative results and every activity's report." : "Send a report request first — there is no period to report on yet.",
+                href: selectedPeriod ? `/api/export/plan/${plan.id}?period=${selectedPeriod.id}&format=pdf` : undefined,
+                disabled: !selectedPeriod,
+              },
+              {
+                kind: "excel",
+                label: selectedPeriod ? `Plan & ${selectedPeriod.name} report (Excel)` : "Plan & report (Excel)",
+                description: "Plan with monthly targets and report values.",
+                href: selectedPeriod ? `/api/export/plan/${plan.id}?period=${selectedPeriod.id}` : undefined,
+                disabled: !selectedPeriod,
+              },
+            ]} />
+          )}
+        </div>
       </div>
 
       {plan && performance ? (

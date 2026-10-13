@@ -14,7 +14,10 @@ import { monthKey, validateBreakdown, type BreakdownEntry, type TargetAggregatio
  */
 
 export type IssueSeverity = 'error' | 'warning';
-export interface ImportIssue { row: number | null; severity: IssueSeverity; message: string }
+/** topic 'report': about the sheet's report columns rather than the plan. */
+export interface ImportIssue { row: number | null; severity: IssueSeverity; message: string; topic?: 'report' }
+
+export const REPORT_MONTH_UNKNOWN = `The sheet's report can't be placed: its "Plan up to the reporting period" column has no =SUM(...) of month columns to show which month it runs to.`;
 
 export interface ImportActivity {
   row: number;
@@ -35,6 +38,17 @@ export interface ImportActivity {
   monthly: BreakdownEntry[];
   /** Why the monthly breakdown can't be imported as-is, if it can't. */
   breakdownProblem: string | null;
+  /** The sheet's period report for this row (the blue columns), if anything was filled in. */
+  report: ImportReport | null;
+}
+/** A row's report "up to the reporting period", in the activity's target units. */
+export interface ImportReport {
+  actualToDate: number | null;
+  completionDate: string | null; // yyyy-mm-dd
+  accomplishedTasks: string;
+  reasonForVariation: string;
+  wayForward: string;
+  escalationIssues: string;
 }
 export interface ImportInitiative { row: number; code: string; title: string; activities: ImportActivity[] }
 export interface ImportObjective { row: number; code: string; statement: string; initiatives: ImportInitiative[] }
@@ -47,10 +61,12 @@ export interface ParsedWorkbook {
   startYear: number | null;
   endYear: number | null;
   months: string[];
+  /** The month ("YYYY-MM") the sheet's report runs up to, read from its "Plan up to the reporting period" formulas; null if it can't be told. */
+  reportThroughMonth: string | null;
   pillars: ImportPillar[];
   leadOwners: string[];
   issues: ImportIssue[];
-  counts: { pillars: number; objectives: number; initiatives: number; activities: number; duplicates: number; withBreakdown: number };
+  counts: { pillars: number; objectives: number; initiatives: number; activities: number; duplicates: number; withBreakdown: number; withReport: number };
 }
 
 const HEADER_MATCHERS: Record<string, RegExp> = {
@@ -70,6 +86,12 @@ const HEADER_MATCHERS: Record<string, RegExp> = {
   target: /^target/i,
   planToDate: /plan up to the reporting period/i,
   achievement: /^%age achiev'?t$/i,
+  actualToDate: /actual up to the reporting period/i,
+  completionDate: /^completion date$/i,
+  accomplished: /accomplished tasks/i,
+  reasonForVariation: /reasons? for variation/i,
+  wayForward: /way forward/i,
+  escalation: /issues that need escalation/i,
 };
 
 const clean = (v: unknown) => (v == null ? '' : String(v).replace(/\s+/g, ' ').trim());
@@ -122,8 +144,8 @@ export function parseStrategicPlanWorkbook(data: ArrayBuffer | Buffer, requested
   const wb = XLSX.read(data, { type: data instanceof ArrayBuffer ? 'array' : 'buffer', cellFormula: true, cellNF: true, cellDates: false });
   const issues: ImportIssue[] = [];
   const empty: ParsedWorkbook = {
-    sheetNames: wb.SheetNames, sheetName: '', planTitle: '', startYear: null, endYear: null, months: [], pillars: [], leadOwners: [], issues,
-    counts: { pillars: 0, objectives: 0, initiatives: 0, activities: 0, duplicates: 0, withBreakdown: 0 },
+    sheetNames: wb.SheetNames, sheetName: '', planTitle: '', startYear: null, endYear: null, months: [], reportThroughMonth: null, pillars: [], leadOwners: [], issues,
+    counts: { pillars: 0, objectives: 0, initiatives: 0, activities: 0, duplicates: 0, withBreakdown: 0, withReport: 0 },
   };
 
   const sheetName = pickSheet(wb, requestedSheet);
@@ -171,6 +193,10 @@ export function parseStrategicPlanWorkbook(data: ArrayBuffer | Buffer, requested
   }
 
   const pillars: ImportPillar[] = [];
+  // "Plan up to the reporting period" is =SUM(T9:U9) — the last month column in
+  // the range is the month the report runs up to. Counted per row, most common wins.
+  const throughVotes = new Map<string, number>();
+  const monthByCol = new Map(monthCols.map(m => [m.c, m.month]));
   const seenActivityCodes = new Map<string, ImportActivity>();
   const leadOwners = new Set<string>();
   let minStart: Date | null = null;
@@ -182,6 +208,37 @@ export function parseStrategicPlanWorkbook(data: ArrayBuffer | Buffer, requested
     return typeof v === 'number' && Number.isFinite(v) ? v : null;
   };
   const isPercentCell = (r: number, c: number | undefined) => c != null && /%/.test(String(cellAt(r, c)?.z ?? ''));
+
+  /** The blue report columns of one row; null when none of them is filled in. */
+  const readReport = (r: number, code: string, title: string, targetType: TargetType | null): ImportReport | null => {
+    const text = (c: number | undefined) => (c == null ? '' : clean(cellAt(r, c)?.v));
+    let actualToDate = numberAt(r, col.actualToDate);
+    // An actual is in the target's units: 0.85 against a 100% target is 85%.
+    const percent = targetType ? targetType === 'PERCENT' : isPercentCell(r, col.actualToDate);
+    if (actualToDate != null && percent) actualToDate = round(actualToDate * 100);
+    if (actualToDate != null && actualToDate < 0) {
+      issues.push({ row: r + 1, severity: 'warning', message: `Activity ${code} "${title}": the actual is negative — not imported.`, topic: 'report' });
+      actualToDate = null;
+    } else if (actualToDate != null && percent && actualToDate > 100) {
+      issues.push({ row: r + 1, severity: 'warning', message: `Activity ${code} "${title}": the actual is ${actualToDate}%, over 100% — not imported.`, topic: 'report' });
+      actualToDate = null;
+    }
+    const completion = col.completionDate != null ? serialToDate(cellAt(r, col.completionDate)?.v) : null;
+    const report: ImportReport = {
+      actualToDate,
+      completionDate: completion && completion.getUTCFullYear() >= 2000 ? isoDate(completion) : null,
+      accomplishedTasks: text(col.accomplished),
+      reasonForVariation: text(col.reasonForVariation),
+      wayForward: text(col.wayForward),
+      escalationIssues: text(col.escalation),
+    };
+    if (report.actualToDate != null) return report;
+    // Without an actual there's nothing to approve (the sheet leaves such a row out of its totals too).
+    if (report.completionDate || report.accomplishedTasks || report.reasonForVariation || report.wayForward || report.escalationIssues) {
+      issues.push({ row: r + 1, severity: 'warning', message: `Activity ${code} "${title}": has report comments but no "Actual up to the reporting period" — its report is not imported.`, topic: 'report' });
+    }
+    return null;
+  };
 
   for (let r = headerRow + 1; r <= range.e.r; r++) {
     // Read the code as displayed: "6.10" is stored as the number 6.1.
@@ -296,6 +353,9 @@ export function parseStrategicPlanWorkbook(data: ArrayBuffer | Buffer, requested
     // duplicate row copies its first row; a row with no formula is judged by
     // its numbers (months that each equal the target, rather than add up to it).
     const planFormula = col.planToDate != null ? String(cellAt(r, col.planToDate)?.f ?? '') : '';
+    const rangeEnd = planFormula.match(/(?:SUM|MAX)\(\s*\$?[A-Z]+\$?\d+\s*:\s*\$?([A-Z]+)\$?\d+\s*\)/i);
+    const throughMonth = rangeEnd ? monthByCol.get(XLSX.utils.decode_col(rangeEnd[1].toUpperCase())) : undefined;
+    if (throughMonth) throughVotes.set(throughMonth, (throughVotes.get(throughMonth) ?? 0) + 1);
     const achievementFormula = col.achievement != null ? String(cellAt(r, col.achievement)?.f ?? '') : '';
     const planCol = col.planToDate != null ? XLSX.utils.encode_col(col.planToDate) : '';
     let aggregation: TargetAggregation;
@@ -345,7 +405,11 @@ export function parseStrategicPlanWorkbook(data: ArrayBuffer | Buffer, requested
       direction,
       monthly,
       breakdownProblem,
+      report: readReport(r, code, title, targetType),
     };
+    if (activity.report && breakdownProblem) {
+      issues.push({ row: excelRow, severity: 'warning', message: `Activity ${code} "${title}": its report (actual ${activity.report.actualToDate}) is not imported — there's no imported breakdown to measure it against (${breakdownProblem}).` });
+    }
     if (!previous) seenActivityCodes.set(code, activity);
     initiative.activities.push(activity);
   }
@@ -372,6 +436,7 @@ export function parseStrategicPlanWorkbook(data: ArrayBuffer | Buffer, requested
     startYear: minStart ? minStart.getUTCFullYear() : null,
     endYear: maxEnd ? maxEnd.getUTCFullYear() : null,
     months: monthCols.map(m => m.month),
+    reportThroughMonth: Array.from(throughVotes.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null,
     pillars: keptPillars,
     leadOwners: Array.from(leadOwners).sort((a, b) => a.localeCompare(b)),
     issues,
@@ -382,6 +447,7 @@ export function parseStrategicPlanWorkbook(data: ArrayBuffer | Buffer, requested
       activities: activities.length,
       duplicates: activities.filter(a => !a.countsTowardWeight).length,
       withBreakdown: activities.filter(a => !a.breakdownProblem).length,
+      withReport: activities.filter(a => a.report).length,
     },
   };
 }

@@ -1,6 +1,14 @@
 import type { Prisma } from '@prisma/client';
 import { monthKeyToDate } from '@/lib/monthly-breakdown';
 import type { ImportActivity, ParsedWorkbook } from './parse-workbook';
+import { importedReportValues } from './report-entry';
+
+export interface ImportPeriodSettings {
+  name: string;
+  startDate: string; // yyyy-mm-dd
+  endDate: string;
+  cutOffDate: string;
+}
 
 export interface ImportPlanSettings {
   name: string;
@@ -9,6 +17,12 @@ export interface ImportPlanSettings {
   endYear: number;
   leadOwners: Record<string, { userId: string; department: string }>;
   importBreakdowns: boolean;
+  /** Reporting periods to create with the plan. */
+  periods: ImportPeriodSettings[];
+  /** The period (index into `periods`) that receives the sheet's report as approved reports; null to skip the report. */
+  reportPeriodIndex: number | null;
+  /** Shown as that period's request message, e.g. the file name. */
+  sourceName: string;
 }
 
 /**
@@ -48,9 +62,47 @@ export async function writeImportedPlan(tx: Prisma.TransactionClient, parsed: Pa
 
   const plan = await tx.strategicPlan.create({ data: { name, version, startYear, endYear, status: 'DRAFT' } });
 
+  const periodIds: string[] = [];
+  for (const [index, p] of options.periods.entries()) {
+    const period = await tx.reportingPeriod.create({
+      data: {
+        strategicPlanId: plan.id,
+        name: p.name.trim(),
+        startDate: new Date(p.startDate),
+        endDate: new Date(p.endDate),
+        cutOffDate: new Date(p.cutOffDate),
+        // The sheet's report stands in for this period's request, so the report pages list it.
+        ...(index === options.reportPeriodIndex
+          ? { reportRequestMessage: `Imported from ${options.sourceName}`, reportRequestSentAt: now, reportRequestSentById: importer.id }
+          : {}),
+      },
+    });
+    periodIds.push(period.id);
+  }
+  const reportPeriod = options.reportPeriodIndex != null && periodIds[options.reportPeriodIndex]
+    ? { id: periodIds[options.reportPeriodIndex], endDate: new Date(options.periods[options.reportPeriodIndex].endDate) }
+    : null;
+  const statusRules = reportPeriod ? await tx.rule.findMany({ select: { status: true, min: true, max: true } }) : [];
+
+  /**
+   * The sheet's report for a row, saved as an approved report. Only for rows
+   * whose breakdown is imported: without one there's no plan to measure it against.
+   */
+  const importedReport = (a: ImportActivity, startDate: Date, endDate: Date) => {
+    if (!reportPeriod || !a.report || !options.importBreakdowns || a.breakdownProblem) return null;
+    const values = importedReportValues(
+      { weight: a.weight, countsTowardWeight: a.countsTowardWeight, targetType: a.targetType, annualTarget: a.annualTarget, targetAggregation: a.aggregation, targetDirection: a.direction, monthlyTargets: a.monthly, startDate, endDate },
+      a.report, reportPeriod.endDate, importer.id, now, statusRules
+    );
+    return { entry: { ...values.entry, reportingPeriodId: reportPeriod.id }, activity: values.activity };
+  };
+
   const activityData = (a: ImportActivity) => {
     const owner = map(a.leadOwner);
     const withBreakdown = options.importBreakdowns && !a.breakdownProblem;
+    const startDate = new Date(a.startDate);
+    const endDate = new Date(a.endDate);
+    const report = importedReport(a, startDate, endDate);
     return {
       createdAt: nextCreatedAt(),
       title: a.title,
@@ -59,8 +111,8 @@ export async function writeImportedPlan(tx: Prisma.TransactionClient, parsed: Pa
       department: owner.department,
       leadOwner: a.leadOwner || null,
       responsibleId: owner.userId,
-      startDate: new Date(a.startDate),
-      endDate: new Date(a.endDate),
+      startDate,
+      endDate,
       status: 'Not Started',
       weight: a.weight,
       progress: 0,
@@ -86,6 +138,7 @@ export async function writeImportedPlan(tx: Prisma.TransactionClient, parsed: Pa
         planApprovedAt: now,
         monthlyTargets: { create: a.monthly.map(m => ({ month: monthKeyToDate(m.month), value: m.value })) },
       } : {}),
+      ...(report ? { ...report.activity, periodEntries: { create: report.entry } } : {}),
     };
   };
 

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, FileSpreadsheet, Loader2, AlertCircle, AlertTriangle, Upload, CheckCircle2, UserPlus } from "lucide-react";
+import { ArrowLeft, FileSpreadsheet, Loader2, AlertCircle, AlertTriangle, Upload, CheckCircle2, UserPlus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,10 +21,29 @@ import { UserForm } from "@/components/settings/user-form";
 import { InviteLinkDialog } from "@/components/settings/invite-link-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { ParsedWorkbook } from "@/lib/plan-import/parse-workbook";
+import type { ImportPeriodSettings } from "@/lib/plan-import/write-plan";
+import { monthKey, monthLabel } from "@/lib/monthly-breakdown";
 
 type Person = { id: string; name: string; email?: string; leadOwner?: string | null; department?: string | null };
 
 const ISSUES_SHOWN = 12;
+const CUT_OFF_DAYS = 10;
+const ymd = (d: Date) => d.toISOString().slice(0, 10);
+const addDays = (date: string, days: number) => ymd(new Date(new Date(date).getTime() + days * 86400000));
+/** A period from the first day of month `fromKey` ("YYYY-MM") to the last day of the month `months - 1` after it. */
+function periodFor(fromKey: string, months: number): ImportPeriodSettings {
+  const [y, m] = fromKey.split("-").map(Number);
+  const start = new Date(Date.UTC(y, m - 1, 1));
+  const end = new Date(Date.UTC(y, m - 1 + months, 0));
+  const first = monthLabel(fromKey), last = monthLabel(monthKey(end));
+  return { name: first === last ? first : `${first} to ${last}`, startDate: ymd(start), endDate: ymd(end), cutOffDate: addDays(ymd(end), CUT_OFF_DAYS) };
+}
+/** The period right after `last`, as many months long. */
+function nextPeriod(last: ImportPeriodSettings): ImportPeriodSettings {
+  const months = (Number(last.endDate.slice(0, 4)) - Number(last.startDate.slice(0, 4))) * 12 + Number(last.endDate.slice(5, 7)) - Number(last.startDate.slice(5, 7)) + 1;
+  return periodFor(monthKey(addDays(last.endDate, 1)), Math.max(1, months));
+}
+
 const sameText = (a?: string | null, b?: string | null) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
 
 export function PlanImportClient({ users: initialUsers, departments, canRegister = false }: { users: Person[]; departments: string[]; canRegister?: boolean }) {
@@ -45,6 +64,8 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
   const [startYear, setStartYear] = React.useState("");
   const [endYear, setEndYear] = React.useState("");
   const [importBreakdowns, setImportBreakdowns] = React.useState(true);
+  const [periods, setPeriods] = React.useState<ImportPeriodSettings[]>([]);
+  const [importReport, setImportReport] = React.useState(true);
   const [mapping, setMapping] = React.useState<Record<string, LeadOwnerMapping>>({});
   const [serverProblems, setServerProblems] = React.useState<string[]>([]);
   const [attempted, setAttempted] = React.useState(false);
@@ -69,6 +90,10 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
       setName(p.planTitle || chosen.name.replace(/\.[^.]+$/, ""));
       setStartYear(p.startYear ? String(p.startYear) : "");
       setEndYear(p.endYear ? String(p.endYear) : "");
+      // Suggest the period the sheet's report covers: from the plan's first month to the month it runs to.
+      const reportMonths = p.reportThroughMonth ? p.months.indexOf(p.reportThroughMonth) + 1 : 0;
+      setPeriods(p.counts.withReport > 0 && reportMonths > 0 ? [periodFor(p.months[0], reportMonths)] : []);
+      setImportReport(true);
       // Match each office to the person registered as holding it (Users → Lead Owner),
       // and take their department; otherwise suggest a department named like the office.
       setMapping(prev => {
@@ -101,6 +126,11 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
   const errors = preview?.issues.filter(i => i.severity === "error") ?? [];
   const warnings = preview?.issues.filter(i => i.severity === "warning") ?? [];
 
+  const hasReport = !!preview && preview.counts.withReport > 0;
+  const reportPeriodIndex = preview?.reportThroughMonth ? periods.findIndex(p => !!p.endDate && monthKey(p.endDate) === preview.reportThroughMonth) : -1;
+  // A report is measured against the monthly plan, so only rows whose breakdown is imported keep theirs.
+  const reportsToImport = activities.filter(a => a.report && importBreakdowns && !a.breakdownProblem).length;
+
   const clientProblems: string[] = [];
   if (preview) {
     if (!name.trim()) clientProblems.push("Give the plan a name.");
@@ -113,7 +143,17 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
     if (unmappedUsers.length) clientProblems.push(`Pick a user for ${unmappedUsers.length} lead owner${unmappedUsers.length === 1 ? "" : "s"}.`);
     const noDept = preview.leadOwners.filter(t => !mapping[t]?.department?.trim());
     if (noDept.length) clientProblems.push(`Enter a department for ${noDept.length} lead owner${noDept.length === 1 ? "" : "s"}.`);
+    if (periods.some(p => !p.name.trim())) clientProblems.push("Give every reporting period a name.");
+    if (periods.some(p => !p.startDate || !p.endDate || !p.cutOffDate)) clientProblems.push("Fill in every reporting period's start, end and cut-off dates.");
+    if (hasReport && importReport && preview.reportThroughMonth && reportPeriodIndex < 0) {
+      clientProblems.push(`Add a reporting period that ends in ${monthLabel(preview.reportThroughMonth)} for the sheet's report, or turn off the report import.`);
+    }
   }
+
+  const setPeriod = (index: number, patch: Partial<ImportPeriodSettings>) =>
+    setPeriods(prev => prev.map((p, i) => (i === index ? { ...p, ...patch } : p)));
+  const addPeriod = () =>
+    setPeriods(prev => [...prev, prev.length ? nextPeriod(prev[prev.length - 1]) : periodFor(preview?.months[0] ?? monthKey(new Date()), 2)]);
 
   const setOwner = (title: string, patch: Partial<LeadOwnerMapping>) =>
     setMapping(prev => ({ ...prev, [title]: { ...prev[title], ...patch } }));
@@ -145,7 +185,7 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
       const formData = new FormData();
       formData.set("file", file);
       formData.set("sheet", sheet);
-      formData.set("options", JSON.stringify({ name, version, startYear: Number(startYear), endYear: Number(endYear), leadOwners: mapping, importBreakdowns }));
+      formData.set("options", JSON.stringify({ name, version, startYear: Number(startYear), endYear: Number(endYear), leadOwners: mapping, importBreakdowns, periods, importReport: hasReport && importReport }));
       const result = await importStrategicPlan(formData);
       if (!result.success) {
         setServerProblems(result.problems ?? [result.message]);
@@ -175,7 +215,7 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><FileSpreadsheet className="h-5 w-5" /> 1. Choose the file</CardTitle>
           <CardDescription>
-            The sheet needs the columns Code, Pillar, Objective, Initiatives, Major Activities, Deliverables, Activity Weight, Lead/ Owner, Start Date, End Date, Target and one column per month. Rows are placed by their code (1 → 1.1 → 1.1.1 → 1.1.1.1).
+            The sheet needs the columns Code, Pillar, Objective, Initiatives, Major Activities, Deliverables, Activity Weight, Lead/ Owner, Start Date, End Date, Target and one column per month. Rows are placed by their code (1 → 1.1 → 1.1.1 → 1.1.1.1). If the sheet also has the report columns ("Actual up to the reporting period", Completion Date, Accomplished Tasks, Reasons for Variation, Way Forward, Issues that need Escalation), its report can be imported too.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -368,6 +408,70 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
                   </TableBody>
                 </Table>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>5. Reporting periods</CardTitle>
+              <CardDescription>
+                Created with the plan — change them later in Settings → Reporting Periods. A period's report is "up to" its end date: plan and actual both count from the start of the plan.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {hasReport && (
+                <div className="flex items-start gap-3 rounded-md border p-3">
+                  <Switch id="imp-report" checked={importReport} onCheckedChange={setImportReport} />
+                  <div>
+                    <Label htmlFor="imp-report">
+                      Import the sheet's report{preview.reportThroughMonth ? ` up to ${monthLabel(preview.reportThroughMonth)}` : ""} as approved reports
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {!importReport
+                        ? "The report columns are ignored — send a report request after publishing instead."
+                        : `${reportsToImport} of the ${preview.counts.withReport} rows with a report are imported (actual, completion date and comments) onto the period ending in ${preview.reportThroughMonth ? monthLabel(preview.reportThroughMonth) : "the report's month"}.${preview.counts.withReport > reportsToImport ? ` The other ${preview.counts.withReport - reportsToImport} have no imported breakdown to measure them against.` : ""}`}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {periods.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No periods yet — the plan can be imported without any.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Start</TableHead>
+                        <TableHead>End</TableHead>
+                        <TableHead>Cut-off</TableHead>
+                        <TableHead className="w-10" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {periods.map((p, index) => (
+                        <TableRow key={index} className="align-top">
+                          <TableCell className="min-w-[200px]">
+                            <Input value={p.name} onChange={(e) => setPeriod(index, { name: e.target.value })} className={cn(attempted && !p.name.trim() && "border-destructive")} />
+                            {hasReport && importReport && index === reportPeriodIndex && <Badge variant="secondary" className="mt-1">Gets the sheet's report</Badge>}
+                          </TableCell>
+                          <TableCell><Input type="date" value={p.startDate} onChange={(e) => setPeriod(index, { startDate: e.target.value })} /></TableCell>
+                          <TableCell><Input type="date" value={p.endDate} onChange={(e) => setPeriod(index, { endDate: e.target.value })} /></TableCell>
+                          <TableCell><Input type="date" value={p.cutOffDate} onChange={(e) => setPeriod(index, { cutOffDate: e.target.value })} /></TableCell>
+                          <TableCell>
+                            <Button type="button" variant="ghost" size="icon" aria-label={`Remove ${p.name || "period"}`} onClick={() => setPeriods(prev => prev.filter((_, i) => i !== index))}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+              <Button type="button" variant="outline" size="sm" onClick={addPeriod}>
+                <Plus className="mr-1 h-4 w-4" /> Add period
+              </Button>
             </CardContent>
           </Card>
 

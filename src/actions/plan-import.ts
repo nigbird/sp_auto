@@ -4,10 +4,11 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/auth/permissions-server';
 import { recordAudit } from '@/lib/auth/audit';
-import { parseStrategicPlanWorkbook, type ParsedWorkbook } from '@/lib/plan-import/parse-workbook';
-import { writeImportedPlan } from '@/lib/plan-import/write-plan';
-
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
+import { REPORT_MONTH_UNKNOWN, type ParsedWorkbook } from '@/lib/plan-import/parse-workbook';
+import { isYmd, periodProblems } from '@/lib/plan-import/period-checks';
+import { parseSafely, readUpload } from '@/lib/plan-import/upload';
+import { writeImportedPlan, type ImportPeriodSettings } from '@/lib/plan-import/write-plan';
+import { monthKey, monthLabel } from '@/lib/monthly-breakdown';
 
 export interface LeadOwnerMapping {
   userId: string;
@@ -23,27 +24,27 @@ export interface PlanImportOptions {
   leadOwners: Record<string, LeadOwnerMapping>;
   /** Import the sheet's monthly values as already-approved breakdowns. */
   importBreakdowns: boolean;
+  /** Reporting periods to create with the plan. */
+  periods?: ImportPeriodSettings[];
+  /** Save the sheet's report (the "up to the reporting period" columns) as approved reports on the period ending in its month. */
+  importReport?: boolean;
+}
+
+/** Problems with the periods to create, and the one the sheet's report goes to. */
+function checkPeriods(periods: ImportPeriodSettings[], parsed: ParsedWorkbook, importReport: boolean): { problems: string[]; reportPeriodIndex: number | null } {
+  const problems = periodProblems(periods);
+  if (!importReport || parsed.counts.withReport === 0) return { problems, reportPeriodIndex: null };
+  if (!parsed.reportThroughMonth) {
+    problems.push(`${REPORT_MONTH_UNKNOWN} Turn off the report import.`);
+    return { problems, reportPeriodIndex: null };
+  }
+  const index = periods.findIndex(p => isYmd(p.endDate) && monthKey(p.endDate) === parsed.reportThroughMonth);
+  if (index < 0) problems.push(`The sheet's report runs to ${monthLabel(parsed.reportThroughMonth)} — add a reporting period that ends in ${monthLabel(parsed.reportThroughMonth)}, or turn off the report import.`);
+  return { problems, reportPeriodIndex: index >= 0 ? index : null };
 }
 
 export type PreviewResult = { success: true; preview: ParsedWorkbook } | { success: false; message: string };
 export type ImportResult = { success: true; planId: string } | { success: false; message: string; problems?: string[] };
-
-async function readUpload(formData: FormData): Promise<{ ok: true; buffer: Buffer } | { ok: false; message: string }> {
-  const file = formData.get('file');
-  if (!(file instanceof File) || file.size === 0) return { ok: false, message: 'Choose an Excel file (.xlsx) to import.' };
-  if (!/\.(xlsx|xlsm|xls)$/i.test(file.name)) return { ok: false, message: `"${file.name}" isn't an Excel file. Upload an .xlsx file.` };
-  if (file.size > MAX_FILE_BYTES) return { ok: false, message: 'The file is larger than 10 MB. Remove unused sheets and try again.' };
-  return { ok: true, buffer: Buffer.from(await file.arrayBuffer()) };
-}
-
-function parseSafely(buffer: Buffer, sheet?: string): { ok: true; parsed: ParsedWorkbook } | { ok: false; message: string } {
-  try {
-    return { ok: true, parsed: parseStrategicPlanWorkbook(buffer, sheet || undefined) };
-  } catch (error) {
-    console.error('Plan import: could not read workbook', error);
-    return { ok: false, message: "The file couldn't be read. Save it again as .xlsx and retry." };
-  }
-}
 
 /** Step 1: read the workbook and show what would be imported. Nothing is saved. */
 export async function previewPlanImport(formData: FormData): Promise<PreviewResult> {
@@ -99,14 +100,22 @@ export async function importStrategicPlan(formData: FormData): Promise<ImportRes
     if (!mapping?.department?.trim()) problems.push(`Pick or enter the department for "${title}".`);
   }
 
+  const periods = Array.isArray(options.periods) ? options.periods : [];
+  const periodCheck = checkPeriods(periods, parsed, !!options.importReport);
+  problems.push(...periodCheck.problems);
+
   if (problems.length > 0) {
     return { success: false, message: problems.length === 1 ? problems[0] : `${problems.length} things need fixing before the import can run.`, problems };
   }
 
+  const sourceName = upload.fileName;
   let planId: string;
   try {
     planId = await prisma.$transaction(
-      (tx) => writeImportedPlan(tx, parsed, { name, version, startYear, endYear, leadOwners: options.leadOwners, importBreakdowns: !!options.importBreakdowns }, importer.id),
+      (tx) => writeImportedPlan(tx, parsed, {
+        name, version, startYear, endYear, leadOwners: options.leadOwners, importBreakdowns: !!options.importBreakdowns,
+        periods, reportPeriodIndex: periodCheck.reportPeriodIndex, sourceName,
+      }, importer.id),
       { timeout: 120_000, maxWait: 10_000 }
     );
   } catch (error) {
@@ -114,11 +123,12 @@ export async function importStrategicPlan(formData: FormData): Promise<ImportRes
     return { success: false, message: 'The import failed because of a server error. Nothing was saved — please try again.' };
   }
 
-  const sourceFile = formData.get('file');
   await recordAudit({
     action: 'PLAN_IMPORTED', entityType: 'StrategicPlan', entityId: planId,
-    summary: `Imported plan "${name}" (${version}) from ${sourceFile instanceof File ? sourceFile.name : 'a workbook'}`,
-    metadata: { startYear, endYear, leadOwners: parsed.leadOwners.length, importBreakdowns: !!options.importBreakdowns, warnings: parsed.issues.length },
+    summary: `Imported plan "${name}" (${version}) from ${sourceName}`,
+    metadata: { startYear, endYear, leadOwners: parsed.leadOwners.length, importBreakdowns: !!options.importBreakdowns, warnings: parsed.issues.length,
+      periods: periods.map(p => p.name.trim()),
+      reportPeriod: periodCheck.reportPeriodIndex != null ? periods[periodCheck.reportPeriodIndex].name.trim() : null },
   });
   revalidatePath('/strategic-plan');
   return { success: true, planId };

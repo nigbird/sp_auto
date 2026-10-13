@@ -72,6 +72,7 @@ export const AUDIT_ACTIONS = {
   REPORT_SUBMITTED: { label: 'Submitted a report', category: 'Reporting' },
   REPORT_APPROVED: { label: 'Approved a report', category: 'Reporting' },
   REPORT_RETURNED: { label: 'Returned a report', category: 'Reporting' },
+  REPORTS_IMPORTED: { label: 'Imported reports', category: 'Reporting' },
   EVIDENCE_UPLOADED: { label: 'Uploaded evidence', category: 'Reporting' },
   EVIDENCE_DELETED: { label: 'Removed evidence', category: 'Reporting' },
   PROGRESS_UPDATE_SUBMITTED: { label: 'Submitted a progress update', category: 'Reporting' },
