@@ -1,5 +1,5 @@
 import { INITIATIVE_STATUS_LABEL, type DashboardMetrics } from "@/lib/dashboard-metrics";
-import { InitiativeScatter } from "./charts";
+import { InitiativeAchievementChart } from "./charts";
 import { InitiativesTable } from "./initiatives-table";
 import { CARD, SectionCard, pct } from "./primitives";
 import { cn } from "@/lib/utils";
@@ -20,10 +20,10 @@ export function InitiativesTab({ m }: { m: DashboardMetrics }) {
       </div>
 
       <SectionCard
-        title="Achievement vs planned weight"
-        description="Each bubble is an initiative with an approved report; bigger bubbles carry more total weight. Lines mark the 75% (on track) and 100% thresholds."
+        title="Initiative achievement"
+        description="One bar per initiative with an approved report, coloured by how close it is to plan. Lines mark the 75% (on track) and 100% thresholds; hover a bar for weight, owner and status."
       >
-        <InitiativeScatter
+        <InitiativeAchievementChart
           points={measured.map(i => ({
             code: i.code,
             title: i.title,

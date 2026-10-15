@@ -2,8 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 import {
-  Bar, BarChart, CartesianGrid, Cell, LabelList, Pie, PieChart, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart,
-  Tooltip, XAxis, YAxis, ZAxis,
+  Bar, BarChart, CartesianGrid, Cell, LabelList, Pie, PieChart, ReferenceLine, ResponsiveContainer,
+  Tooltip, XAxis, YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
 import type { QuarterBucket } from "@/lib/dashboard-metrics";
@@ -342,37 +342,74 @@ export function StreamWorkloadChart({ data }: { data: { name: string; initiative
 }
 
 // ---------------------------------------------------------------------------
-// Initiatives: achievement vs planned weight (one hue — pillar is in the tooltip)
+// Initiatives: achievement ranking (horizontal bars, coloured by threshold band)
 // ---------------------------------------------------------------------------
 
-export interface ScatterPoint { code: string; title: string; pillarCode: string; owner: string; achieved: number; plannedWeight: number; totalWeight: number; status: string }
+export interface InitiativePoint { code: string; title: string; pillarCode: string; owner: string; achieved: number; plannedWeight: number; totalWeight: number; status: string }
 
-export function InitiativeScatter({ points }: { points: ScatterPoint[] }) {
-  if (points.length === 0) return <p className="text-sm text-muted-foreground">No initiative has a measured plan this period.</p>;
-  const data = points.map(p => ({ ...p, x: Math.min(p.achieved, 1.2) * 100, y: p.plannedWeight }));
+const BAND = { met: "#0c6e3a", track: GOLD, behind: "#c0392b" };
+const bandOf = (achieved: number) => (achieved >= 1 ? BAND.met : achieved >= 0.75 ? BAND.track : BAND.behind);
+
+/** Code plus a shortened title on one line; the full title shows on hover. */
+function InitiativeTick({ x, y, payload, titles }: { x?: number; y?: number; payload?: { value: string }; titles: Map<string, string> }) {
+  const code = payload?.value ?? "";
+  const title = titles.get(code) ?? "";
   return (
-    <div className="h-[300px] w-full text-muted-foreground">
-      <ResponsiveContainer width="100%" height="100%">
-        <ScatterChart margin={{ top: 12, right: 16, left: -6, bottom: 8 }}>
-          <CartesianGrid stroke={GRID} />
-          <XAxis type="number" dataKey="x" domain={[0, 110]} ticks={[0, 25, 50, 75, 100]} tickFormatter={v => `${v}%`} tickLine={false} axisLine={false} tick={AXIS_TICK}
-            label={{ value: "Achievement this period", position: "insideBottom", offset: -4, fontSize: 11, fill: "currentColor" }} />
-          <YAxis type="number" dataKey="y" tickFormatter={v => `${v}%`} tickLine={false} axisLine={false} tick={AXIS_TICK} width={48}
-            label={{ value: "Planned weight", angle: -90, position: "insideLeft", offset: 16, fontSize: 11, fill: "currentColor" }} />
-          <ZAxis type="number" dataKey="totalWeight" range={[70, 520]} />
-          <ReferenceLine x={75} stroke={NEUTRAL} strokeDasharray="0" />
-          <ReferenceLine x={100} stroke={GOLD} strokeOpacity={0.6} />
-          <Tooltip
-            cursor={false}
-            content={({ active, payload }) => {
-              if (!active || !payload?.length) return null;
-              const p = payload[0].payload as ScatterPoint;
-              return <TipBox title={`${p.code} · ${p.title}`} rows={[["Pillar", p.pillarCode], ["Lead owner", p.owner], ["Achievement", pctText(p.achieved)], ["Planned weight", `${p.plannedWeight.toFixed(2)}%`], ["Total weight", `${p.totalWeight.toFixed(2)}%`], ["Status", p.status]]} />;
-            }}
-          />
-          <Scatter data={data} fill={GOLD} fillOpacity={0.7} stroke="#ffffff" strokeWidth={1.5} />
-        </ScatterChart>
-      </ResponsiveContainer>
+    <text x={x} y={y} dy={4} textAnchor="end" fontSize={12} fill="currentColor">
+      <title>{`${code} · ${title}`}</title>
+      <tspan fontWeight={600}>{code}</tspan>
+      <tspan dx={6} opacity={0.75}>{shorten(title, 26)}</tspan>
+    </text>
+  );
+}
+
+export function InitiativeAchievementChart({ points }: { points: InitiativePoint[] }) {
+  const [sort, setSort] = useState<"achievement" | "weight">("achievement");
+  if (points.length === 0) return <p className="text-sm text-muted-foreground">No initiative has a measured plan this period.</p>;
+  const rows = [...points]
+    .sort((a, b) => (sort === "achievement" ? b.achieved - a.achieved : b.plannedWeight - a.plannedWeight) || a.code.localeCompare(b.code))
+    .map(p => ({ ...p, value: Math.min(p.achieved, 1.2) * 100 }));
+  const titles = new Map(points.map(p => [p.code, p.title]));
+  const counts = {
+    met: points.filter(p => p.achieved >= 1).length,
+    track: points.filter(p => p.achieved >= 0.75 && p.achieved < 1).length,
+    behind: points.filter(p => p.achieved < 0.75).length,
+  };
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <SeriesLegend items={[
+          { label: `Target met ≥100% (${counts.met})`, color: BAND.met },
+          { label: `On track 75–99% (${counts.track})`, color: BAND.track },
+          { label: `Behind <75% (${counts.behind})`, color: BAND.behind },
+        ]} />
+        <Segmented value={sort} onChange={setSort} label="Sort by" options={[{ id: "achievement", label: "By achievement" }, { id: "weight", label: "By planned weight" }]} />
+      </div>
+      <div className="max-h-[560px] overflow-y-auto pr-1">
+        <div className="w-full text-muted-foreground" style={{ height: rows.length * 30 + 40 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 52, left: 8, bottom: 0 }} barCategoryGap="22%">
+              <CartesianGrid horizontal={false} stroke={GRID} />
+              <XAxis type="number" orientation="top" domain={[0, 120]} ticks={[0, 25, 50, 75, 100]} tickFormatter={v => `${v}%`} tickLine={false} axisLine={false} tick={AXIS_TICK} />
+              <YAxis type="category" dataKey="code" width={230} interval={0} tickLine={false} axisLine={false} tick={<InitiativeTick titles={titles} />} />
+              <ReferenceLine x={75} stroke={NEUTRAL} strokeDasharray="4 3" />
+              <ReferenceLine x={100} stroke={BAND.met} strokeOpacity={0.5} />
+              <Tooltip
+                cursor={{ fill: "rgba(120,110,100,0.08)" }}
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const p = payload[0].payload as InitiativePoint;
+                  return <TipBox title={`${p.code} · ${p.title}`} rows={[["Pillar", p.pillarCode], ["Lead owner", p.owner], ["Achievement", pctText(p.achieved)], ["Planned weight", `${p.plannedWeight.toFixed(2)}%`], ["Total weight", `${p.totalWeight.toFixed(2)}%`], ["Status", p.status]]} />;
+                }}
+              />
+              <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={18} background={{ fill: "rgba(120,110,100,0.07)", radius: 4 }}>
+                {rows.map(r => <Cell key={r.code} fill={bandOf(r.achieved)} />)}
+                <LabelList dataKey="achieved" position="right" formatter={(v: number) => pctText(v, 0)} style={{ fontSize: 11, fontWeight: 600, fill: "currentColor" }} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
     </div>
   );
 }
