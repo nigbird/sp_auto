@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import type { Activity } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
+import { isCutOffPassed, isPeriodClosedForSubmissions } from "@/lib/reporting-period";
 import { monthKey, monthsBetween, type TargetAggregation, type TargetType } from "@/lib/monthly-breakdown";
 import { formatWeight } from "@/lib/report-calculations";
 import { toggleDeliverableDelivered } from "@/actions/deliverables";
@@ -70,9 +70,10 @@ function reportStep(report: LatestReport | undefined): Step {
     case 'SUBMITTED': return { label: `${period}: waiting for approval`, tone: 'waiting' };
     case 'RETURNED': return { label: `${period}: returned`, tone: 'problem', detail: report.declineReason };
     default:
-      return reportIsOpen(report)
-        ? { label: `${period}: to submit by ${format(new Date(report.reportingPeriod.cutOffDate), "MMM d")}`, tone: 'todo' }
-        : { label: `${period}: missed (period closed)`, tone: 'problem' };
+      if (!reportIsOpen(report)) return { label: `${period}: missed (period closed)`, tone: 'problem' };
+      return isCutOffPassed(report.reportingPeriod)
+        ? { label: `${period}: overdue since ${format(new Date(report.reportingPeriod.cutOffDate), "MMM d")} — still submit it`, tone: 'problem' }
+        : { label: `${period}: to submit by ${format(new Date(report.reportingPeriod.cutOffDate), "MMM d")}`, tone: 'todo' };
   }
 }
 

@@ -283,14 +283,14 @@ export default function ReportingPeriodsPage() {
                             selectedPlan?.status !== "PUBLISHED"
                               ? "Publish the strategic plan first."
                               : isPeriodClosedForSubmissions(period)
-                                ? "Period is closed or past cut-off."
+                                ? "Period is closed — reopen it to send."
                                 : isEditing
                                   ? "Save the period first."
                                   : undefined
                           }
                           onSent={() => selectedPlanId && loadPeriods(selectedPlanId)}
                         />}
-                        <ReportSummaryBadges summary={summaries[period.id]} />
+                        <ReportSummaryBadges summary={summaries[period.id]} overdue={isCutOffPassed(period)} />
                       </div>
                     </TableCell>
                     <TableCell className="text-center">

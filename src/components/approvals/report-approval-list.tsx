@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescript
 import { useToast } from "@/hooks/use-toast";
 import { approvePeriodReport, returnPeriodReport } from "@/actions/period-reports";
 import { formatTargetValue } from "@/lib/monthly-breakdown";
+import { wasSubmittedLate } from "@/lib/reporting-period";
 import { computeReportRow, formatRatio, formatWeight } from "@/lib/report-calculations";
 import type { PeriodReportEntry } from "../my-activity/my-activity-report-list";
 import { ReportEvidence } from "../reports/report-evidence";
@@ -214,7 +215,7 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
                     <td className="hidden truncate px-4 py-3 text-muted-foreground md:table-cell">{entry.reportingPeriod.name}</td>
                     <td className="hidden px-4 py-3 text-right tabular-nums text-foreground/90 md:table-cell">{formatTargetValue(row.planToDate, t)}</td>
                     <td className="hidden px-4 py-3 text-right tabular-nums text-foreground/90 md:table-cell">{entry.actualToDate != null ? formatTargetValue(entry.actualToDate, t) : '—'}</td>
-                    <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">{entry.submittedAt ? format(new Date(entry.submittedAt), 'PP') : '—'}</td>
+                    <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">{entry.submittedAt ? format(new Date(entry.submittedAt), 'PP') : '—'}{wasSubmittedLate(entry.submittedAt, entry.reportingPeriod) && <Badge variant="outline" className="ml-1.5 border-amber-500/30 bg-amber-500/[0.06] text-[10px] font-medium text-amber-700">Late</Badge>}</td>
                     <td className="px-4 py-3 text-right"><PlanBadge behind={row.isBehindPlan} /></td>
                   </ClickableRow>
                 );
@@ -232,7 +233,7 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
         badge={selection.selected && <PlanBadge behind={reportRow(selection.selected).isBehindPlan} />}
         meta={selection.selected && <>
           {selection.selected.activity.responsible?.name ?? 'Unassigned'} · Weight {formatWeight(selection.selected.activity.weight)}
-          {selection.selected.submittedAt && ` · submitted ${format(new Date(selection.selected.submittedAt), 'PPp')}`}
+          {selection.selected.submittedAt && ` · submitted ${format(new Date(selection.selected.submittedAt), 'PPp')}${wasSubmittedLate(selection.selected.submittedAt, selection.selected.reportingPeriod) ? ' (after the cut-off)' : ''}`}
         </>}
         index={selection.index}
         count={selection.count}

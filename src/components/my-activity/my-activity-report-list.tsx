@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "../permissions-provider";
 import { getMyPeriodReports, submitPeriodReport } from "@/actions/period-reports";
-import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
+import { isPeriodClosedForSubmissions, isReportOverdue, wasSubmittedLate } from "@/lib/reporting-period";
 import { formatTargetValue, type TargetAggregation, type TargetType } from "@/lib/monthly-breakdown";
 import { computeReportRow, formatRatio } from "@/lib/report-calculations";
 import { ReportEvidence } from "../reports/report-evidence";
@@ -66,6 +66,26 @@ export function ReportStatusBadge({ status }: { status: PeriodReportEntry['repor
     case 'RETURNED': return <Badge variant="outline" className="gap-1 whitespace-nowrap border-red-400/30 bg-red-500/[0.06] font-medium text-red-700"><ShieldX className="h-3 w-3" />Returned — needs changes</Badge>;
     default: return <Badge variant="outline" className="gap-1 whitespace-nowrap border-amber-500/30 bg-amber-500/[0.06] font-medium text-amber-700"><PencilLine className="h-3 w-3" />To fill in</Badge>;
   }
+}
+
+/** "Overdue" while a report is still unsubmitted past the cut-off; "Submitted late" once it was sent after it. */
+function LatenessBadge({ entry }: { entry: PeriodReportEntry }) {
+  if (isReportOverdue(entry)) {
+    return <Badge variant="outline" className="gap-1 whitespace-nowrap border-red-400/30 bg-red-500/[0.06] font-medium text-red-700"><AlertTriangle className="h-3 w-3" />Overdue</Badge>;
+  }
+  if ((entry.reportStatus === 'SUBMITTED' || entry.reportStatus === 'APPROVED') && wasSubmittedLate(entry.submittedAt, entry.reportingPeriod)) {
+    return <Badge variant="outline" className="whitespace-nowrap border-amber-500/30 bg-amber-500/[0.06] font-medium text-amber-700">Submitted late</Badge>;
+  }
+  return null;
+}
+
+function EntryStatusBadges({ entry }: { entry: PeriodReportEntry }) {
+  return (
+    <span className="inline-flex flex-wrap items-center justify-end gap-1">
+      <LatenessBadge entry={entry} />
+      <ReportStatusBadge status={entry.reportStatus} />
+    </span>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -281,11 +301,16 @@ function ReportDetail({ entry, onChanged }: { entry: PeriodReportEntry; onChange
           <AlertCircle className="h-4 w-4" /><AlertDescription><span className="font-semibold">Returned by approver:</span> {entry.declineReason}</AlertDescription>
         </Alert>
       )}
+      {editable && isReportOverdue(entry) && (
+        <Alert className="border-amber-500/30 bg-amber-500/[0.06] text-amber-800 [&>svg]:text-amber-600">
+          <AlertTriangle className="h-4 w-4" /><AlertDescription>The cut-off was {format(new Date(entry.reportingPeriod.cutOffDate), 'PP')}. You can still submit — the report will be marked as late.</AlertDescription>
+        </Alert>
+      )}
       {editable
         ? <ReportForm key={entry.id} entry={entry} onSubmitted={onChanged} />
         : <>
             {closed && isEditableStatus(entry) && (
-              <p className="text-sm text-destructive">This period is closed or past its cut-off date, so this report can no longer be submitted.</p>
+              <p className="text-sm text-destructive">This period has been closed, so this report can no longer be submitted. Ask an admin to reopen it.</p>
             )}
             {(entry.reportStatus === 'SUBMITTED' || entry.reportStatus === 'APPROVED') && <ReportSummaryView entry={entry} />}
           </>}
@@ -306,7 +331,7 @@ function ReportListRow({ entry, selected, onOpen }: { entry: PeriodReportEntry; 
       <td className={cn("hidden w-24 px-4 py-3 text-right font-medium tabular-nums sm:table-cell", hasActual && row.planToDate > 0 ? (row.isBehindPlan ? "text-red-700" : "text-emerald-700") : "text-muted-foreground")}>
         {hasActual && row.planToDate > 0 ? formatRatio(row.achievement) : '—'}
       </td>
-      <td className="w-px whitespace-nowrap px-4 py-3 text-right"><ReportStatusBadge status={entry.reportStatus} /></td>
+      <td className="w-px whitespace-nowrap px-4 py-3 text-right"><EntryStatusBadges entry={entry} /></td>
     </ClickableRow>
   );
 }
@@ -332,9 +357,9 @@ const ALL_PERIODS = 'all';
 
 const REPORT_FILTERS: { id: ReportFilter; label: string; short: string; icon: React.ReactNode; test: (e: PeriodReportEntry) => boolean }[] = [
   { id: 'all', label: 'All reports', short: 'Requested from you', icon: <List className="h-3.5 w-3.5 text-muted-foreground" />, test: () => true },
-  { id: 'toFill', label: 'Not started', short: 'To fill in before the cut-off', icon: <PencilLine className="h-3.5 w-3.5 text-amber-600" />, test: e => e.reportStatus === 'REQUESTED' && periodOpen(e) },
+  { id: 'toFill', label: 'Not started', short: 'To fill in before the cut-off', icon: <PencilLine className="h-3.5 w-3.5 text-amber-600" />, test: e => e.reportStatus === 'REQUESTED' && periodOpen(e) && !isReportOverdue(e) },
   { id: 'returned', label: 'Returned', short: 'Sent back — fix and resubmit', icon: <Undo2 className="h-3.5 w-3.5 text-red-600" />, test: e => e.reportStatus === 'RETURNED' && periodOpen(e) },
-  { id: 'overdue', label: 'Overdue', short: 'Cut-off passed, not submitted', icon: <AlertTriangle className="h-3.5 w-3.5 text-red-600" />, test: e => isEditableStatus(e) && !periodOpen(e) },
+  { id: 'overdue', label: 'Overdue', short: 'Cut-off passed — still submit it', icon: <AlertTriangle className="h-3.5 w-3.5 text-red-600" />, test: isReportOverdue },
   { id: 'waiting', label: 'Waiting for approval', short: 'Submitted, with an approver', icon: <Hourglass className="h-3.5 w-3.5 text-blue-600" />, test: e => e.reportStatus === 'SUBMITTED' },
   { id: 'approved', label: 'Approved', short: 'Counted on the plan', icon: <Check className="h-3.5 w-3.5 text-emerald-600" />, test: e => e.reportStatus === 'APPROVED' },
   { id: 'completed', label: 'Completed as per target', short: 'Approved and finished', icon: <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />, test: isCompletedAsPerTarget },
@@ -507,7 +532,7 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
         entry={selection.selected}
         open={selection.selected !== null}
         onOpenChange={o => { if (!o) selection.close(); }}
-        badge={selection.selected && <ReportStatusBadge status={selection.selected.reportStatus} />}
+        badge={selection.selected && <EntryStatusBadges entry={selection.selected} />}
         meta={selection.selected && <>Submit by {format(new Date(selection.selected.reportingPeriod.cutOffDate), 'PP')}</>}
         index={selection.index}
         count={selection.count}
