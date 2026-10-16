@@ -222,9 +222,9 @@ export async function loadDashboard(planId?: string, periodId?: string, view: Da
     entriesByPeriod.set(e.reportingPeriodId, list);
   }
 
-  // Cumulative view: per activity, the latest approved entry up to each period (else that period's own entry, if any).
-  const entriesFor = (index: number): MetricEntry[] => {
-    if (view === 'period') return entriesByPeriod.get(history[index].id) ?? [];
+  // Per activity, the latest approved entry up to each period (else that period's own entry, if any).
+  // Drives the cumulative view, and full-year progress in both views.
+  const latestEntriesUpTo = (index: number): MetricEntry[] => {
     const latest = new Map<string, MetricEntry>();
     for (const p of history.slice(0, index + 1)) {
       for (const e of entriesByPeriod.get(p.id) ?? []) {
@@ -234,21 +234,28 @@ export async function loadDashboard(planId?: string, periodId?: string, view: Da
     }
     return [...latest.values()];
   };
+  const computeFor = (index: number) => {
+    const latest = latestEntriesUpTo(index);
+    const entries = view === 'cumulative' ? latest : entriesByPeriod.get(history[index].id) ?? [];
+    return computeDashboard(pillars, entries, history[index], ratingThresholds, latest);
+  };
 
   let metrics: DashboardMetrics | null = null;
   let previousMetrics: DashboardMetrics | null = null;
   const previousPeriodId = history.length > 1 ? history[history.length - 2].id : null;
   const trend: TrendPoint[] = history.map((p, index) => {
-    const m = computeDashboard(pillars, entriesFor(index), p, ratingThresholds);
+    const m = computeFor(index);
     if (p.id === period.id) metrics = m;
     if (p.id === previousPeriodId) previousMetrics = m;
     const { rollup, coverage, yearProgress } = m.overall;
+    // No approved report yet: a gap in the trend, not a fall to 0%.
+    const measured = rollup.weightedPlan > 0 && coverage.approved > 0;
     return {
       periodId: p.id,
       name: p.name,
       endDate: p.endDate,
-      achieved: rollup.weightedPlan > 0 ? rollup.achievedResult : null,
-      achievedWithDelay: rollup.weightedPlan > 0 ? rollup.achievedWithDelay : null,
+      achieved: measured ? rollup.achievedResult : null,
+      achievedWithDelay: measured ? rollup.achievedWithDelay : null,
       yearProgress,
       weightedPlan: rollup.weightedPlan,
       weightedActual: rollup.weightedActual,
@@ -266,7 +273,7 @@ export async function loadDashboard(planId?: string, periodId?: string, view: Da
     period,
     view,
     periodOpen: new Date(period.endDate).getTime() > now,
-    metrics: metrics ?? computeDashboard(pillars, entriesFor(history.length - 1), period, ratingThresholds),
+    metrics: metrics ?? computeFor(history.length - 1),
     trend,
     previousMetrics,
     ...context,

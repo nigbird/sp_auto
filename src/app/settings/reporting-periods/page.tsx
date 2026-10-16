@@ -2,14 +2,16 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { format } from "date-fns";
-import { PlusCircle, Trash2, Edit, Save, X, Lock, LockOpen } from "lucide-react";
+import { differenceInCalendarDays, format } from "date-fns";
+import { PlusCircle, Trash2, Edit, Save, X, Lock, LockOpen, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { isCutOffPassed } from "@/lib/reporting-period";
 import { listStrategicPlans } from "@/actions/strategic-plan";
@@ -21,7 +23,7 @@ import {
 } from "@/actions/reporting-periods";
 import type { StrategicPlan, ReportingPeriod } from "@/lib/types";
 import { getReportSummaries } from "@/actions/period-reports";
-import { ReportRequestButton, ReportSummaryBadges, type ReportSummary } from "@/components/reporting-periods/report-request-dialog";
+import { ReportProgress, ReportRequestButton, type ReportSummary } from "@/components/reporting-periods/report-request-dialog";
 import { usePermissions } from "@/components/permissions-provider";
 import { isPeriodClosedForSubmissions } from "@/lib/reporting-period";
 import { cn } from "@/lib/utils";
@@ -30,6 +32,8 @@ import { DateRangeFilter, ListToolbar, Pagination, SearchBox, usePagination } fr
 import { isRangeSet, matchesSearch, overlapsDateRange, type DateRangeValue } from "@/lib/list-filters";
 
 type EditableFields = { name: string; startDate: string; endDate: string; cutOffDate: string };
+
+const HEAD = "h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80";
 
 function validatePeriodFields(fields: EditableFields): string | null {
   if (!fields.name.trim()) return "Name is required.";
@@ -43,6 +47,23 @@ function toDateInputValue(value: string | Date): string {
   return format(new Date(value), "yyyy-MM-dd");
 }
 
+/** "Jan 1 – Oct 15, 2026", or with both years when the period spans two. */
+function formatRange(start: string | Date, end: string | Date): string {
+  const s = new Date(start), e = new Date(end);
+  return s.getFullYear() === e.getFullYear()
+    ? `${format(s, "MMM d")} – ${format(e, "MMM d, yyyy")}`
+    : `${format(s, "MMM d, yyyy")} – ${format(e, "MMM d, yyyy")}`;
+}
+
+/** How far the cut-off is from today, e.g. "Due in 4 days" or "Passed 6 days ago". */
+function cutOffHint(cutOff: string | Date): string {
+  const days = differenceInCalendarDays(new Date(cutOff), new Date());
+  if (days > 1) return `Due in ${days} days`;
+  if (days === 1) return "Due tomorrow";
+  if (days === 0) return "Due today";
+  return days === -1 ? "Passed yesterday" : `Passed ${-days} days ago`;
+}
+
 export default function ReportingPeriodsPage() {
   const [plans, setPlans] = useState<StrategicPlan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
@@ -51,6 +72,7 @@ export default function ReportingPeriodsPage() {
   const [editedFields, setEditedFields] = useState<EditableFields | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [summaries, setSummaries] = useState<Record<string, ReportSummary>>({});
+  const [deleting, setDeleting] = useState<ReportingPeriod | null>(null);
   const { toast } = useToast();
   const { can } = usePermissions();
   const canManage = can("settings:manage");
@@ -59,6 +81,7 @@ export default function ReportingPeriodsPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [range, setRange] = useState<DateRangeValue>({});
+  const columnCount = 4 + (canRequestReports ? 1 : 0) + (canManage ? 1 : 0);
 
   const narrowed = query.trim() !== "" || statusFilter !== "ALL" || isRangeSet(range);
   const resetFilters = () => { setQuery(""); setStatusFilter("ALL"); setRange({}); };
@@ -140,6 +163,7 @@ export default function ReportingPeriodsPage() {
   };
 
   const handleDeletePeriod = async (id: string) => {
+    setDeleting(null);
     await deleteReportingPeriod(id);
     setPeriods(periods.filter((p) => p.id !== id));
     toast({ title: "Reporting Period Deleted", variant: "destructive" });
@@ -209,106 +233,119 @@ export default function ReportingPeriodsPage() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Name</TableHead>
-                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Start Date</TableHead>
-                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">End Date</TableHead>
-                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Cut-off Date</TableHead>
-                <TableHead className="h-10 text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Status</TableHead>
-                <TableHead className="h-10 text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Report Request</TableHead>
-                <TableHead className="h-10 text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Actions</TableHead>
+                <TableHead className={HEAD}>Period</TableHead>
+                <TableHead className={HEAD}>Cut-off</TableHead>
+                <TableHead className={HEAD}>Status</TableHead>
+                <TableHead className={HEAD}>Reports</TableHead>
+                {canRequestReports && <TableHead className={HEAD}>Request</TableHead>}
+                {canManage && <TableHead className={cn(HEAD, "w-12")}><span className="sr-only">Actions</span></TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {periods.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="p-0">
+                  <TableCell colSpan={columnCount} className="p-0">
                     <EmptyState art="plan" title="No reporting periods yet" description="Add a reporting period to start requesting reports for this plan." />
                   </TableCell>
                 </TableRow>
               )}
               {periods.length > 0 && matchingPeriods.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">No periods match the search or filters.</TableCell>
+                  <TableCell colSpan={columnCount} className="py-8 text-center text-muted-foreground">No periods match the search or filters.</TableCell>
                 </TableRow>
               )}
               {periodPages.items.map((period) => {
                 const isEditing = editingId === period.id;
+                const cutOffPassed = isCutOffPassed(period);
                 return (
-                  <TableRow key={period.id} className="border-border/50 hover:bg-muted/30">
-                    <TableCell className="py-3.5 font-medium text-foreground">
+                  <TableRow key={period.id} className="border-border/50 align-top hover:bg-muted/30">
+                    <TableCell className="py-4">
                       {isEditing ? (
-                        <Input value={editedFields?.name || ""} onChange={(e) => handleFieldChange("name", e.target.value)} />
+                        <div className="min-w-[280px] space-y-2">
+                          <Input value={editedFields?.name || ""} onChange={(e) => handleFieldChange("name", e.target.value)} aria-label="Period name" />
+                          <div className="flex items-center gap-2">
+                            <Input type="date" value={editedFields?.startDate || ""} onChange={(e) => handleFieldChange("startDate", e.target.value)} aria-label="Start date" />
+                            <span className="text-muted-foreground">–</span>
+                            <Input type="date" value={editedFields?.endDate || ""} onChange={(e) => handleFieldChange("endDate", e.target.value)} aria-label="End date" />
+                          </div>
+                        </div>
                       ) : (
-                        period.name
+                        <div className="min-w-[160px]">
+                          <p className="font-medium text-foreground">{period.name}</p>
+                          <p className="mt-0.5 whitespace-nowrap text-xs text-muted-foreground">{formatRange(period.startDate, period.endDate)}</p>
+                        </div>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="py-4">
                       {isEditing ? (
-                        <Input type="date" value={editedFields?.startDate || ""} onChange={(e) => handleFieldChange("startDate", e.target.value)} />
+                        <Input type="date" value={editedFields?.cutOffDate || ""} onChange={(e) => handleFieldChange("cutOffDate", e.target.value)} aria-label="Cut-off date" />
                       ) : (
-                        format(new Date(period.startDate), "PP")
+                        <div className="whitespace-nowrap">
+                          <p className="text-sm text-foreground">{format(new Date(period.cutOffDate), "PP")}</p>
+                          {period.status === "OPEN" && (
+                            <p className={cn("mt-0.5 text-xs", cutOffPassed ? "font-medium text-amber-700" : "text-muted-foreground")}>{cutOffHint(period.cutOffDate)}</p>
+                          )}
+                        </div>
                       )}
                     </TableCell>
-                    <TableCell>
-                      {isEditing ? (
-                        <Input type="date" value={editedFields?.endDate || ""} onChange={(e) => handleFieldChange("endDate", e.target.value)} />
-                      ) : (
-                        format(new Date(period.endDate), "PP")
-                      )}
+                    <TableCell className="py-4">
+                      <Badge variant="outline" className={cn("font-medium", period.status === "OPEN" ? "border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-700" : "border-border/60 bg-muted/60 text-muted-foreground")}>
+                        {period.status === "OPEN" ? "Open" : "Closed"}
+                      </Badge>
                     </TableCell>
-                    <TableCell>
-                      {isEditing ? (
-                        <Input type="date" value={editedFields?.cutOffDate || ""} onChange={(e) => handleFieldChange("cutOffDate", e.target.value)} />
-                      ) : (
-                        format(new Date(period.cutOffDate), "PP")
-                      )}
+                    <TableCell className="py-4">
+                      <ReportProgress summary={summaries[period.id]} overdue={period.status === "OPEN" && cutOffPassed} />
                     </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex flex-col items-center gap-1">
-                        <Badge variant="outline" className={cn("font-medium", period.status === "OPEN" ? "border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-700" : "border-border/60 bg-muted/60 text-muted-foreground")}>
-                          {period.status}
-                        </Badge>
-                        {period.status === "OPEN" && isCutOffPassed(period) && (
-                          <Badge variant="outline" className="border-amber-500/30 bg-amber-500/[0.06] text-[10px] font-medium text-amber-700">
-                            Cut-off passed
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex flex-col items-center gap-2">
-                        {canRequestReports && <ReportRequestButton
+                    {canRequestReports && (
+                      <TableCell className="py-4">
+                        <ReportRequestButton
                           period={period}
                           disabledReason={
                             selectedPlan?.status !== "PUBLISHED"
                               ? "Publish the strategic plan first."
                               : isPeriodClosedForSubmissions(period)
-                                ? "Period is closed — reopen it to send."
+                                ? "Reopen the period to send."
                                 : isEditing
                                   ? "Save the period first."
                                   : undefined
                           }
                           onSent={() => selectedPlanId && loadPeriods(selectedPlanId)}
-                        />}
-                        <ReportSummaryBadges summary={summaries[period.id]} overdue={isCutOffPassed(period)} />
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {!canManage ? null : isEditing ? (
-                        <div className="flex justify-center gap-2">
-                          <Button size="icon" variant="ghost" onClick={handleSaveEdit}><Save className="h-4 w-4 text-green-600" /></Button>
-                          <Button size="icon" variant="ghost" onClick={handleCancelEdit}><X className="h-4 w-4 text-red-600" /></Button>
-                        </div>
-                      ) : (
-                        <div className="flex justify-center gap-2">
-                          <Button size="icon" variant="ghost" onClick={() => handleToggleStatus(period)} title={period.status === "OPEN" ? "Close period" : "Reopen period"}>
-                            {period.status === "OPEN" ? <Lock className="h-4 w-4" /> : <LockOpen className="h-4 w-4" />}
-                          </Button>
-                          <Button size="icon" variant="ghost" onClick={() => handleEditClick(period)}><Edit className="h-4 w-4" /></Button>
-                          <Button size="icon" variant="ghost" onClick={() => handleDeletePeriod(period.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                        </div>
-                      )}
-                    </TableCell>
+                        />
+                      </TableCell>
+                    )}
+                    {canManage && (
+                      <TableCell className="py-4 text-right">
+                        {isEditing ? (
+                          <div className="flex justify-end gap-1">
+                            <Button size="icon" variant="ghost" onClick={handleSaveEdit} title="Save"><Save className="h-4 w-4 text-green-600" /></Button>
+                            <Button size="icon" variant="ghost" onClick={handleCancelEdit} title="Cancel"><X className="h-4 w-4 text-red-600" /></Button>
+                          </div>
+                        ) : (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button aria-haspopup="true" size="icon" variant="ghost">
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Period actions</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleEditClick(period)}>
+                                <Edit className="mr-2 h-4 w-4" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleToggleStatus(period)}>
+                                {period.status === "OPEN"
+                                  ? <><Lock className="mr-2 h-4 w-4" /> Close period</>
+                                  : <><LockOpen className="mr-2 h-4 w-4" /> Reopen period</>}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => setDeleting(period)} className="text-destructive focus:text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })}
@@ -318,6 +355,23 @@ export default function ReportingPeriodsPage() {
           <Pagination state={periodPages} noun="periods" />
         </CardContent>
       </Card>
+
+      <AlertDialog open={deleting !== null} onOpenChange={(open) => { if (!open) setDeleting(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete &ldquo;{deleting?.name}&rdquo;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleting && summaries[deleting.id]?.total
+                ? `${summaries[deleting.id].total} reports have already been requested for this period. Deleting it can't be undone.`
+                : "This can't be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleting && handleDeletePeriod(deleting.id)} className="border border-destructive/30 bg-destructive/10 text-destructive hover:border-destructive/40 hover:bg-destructive/15">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

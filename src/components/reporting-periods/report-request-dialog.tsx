@@ -19,17 +19,42 @@ import type { ReportingPeriod } from "@/lib/types";
 
 export interface ReportSummary { requested: number; submitted: number; approved: number; returned: number; total: number }
 
-/** Counts shown under a period once its report request has gone out. */
-export function ReportSummaryBadges({ summary, overdue }: { summary?: ReportSummary; overdue?: boolean }) {
-  if (!summary || summary.total === 0) return null;
-  const notSubmitted = summary.requested + summary.returned;
+/**
+ * Progress of a period's reports once its request has gone out: one stacked
+ * bar plus a single line of counts, so the cell stays the same size however
+ * many reports there are. Past the cut-off, everything still with the owner
+ * (not submitted or returned) is shown as overdue.
+ */
+export function ReportProgress({ summary, overdue }: { summary?: ReportSummary; overdue?: boolean }) {
+  if (!summary || summary.total === 0) return <span className="text-xs text-muted-foreground">Not requested yet</span>;
+  const { total, approved, submitted, requested, returned } = summary;
+  const segments = [
+    { key: "approved", label: "approved", count: approved, bar: "bg-emerald-500", dot: "bg-emerald-500" },
+    { key: "submitted", label: "to review", count: submitted, bar: "bg-blue-500", dot: "bg-blue-500" },
+    ...(overdue
+      ? [{ key: "overdue", label: "overdue", count: requested + returned, bar: "bg-red-500", dot: "bg-red-500" }]
+      : [
+          { key: "returned", label: "returned", count: returned, bar: "bg-red-400", dot: "bg-red-400" },
+          { key: "requested", label: "not submitted", count: requested, bar: "bg-muted-foreground/25", dot: "bg-muted-foreground/40" },
+        ]),
+  ];
+  const pct = Math.round((approved / total) * 100);
   return (
-    <div className="flex flex-wrap justify-center gap-1 text-[10px]">
-      <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/[0.07] font-medium text-emerald-700">{summary.approved}/{summary.total} approved</Badge>
-      {summary.submitted > 0 && <Badge variant="outline" className="border-blue-500/25 bg-blue-500/[0.06] font-medium text-blue-700">{summary.submitted} to review</Badge>}
-      {summary.requested > 0 && !overdue && <Badge variant="outline" className="border-border/60 bg-muted/60 font-medium text-muted-foreground">{summary.requested} not submitted</Badge>}
-      {summary.returned > 0 && !overdue && <Badge variant="outline" className="border-red-400/30 bg-red-500/[0.06] font-medium text-red-700">{summary.returned} returned</Badge>}
-      {overdue && notSubmitted > 0 && <Badge variant="outline" className="border-red-400/30 bg-red-500/[0.06] font-medium text-red-700">{notSubmitted} overdue</Badge>}
+    <div className="w-full min-w-[200px] max-w-[280px] space-y-1.5" title={segments.map(s => `${s.count} ${s.label}`).join(" · ")}>
+      <div className="flex items-baseline justify-between gap-2 text-xs">
+        <span className="font-medium tabular-nums text-foreground">{approved}/{total} approved</span>
+        <span className="tabular-nums text-muted-foreground">{pct}%</span>
+      </div>
+      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        {segments.map(s => s.count > 0 && <div key={s.key} className={s.bar} style={{ width: `${(s.count / total) * 100}%` }} />)}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+        {segments.filter(s => s.key !== "approved" && s.count > 0).map(s => (
+          <span key={s.key} className={cn("inline-flex items-center gap-1 tabular-nums", s.key === "overdue" && "font-medium text-red-700")}>
+            <span className={cn("h-1.5 w-1.5 rounded-full", s.dot)} />{s.count} {s.label}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -129,12 +154,13 @@ export function ReportRequestButton({ period, disabledReason, onSent }: { period
 
   return (
     <>
-      <div className="flex flex-col items-center gap-1">
-        <Button size="sm" variant={alreadySent ? "outline" : "default"} onClick={handleOpen} disabled={!!disabledReason} title={disabledReason}>
-          <Send className="mr-2 h-3.5 w-3.5" /> {alreadySent ? "Send again" : "Send Report Request"}
+      <div className="flex flex-col items-start gap-1">
+        <Button size="sm" variant={alreadySent ? "outline" : "default"} className="h-8" onClick={handleOpen} disabled={!!disabledReason} title={disabledReason}>
+          <Send className="mr-1.5 h-3.5 w-3.5" /> {alreadySent ? "Send again" : "Send request"}
         </Button>
-        {alreadySent && <span className="text-[10px] text-muted-foreground">Sent {format(new Date(period.reportRequestSentAt!), "PP")}</span>}
-        {disabledReason && <span className="text-[10px] text-muted-foreground max-w-[180px] text-center">{disabledReason}</span>}
+        {disabledReason
+          ? <span className="max-w-[160px] text-[11px] leading-tight text-muted-foreground">{disabledReason}</span>
+          : alreadySent && <span className="text-[11px] text-muted-foreground">Last sent {format(new Date(period.reportRequestSentAt!), "MMM d")}</span>}
       </div>
       <Dialog open={open} onOpenChange={o => { if (!isSending) setOpen(o); }}>
         <DialogContent className="flex max-h-[85vh] flex-col gap-4 sm:max-w-2xl">

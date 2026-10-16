@@ -90,6 +90,8 @@ export function ExecutiveDashboard({ data, tab = "overview" }: { data: Dashboard
 
       <TabNav active={tab} planId={data.plan.id} periodId={data.period.id} view={data.view} />
 
+      {data.view === "period" && <CoverageBanner data={data} tab={tab} />}
+
       {tab === "overview" && <OverviewTab data={data} m={m} />}
       {tab === "pillars" && <PillarsTab m={m} />}
       {tab === "initiatives" && <InitiativesTab m={m} />}
@@ -100,7 +102,7 @@ export function ExecutiveDashboard({ data, tab = "overview" }: { data: Dashboard
         Every figure is cumulative from the start of the plan year to the end of the selected reporting period. Achievement = weighted actual ÷ weighted plan,
         {data.view === "cumulative"
           ? " using each activity's latest approved report from any period up to this one (measured against the plan to this period's end); activities never approved count as zero."
-          : " from approved reports for this period only; planned activities without an approved report count as zero."}{" "}
+          : " from approved reports for this period only; planned activities without an approved report count as zero. Full-year progress uses each activity's latest approved report, so it never drops while a period's reports are pending."}{" "}
         Delay penalty: −10% after 30 days late, −20% after 60, −50% after 90.
       </p>
     </div>
@@ -164,6 +166,27 @@ function TabNav({ active, planId, periodId, view }: { active: DashboardTab; plan
   );
 }
 
+/** Shown when under half of this period's planned reports are approved: the figures are incomplete, not low. */
+function CoverageBanner({ data, tab }: { data: Extract<DashboardData, { state: "ready" }>; tab: DashboardTab }) {
+  const { approved, planned } = data.metrics.overall.coverage;
+  if (planned === 0 || approved / planned >= 0.5) return null;
+  const search = new URLSearchParams({ plan: data.plan.id, period: data.period.id, view: "cumulative", ...(tab === "overview" ? {} : { tab }) });
+  return (
+    <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
+      <p className="flex items-start gap-2 text-amber-900 dark:text-amber-200">
+        <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>
+          {approved === 0 ? "No reports are approved" : `Only ${approved} of ${planned} reports are approved`} for {data.period.name} yet, so this period&apos;s figures are incomplete.
+          Full-year progress already uses each activity&apos;s latest approved report.
+        </span>
+      </p>
+      <Link href={`/?${search.toString()}`} scroll={false} className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-card px-3 py-1.5 text-xs font-medium text-foreground shadow-sm transition hover:bg-card/80">
+        See cumulative to date <ArrowRight className="h-3 w-3" />
+      </Link>
+    </div>
+  );
+}
+
 function EmptyState({ title, body, href, cta }: { title: string; body: string; href: string; cta: string }) {
   return (
     <div className={cn(CARD, "flex flex-col items-center justify-center px-6 py-20 text-center")}>
@@ -210,18 +233,22 @@ function OverviewTab({ data, m }: { data: Extract<DashboardData, { state: "ready
 
 function KpiStrip({ m, periodEnd }: { m: DashboardMetrics; periodEnd: string }) {
   const { rollup, coverage, yearProgress } = m.overall;
+  // Nothing approved yet: show "—" rather than a 0 that reads as "achieved nothing".
+  const awaiting = coverage.planned > 0 && coverage.approved === 0;
 
   return (
     <section className={cn(CARD, "grid gap-x-8 gap-y-6 p-6 sm:grid-cols-2 lg:grid-cols-[repeat(4,minmax(0,1fr))_auto]")}>
-      <Kpi icon={<Flag className="h-3.5 w-3.5" />} label="Full-year progress" value={pct(yearProgress)} accent note="of total plan weight" />
-      <Kpi icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Initiatives completed" value={`${m.initiativesCompleted}`} suffix={`/ ${m.initiatives.length}`}
-        note={`${m.initiativesDue} due by ${shortDate(periodEnd)}`} />
-      <Kpi icon={<Target className="h-3.5 w-3.5" />} label={`Objectives ≥ ${m.ratingThresholds.veryGood}%`} value={`${m.objectivesAtVeryGood.count}`} suffix={`/ ${m.objectivesAtVeryGood.of}`} note="rated Very Good or better · with a target this period" />
+      <Kpi icon={<Flag className="h-3.5 w-3.5" />} label="Full-year progress" value={pct(yearProgress)} accent note="of total plan weight · latest approved reports" />
+      <Kpi icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Initiatives completed" value={awaiting ? "—" : `${m.initiativesCompleted}`} suffix={`/ ${m.initiatives.length}`}
+        note={awaiting ? "awaiting approved reports" : `${m.initiativesDue} due by ${shortDate(periodEnd)}`} />
+      <Kpi icon={<Target className="h-3.5 w-3.5" />} label={`Objectives ≥ ${m.ratingThresholds.veryGood}%`} value={awaiting ? "—" : `${m.objectivesAtVeryGood.count}`} suffix={`/ ${m.objectivesAtVeryGood.of}`}
+        note={awaiting ? "awaiting approved reports" : "rated Very Good or better · with a target this period"} />
       <Kpi icon={<ClipboardCheck className="h-3.5 w-3.5" />} label="Reports approved" value={`${coverage.approved}`} suffix={`/ ${coverage.planned}`}
         note={coverage.pending > 0 ? `${coverage.pending} awaiting approval` : coverage.missing > 0 ? `${coverage.missing} not yet approved` : "all planned activities reported"} />
       <div className="flex flex-col items-center justify-center sm:col-span-2 lg:col-span-1 lg:pl-6">
         <Tip content={<div className="space-y-1"><TipRow label="Weighted plan" value={weightPct(rollup.weightedPlan)} /><TipRow label="Weighted actual" value={weightPct(rollup.weightedActual)} /><TipRow label="After delays" value={pct(rollup.achievedWithDelay)} /></div>}>
-          <Gauge value={rollup.weightedPlan > 0 ? rollup.achievedResult : null} label="Overall execution" caption={`${weightPct(rollup.weightedActual)} of ${weightPct(rollup.weightedPlan)} planned`} />
+          <Gauge value={rollup.weightedPlan > 0 && !awaiting ? rollup.achievedResult : null} label="Overall execution"
+            caption={awaiting ? "No reports approved yet" : `${weightPct(rollup.weightedActual)} of ${weightPct(rollup.weightedPlan)} planned`} />
         </Tip>
       </div>
     </section>
@@ -252,8 +279,14 @@ function TrendCard({ trend, current, previous, className }: { trend: TrendPoint[
           <h2 className="text-[15px] font-semibold tracking-tight">Execution trend</h2>
           <div className="mt-2 flex items-center gap-2">
             <span className="text-[28px] font-bold leading-none tracking-tight">{pct(current.achieved)}</span>
-            <DeltaChip value={previous && current.achieved != null && previous.achieved != null ? current.achieved - previous.achieved : null} />
-            {previous && <span className="text-xs text-muted-foreground">vs {previous.name}</span>}
+            {current.achieved == null ? (
+              <span className="text-xs text-muted-foreground">awaiting approved reports for {current.name}</span>
+            ) : (
+              <>
+                <DeltaChip value={previous && previous.achieved != null ? current.achieved - previous.achieved : null} />
+                {previous?.achieved != null && <span className="text-xs text-muted-foreground">vs {previous.name}</span>}
+              </>
+            )}
           </div>
         </div>
         <span className="text-xs text-muted-foreground">{trend.length} reporting period{trend.length === 1 ? "" : "s"}</span>

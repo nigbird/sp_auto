@@ -278,6 +278,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 interface ActivityResult {
   activity: MetricActivity;
   entry: MetricEntry | undefined;
+  /** Weighted actual (no duplicates) from the latest approved report up to the period — drives full-year progress. */
+  progressNoDup: number;
   row: ReportRow | null;
   noDupWeight: number;
   hasPlan: boolean;
@@ -343,7 +345,7 @@ const DELAY_KEYS: DelayBucket[] = ['onTime', 'd1_30', 'd31_60', 'd61_90', 'd90pl
 
 const streamOf = (a: MetricActivity) => a.leadOwner?.trim() || a.department?.trim() || 'Unassigned';
 
-function evaluateActivity(activity: MetricActivity, entry: MetricEntry | undefined, periodEnd: Date): ActivityResult {
+function evaluateActivity(activity: MetricActivity, entry: MetricEntry | undefined, periodEnd: Date, progressEntry: MetricEntry | undefined = entry): ActivityResult {
   const approved = entry?.reportStatus === 'APPROVED';
   const hasTarget = activity.breakdownApproved && (activity.annualTarget ?? 0) > 0;
   // Unapproved reports are scored as a blank actual: the plan still counts, the actual is 0.
@@ -354,6 +356,12 @@ function evaluateActivity(activity: MetricActivity, entry: MetricEntry | undefin
         periodEnd
       )
     : null;
+  // Full-year progress never drops just because this period's report isn't approved yet.
+  const progressNoDup = progressEntry === entry
+    ? row?.weightedActualNoDup ?? 0
+    : hasTarget && progressEntry?.reportStatus === 'APPROVED'
+      ? computeReportRow(activity, { actualToDate: progressEntry.actualToDate, completionDate: progressEntry.completionDate }, periodEnd).weightedActualNoDup ?? 0
+      : 0;
 
   const dueDate = row?.dueDate ?? (activity.endDate ? new Date(activity.endDate) : null);
   const dueByPeriodEnd = dueDate != null && dueDate.getTime() <= periodEnd.getTime();
@@ -370,6 +378,7 @@ function evaluateActivity(activity: MetricActivity, entry: MetricEntry | undefin
   return {
     activity,
     entry,
+    progressNoDup,
     row,
     noDupWeight: activity.countsTowardWeight ? activity.weight : 0,
     hasPlan: (row?.weightedPlan ?? 0) > 0,
@@ -437,7 +446,7 @@ function summarize(results: ActivityResult[]): Summary {
     totalWeight,
     rollup,
     planShareOfTotal: totalWeight > 0 ? planNoDup / totalWeight : null,
-    yearProgress: totalWeight > 0 ? rollup.weightedActualNoDup / totalWeight : null,
+    yearProgress: totalWeight > 0 ? results.reduce((s, r) => s + r.progressNoDup, 0) / totalWeight : null,
     coverage: {
       activities: results.length,
       planned: planned.length,
@@ -522,10 +531,13 @@ export function computeDashboard(
   pillars: MetricPillar[],
   entries: MetricEntry[],
   period: MetricPeriod,
-  ratingThresholds: RatingThresholds = DEFAULT_RATING_THRESHOLDS
+  ratingThresholds: RatingThresholds = DEFAULT_RATING_THRESHOLDS,
+  /** Each activity's latest approved entry up to this period, for full-year progress. Defaults to `entries`. */
+  progressEntries?: MetricEntry[]
 ): DashboardMetrics {
   const periodEnd = new Date(period.endDate);
   const entryByActivity = new Map(entries.map(e => [e.activityId, e]));
+  const progressByActivity = progressEntries ? new Map(progressEntries.map(e => [e.activityId, e])) : entryByActivity;
 
   const all: ActivityResult[] = [];
   const pillarSummaries: PillarSummary[] = [];
@@ -555,7 +567,7 @@ export function computeDashboard(
       for (const initiative of objective.initiatives) {
         initiativeNo++;
         const code = `${pi + 1}.${objectiveNo}.${initiativeNo}`;
-        const results = initiative.activities.map(a => evaluateActivity(a, entryByActivity.get(a.id), periodEnd));
+        const results = initiative.activities.map(a => evaluateActivity(a, entryByActivity.get(a.id), periodEnd, progressByActivity.get(a.id)));
         const summary = summarize(results);
         const status = statusOf(summary);
 
