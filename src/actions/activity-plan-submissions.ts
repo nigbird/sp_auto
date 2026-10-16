@@ -268,6 +268,8 @@ export async function approveActivityPlan(activityId: string): Promise<Breakdown
     const activity = await prisma.activity.findUnique({ where: { id: activityId } });
     if (!activity) return fail("This activity no longer exists.");
     if (activity.planSubmissionStatus !== 'PENDING') return fail("This breakdown isn't waiting for approval any more — it may already have been handled.");
+    // Segregation of duties: nobody reviews a breakdown they submitted or are responsible for.
+    if (activity.planSubmittedById === approver.id || activity.responsibleId === approver.id) return fail("You submitted this breakdown, so someone else has to review it.");
 
     await prisma.activity.update({
         where: { id: activityId },
@@ -302,7 +304,7 @@ export async function approveActivityPlan(activityId: string): Promise<Breakdown
 }
 
 export async function declineActivityPlan(activityId: string, reason: string): Promise<BreakdownActionResult> {
-    await requirePermission('plan-approvals:approve');
+    const reviewer = await requirePermission('plan-approvals:approve');
 
     const trimmed = (reason ?? '').trim();
     if (!trimmed) return fail("Please give a reason so the owner knows what to change.");
@@ -310,6 +312,8 @@ export async function declineActivityPlan(activityId: string, reason: string): P
     const activity = await prisma.activity.findUnique({ where: { id: activityId } });
     if (!activity) return fail("This activity no longer exists.");
     if (activity.planSubmissionStatus !== 'PENDING') return fail("This breakdown isn't waiting for approval any more — it may already have been handled.");
+    // Segregation of duties: nobody reviews a breakdown they submitted or are responsible for.
+    if (activity.planSubmittedById === reviewer.id || activity.responsibleId === reviewer.id) return fail("You submitted this breakdown, so someone else has to review it.");
 
     await prisma.activity.update({
         where: { id: activityId },

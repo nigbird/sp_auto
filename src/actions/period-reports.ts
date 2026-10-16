@@ -361,6 +361,8 @@ export async function approvePeriodReport(entryId: string): Promise<ReportAction
     const entry = await prisma.activityPeriodEntry.findUnique({ where: { id: entryId }, include: reportEntryInclude });
     if (!entry) return fail('This report no longer exists.');
     if (entry.reportStatus !== 'SUBMITTED') return fail("This report isn't waiting for approval any more — it may already have been handled.");
+    // Segregation of duties: nobody reviews a report they submitted or are responsible for.
+    if (entry.submittedById === approver.id || entry.activity.responsibleId === approver.id) return fail('You submitted this report, so someone else has to review it.');
     const { activity, reportingPeriod: period } = entry;
 
     const row = computeReportRow(
@@ -425,7 +427,7 @@ export async function approvePeriodReport(entryId: string): Promise<ReportAction
 }
 
 export async function returnPeriodReport(entryId: string, reason: string): Promise<ReportActionResult> {
-    await requirePermission('report-approvals:approve');
+    const reviewer = await requirePermission('report-approvals:approve');
 
     const trimmed = (reason ?? '').trim();
     if (!trimmed) return fail('Please give a reason so the owner knows what to change.');
@@ -433,6 +435,8 @@ export async function returnPeriodReport(entryId: string, reason: string): Promi
     const entry = await prisma.activityPeriodEntry.findUnique({ where: { id: entryId }, include: { activity: true, reportingPeriod: true } });
     if (!entry) return fail('This report no longer exists.');
     if (entry.reportStatus !== 'SUBMITTED') return fail("This report isn't waiting for approval any more — it may already have been handled.");
+    // Segregation of duties: nobody reviews a report they submitted or are responsible for.
+    if (entry.submittedById === reviewer.id || entry.activity.responsibleId === reviewer.id) return fail('You submitted this report, so someone else has to review it.');
 
     await prisma.activityPeriodEntry.update({
         where: { id: entryId },

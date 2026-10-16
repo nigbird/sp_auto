@@ -242,16 +242,15 @@ export function parseStrategicPlanWorkbook(data: ArrayBuffer | Buffer, requested
   for (let r = headerRow + 1; r <= range.e.r; r++) {
     // Read the code as displayed: "6.10" is stored as the number 6.1.
     const codeCell = cellAt(r, col.code);
-    let code = clean(codeCell?.w ?? codeCell?.v);
+    const code = clean(codeCell?.w ?? codeCell?.v);
     if (!code || !/^\d+(\.\d+)*$/.test(code)) {
-      // An uncoded row that still has an activity title and a lead owner is an
-      // activity someone forgot to number — keep it under the initiative above.
+      // An uncoded row that still has an activity title is an activity with no
+      // link to an initiative. Guessing the initiative from its position could
+      // file it under the wrong one, so the row must be numbered in the file.
       const looseTitle = clean(cellAt(r, col.activity)?.v);
-      const looseOwner = clean(cellAt(r, col.leadOwner)?.v);
-      const lastInitiative = pillars.flatMap(p => p.objectives.flatMap(o => o.initiatives)).reduce<ImportInitiative | null>((a, b) => (!a || b.row > a.row ? b : a), null);
-      if (!looseTitle || !looseOwner || !lastInitiative) continue;
-      code = `${lastInitiative.code}.x${r + 1}`;
-      issues.push({ row: r + 1, severity: 'warning', message: `"${looseTitle.slice(0, 60)}" has no code — added as an activity of initiative ${lastInitiative.code}.` });
+      if (!looseTitle) continue;
+      issues.push({ row: r + 1, severity: 'error', message: `"${looseTitle.slice(0, 60)}" has no code, so it isn't linked to an initiative. Give it its initiative's code (e.g. 1.1.1.4) in the file.` });
+      continue;
     }
     const excelRow = r + 1;
     const depth = code.split('.').length;
@@ -267,12 +266,8 @@ export function parseStrategicPlanWorkbook(data: ArrayBuffer | Buffer, requested
     if (depth === 2) {
       const statement = clean(cellAt(r, col.objective)?.v);
       if (!statement) { issues.push({ row: excelRow, severity: 'warning', message: `Objective ${code} has no statement — skipped.` }); continue; }
-      let pillar = pillars.find(p => p.code === parentCode);
-      if (!pillar && pillars.length > 0) {
-        pillar = pillars[pillars.length - 1];
-        issues.push({ row: excelRow, severity: 'warning', message: `Objective ${code}: no pillar ${parentCode} above it — placed under pillar ${pillar.code}, the nearest one above. Check the code.` });
-      }
-      if (!pillar) { issues.push({ row: excelRow, severity: 'error', message: `Objective ${code} has no pillar above it — it can't be placed.` }); continue; }
+      const pillar = pillars.find(p => p.code === parentCode);
+      if (!pillar) { issues.push({ row: excelRow, severity: 'error', message: `Objective ${code} is not linked to a pillar: there is no pillar ${parentCode} above it. Fix the code or add the pillar.` }); continue; }
       pillar.objectives.push({ row: excelRow, code, statement, initiatives: [] });
       continue;
     }
@@ -280,28 +275,18 @@ export function parseStrategicPlanWorkbook(data: ArrayBuffer | Buffer, requested
     if (depth === 3) {
       const title = clean(cellAt(r, col.initiative)?.v);
       if (!title) { issues.push({ row: excelRow, severity: 'warning', message: `Initiative ${code} has no title — skipped.` }); continue; }
-      const allObjectives = pillars.flatMap(p => p.objectives);
-      let objective = allObjectives.find(o => o.code === parentCode);
-      if (!objective && allObjectives.length > 0) {
-        objective = allObjectives.reduce((a, b) => (b.row > a.row ? b : a));
-        issues.push({ row: excelRow, severity: 'warning', message: `Initiative ${code}: no objective ${parentCode} above it — placed under objective ${objective.code}, the nearest one above. Check the code.` });
-      }
-      if (!objective) { issues.push({ row: excelRow, severity: 'error', message: `Initiative ${code} has no objective above it — it can't be placed.` }); continue; }
+      const objective = pillars.flatMap(p => p.objectives).find(o => o.code === parentCode);
+      if (!objective) { issues.push({ row: excelRow, severity: 'error', message: `Initiative ${code} is not linked to an objective: there is no objective ${parentCode} above it. Fix the code or add the objective.` }); continue; }
       objective.initiatives.push({ row: excelRow, code, title, activities: [] });
       continue;
     }
 
     // Activity row (depth 4+ — anything deeper is treated as an activity of its initiative).
     const initiativeCode = code.split('.').slice(0, 3).join('.');
-    const allInitiatives = pillars.flatMap(p => p.objectives.flatMap(o => o.initiatives));
-    let initiative = allInitiatives.find(i => i.code === initiativeCode);
+    const initiative = pillars.flatMap(p => p.objectives.flatMap(o => o.initiatives)).find(i => i.code === initiativeCode);
     const title = clean(cellAt(r, col.activity)?.v);
     if (!title) { issues.push({ row: excelRow, severity: 'warning', message: `Activity ${code} has no title — skipped.` }); continue; }
-    if (!initiative && allInitiatives.length > 0) {
-      initiative = allInitiatives.reduce((a, b) => (b.row > a.row ? b : a));
-      issues.push({ row: excelRow, severity: 'warning', message: `Activity ${code}: no initiative ${initiativeCode} above it — placed under initiative ${initiative.code} "${initiative.title}", the nearest one above. Check the code.` });
-    }
-    if (!initiative) { issues.push({ row: excelRow, severity: 'error', message: `Activity ${code} has no initiative above it — it can't be placed.` }); continue; }
+    if (!initiative) { issues.push({ row: excelRow, severity: 'error', message: `Activity ${code} "${title.slice(0, 60)}" is not linked to an initiative: there is no initiative ${initiativeCode} above it. Fix the code or add the initiative.` }); continue; }
 
     const leadOwner = clean(cellAt(r, col.leadOwner)?.v);
     if (!leadOwner) issues.push({ row: excelRow, severity: 'error', message: `Activity ${code} "${title}" has no Lead/ Owner.` });

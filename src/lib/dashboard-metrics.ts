@@ -257,7 +257,7 @@ export interface DashboardMetrics {
   activitiesWithoutTarget: ListItem[];
   /** Every activity with its days delayed and status, grouped by work stream then initiative. */
   activityDelayRows: ActivityDelayRow[];
-  objectivesAtLeast80: { count: number; of: number };
+  objectivesAtVeryGood: { count: number; of: number };
   strongestPillarPeriod: Highlight | null;
   strongestPillarYear: Highlight | null;
   weakestPillarPeriod: Highlight | null;
@@ -707,8 +707,8 @@ export function computeDashboard(
   const sI = best(scoredInitiatives, i => i.summary.rollup.achievedResult, 'max');
   const wI = best(scoredInitiatives, i => i.summary.rollup.achievedResult, 'min');
 
-  const objectivesAtLeast80 = {
-    count: scoredObjectives.filter(o => (o.summary.rollup.achievedResult ?? 0) >= 0.8).length,
+  const objectivesAtVeryGood = {
+    count: scoredObjectives.filter(o => (o.summary.rollup.achievedResult ?? 0) * 100 >= ratingThresholds.veryGood).length,
     of: scoredObjectives.length,
   };
 
@@ -737,7 +737,7 @@ export function computeDashboard(
     activitiesWithoutTarget,
     activityDelayRows: activityDelayRows.sort((a, b) =>
       a.stream.localeCompare(b.stream) || compareCodes(a.initiativeCode, b.initiativeCode)),
-    objectivesAtLeast80,
+    objectivesAtVeryGood,
     strongestPillarPeriod: sPP && toHighlight(sPP.code, sPP.title, sPP.summary.rollup.achievedResult),
     strongestPillarYear: sPY && toHighlight(sPY.code, sPY.title, sPY.summary.yearProgress),
     weakestPillarPeriod: wPP && wPP !== sPP ? toHighlight(wPP.code, wPP.title, wPP.summary.rollup.achievedResult) : null,
@@ -767,8 +767,8 @@ function writeStory(m: DashboardMetrics, period: MetricPeriod): string[] {
     const gap = m.weakestPillarPeriod ? `, while ${m.weakestPillarPeriod.code} is the main gap at ${pct(m.weakestPillarPeriod.value)}` : '';
     lines.push(`${m.strongestPillarPeriod.code} leads at ${pct(m.strongestPillarPeriod.value)}${gap}.`);
   }
-  if (m.objectivesAtLeast80.of > 0) {
-    lines.push(`${m.objectivesAtLeast80.count} of ${m.objectivesAtLeast80.of} objectives with a target this period achieved at least 80%.`);
+  if (m.objectivesAtVeryGood.of > 0) {
+    lines.push(`${m.objectivesAtVeryGood.count} of ${m.objectivesAtVeryGood.of} objectives with a target this period achieved at least ${m.ratingThresholds.veryGood}% (Very Good).`);
   }
   lines.push(`${m.initiativesCompleted} of ${m.initiatives.length} initiatives are fully completed; ${m.initiativesDue} were planned to be complete by now.`);
   if (coverage.missing > 0) {

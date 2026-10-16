@@ -3,6 +3,7 @@ import { rollUp, type ReportRollup } from '@/lib/report-calculations';
 import { REPORT_COLUMNS } from '@/components/reports/performance-report-columns';
 import { REPORT_STATE_LABEL, RESULT_STATUSES, treeActivities, type ReportActivity, type ReportState, type TreePillar } from '@/lib/performance-report';
 import { SheetBuilder, writeStyledWorkbook, type StyleRole, type StyledCell } from '@/lib/dashboard-export/xlsx-styling';
+import { attentionItems, delayedActivities, trendChange, type InsightActivity, type PerformanceTrend } from '@/lib/performance-insights';
 
 type Kind = 'row' | 'group' | 'sub' | 'ini' | 'total';
 
@@ -67,7 +68,18 @@ export interface PerformanceWorkbookInput {
   pillars: TreePillar<ReportActivity>[];
   /** The active filters in words, or '' for the whole report. */
   filters: string;
+  /** Achieved result for this and earlier periods, under the same filters. */
+  trend?: PerformanceTrend;
   generatedAt?: Date;
+}
+
+/** The report's activities with their initiative, for the delay and attention sheets. */
+function insightActivities(pillars: TreePillar<ReportActivity>[]): InsightActivity[] {
+  return pillars.flatMap(p => p.objectives.flatMap(o => o.initiatives.flatMap(i => i.activities.map(a => ({
+    title: a.title, initiative: i.title, owner: a.owner, office: a.office, endDate: a.endDate,
+    reportStatus: a.state, row: a.row, completionDate: a.entry.completionDate,
+    reasonForVariation: a.entry.reasonForVariation, wayForward: a.entry.wayForward, escalationIssues: a.entry.escalationIssues,
+  })))));
 }
 
 /**
@@ -75,8 +87,11 @@ export interface PerformanceWorkbookInput {
  * a summary sheet (headline figures and results by pillar and objective) and
  * the full report sheet with the plan's report columns.
  */
-export function buildPerformanceWorkbook({ planName, period, pillars, filters, generatedAt = new Date() }: PerformanceWorkbookInput): Buffer {
+export function buildPerformanceWorkbook({ planName, period, pillars, filters, trend, generatedAt = new Date() }: PerformanceWorkbookInput): Buffer {
   const all = treeActivities(pillars);
+  const insights = insightActivities(pillars);
+  const delayed = delayedActivities(insights, period.endDate);
+  const attention = attentionItems(insights);
   const total = rollUp(weightedRows(all));
   const subtitle = [
     planName,
@@ -103,9 +118,24 @@ export function buildPerformanceWorkbook({ planName, period, pillars, filters, g
     ['Achieved result', cell(total.weightedPlan > 0 ? num(total.achievedResult) : '—', 'kpiPct')],
     ['Achieved result with delay', cell(total.weightedPlan > 0 ? num(total.achievedWithDelay) : '—', 'kpiPct')],
     ['Status', cell(total.weightedPlan > 0 ? total.status : '—', 'kpi')],
+    ['Delayed activities', cell(delayed.length, 'kpi')],
+    ['Items for management attention', cell(attention.length, 'kpi')],
   ];
   for (const [label, value] of kpis) sm.row([{ v: label, role: 'label' }, value]);
   sm.blank();
+
+  if (trend && trend.periods.length > 0) {
+    sm.row([{ v: 'Trend across reporting periods (achieved result)', role: 'section' }]);
+    const trendHeader = sm.row(['Pillar', ...trend.periods, 'Change vs previous period'], 'header');
+    sm.rowHeights.set(trendHeader, 32);
+    trend.lines.forEach((line, n) => {
+      const kind: Kind = n === 0 ? 'total' : 'row';
+      const s = ROLE[kind];
+      const change = trendChange(line.values);
+      sm.row([cell(line.title, n === 0 ? s.text : 'wrap'), ...line.values.map(v => cell(v ?? '—', s.pct)), cell(change ?? '—', s.pct)]);
+    });
+    sm.blank();
+  }
 
   sm.row([{ v: 'Results by pillar and objective', role: 'section' }]);
   const smHeader = sm.row(['Pillar / objective', 'Reports approved', 'Weighted plan', 'Weighted actual', 'Weighted actual with delay', 'Achieved result', 'Achieved with delay', 'Status'], 'header');
@@ -177,5 +207,40 @@ export function buildPerformanceWorkbook({ planName, period, pillars, filters, g
   const last = rp.row([cell('Overall', 'total'), ...blanks(lead.length - 1 + 10, 'total'), ...rollupCells(total, 'total')]);
   rp.autoFilter = `A${header + 1}:U${last}`; // the Overall line stays out of the filter range
 
-  return writeStyledWorkbook([sm, rp]);
+  // --- Delayed activities ------------------------------------------------------
+  const dl = new SheetBuilder('Delayed Activities', [56, 44, 24, 22, 17, 14, 14, 12, 16]);
+  dl.row([{ v: 'Delayed Activities', role: 'title' }]);
+  dl.row([{ v: subtitle, role: 'subtitle' }]);
+  dl.row([{ v: `${scope} Overdue = past its due date at the period end with no approved completion; days counted to ${day(period.endDate)}.`, role: 'subtitle' }]);
+  dl.blank();
+  const dlHeader = dl.row(['Activity', 'Initiative', 'Lead owner', 'Responsible', 'Report status', 'Due date', 'Completion date', 'Days delayed', 'Delay'], 'header');
+  dl.rowHeights.set(dlHeader, 32);
+  dl.freezeRows = dlHeader + 1;
+  if (delayed.length === 0) dl.row([cell('No delayed activities in this report.', 'text')]);
+  for (const d of delayed) {
+    dl.row([
+      cell(d.activity, 'wrap'), cell(d.initiative, 'wrap'), cell(d.office, 'wrap'), cell(d.owner, 'wrap'),
+      cell(REPORT_STATE_LABEL[d.reportStatus as ReportState] ?? d.reportStatus, 'text'),
+      cell(day(d.dueDate), 'text'), cell(d.completionDate ? day(d.completionDate) : '', 'text'), cell(d.daysDelayed, 'int'), cell(d.kind, 'text'),
+    ]);
+  }
+
+  // --- Challenges and management attention -----------------------------------
+  const ma = new SheetBuilder('Management Attention', [48, 40, 22, 22, 12, 46, 46, 46]);
+  ma.row([{ v: 'Challenges & Issues for Management Attention', role: 'title' }]);
+  ma.row([{ v: subtitle, role: 'subtitle' }]);
+  ma.row([{ v: `${scope} Approved reports that raise an escalation issue, or are behind plan with a reason for variation. Escalations first.`, role: 'subtitle' }]);
+  ma.blank();
+  const maHeader = ma.row(['Activity', 'Initiative', 'Lead owner', 'Activity status', "%age Achiev't", 'Challenges / Reasons for Variation', 'The Way Forward', 'Issues that need Escalation'], 'header');
+  ma.rowHeights.set(maHeader, 32);
+  ma.freezeRows = maHeader + 1;
+  if (attention.length === 0) ma.row([cell('No challenges or escalation issues were reported in approved reports.', 'text')]);
+  for (const a of attention) {
+    ma.row([
+      cell(a.activity, 'wrap'), cell(a.initiative, 'wrap'), cell(a.office, 'wrap'), cell(a.status, 'text'), cell(num(a.achievement), 'pct'),
+      cell(a.challenge, 'wrap'), cell(a.wayForward, 'wrap'), cell(a.escalation, 'wrap'),
+    ]);
+  }
+
+  return writeStyledWorkbook([sm, rp, dl, ma]);
 }

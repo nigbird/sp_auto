@@ -51,7 +51,7 @@ export function buildDashboardWorkbook(data: Ready, charts: Record<ChartKey, Cha
     ['Total plan weight', cell(totalWeight, 'kpiWeight')],
     ['Initiatives fully completed', cell(`${m.initiativesCompleted} of ${m.initiatives.length}`, 'kpi')],
     ['Initiatives due by the period end', cell(m.initiativesDue, 'kpi')],
-    ['Objectives at 80% or more', cell(`${m.objectivesAtLeast80.count} of ${m.objectivesAtLeast80.of}`, 'kpi')],
+    [`Objectives at ${m.ratingThresholds.veryGood}% or more (Very Good)`, cell(`${m.objectivesAtVeryGood.count} of ${m.objectivesAtVeryGood.of}`, 'kpi')],
     ['Planned activities with an approved report', cell(`${coverage.approved} of ${coverage.planned}`, 'kpi')],
     ['Reports awaiting approval', cell(coverage.pending, 'kpi')],
   ];

@@ -3,7 +3,12 @@ import autoTable from 'jspdf-autotable';
 import { cleanPdfCell, pdfText } from '@/lib/pdf-text';
 import { monthKey, formatTargetValue, type TargetAggregation, type TargetType } from '@/lib/monthly-breakdown';
 import { computeReportRow, formatRatio, formatWeight, rollUp, type ReportRow } from '@/lib/report-calculations';
+import { attentionItems, delayedActivities, trendChange, type PerformanceTrend } from '@/lib/performance-insights';
+import { officeOf } from '@/lib/performance-report';
 import type { ExportEntry, ExportPeriod, ExportPlan } from './build-plan-workbook';
+
+const day = (d: Date | string) => new Date(d).toISOString().slice(0, 10);
+const signedPoints = (v: number | null) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${(v * 100).toFixed(0)} pts`);
 
 const STATUS_TEXT: Record<string, string> = {
   NOT_REQUESTED: 'Not requested',
@@ -16,9 +21,11 @@ const STATUS_TEXT: Record<string, string> = {
  * The plan's performance report for one period as a landscape PDF: totals,
  * a pillar/objective/initiative summary, then every activity's report line.
  * Same calculations as the plan page and the Excel export; only approved
- * reports are counted.
+ * reports are counted. When a period is given it also covers the trend across
+ * periods, the delayed activities, and the challenges and issues that need
+ * management attention.
  */
-export function buildPerformancePdf(plan: ExportPlan, period: ExportPeriod | null, entries: ExportEntry[]): Buffer {
+export function buildPerformancePdf(plan: ExportPlan, period: ExportPeriod | null, entries: ExportEntry[], trend?: PerformanceTrend): Buffer {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const entryByActivity = new Map(entries.map(e => [e.activityId, e]));
@@ -77,6 +84,66 @@ export function buildPerformancePdf(plan: ExportPlan, period: ExportPeriod | nul
     headStyles: { fillColor: [217, 119, 6] },
     columnStyles: { 0: { cellWidth: pageWidth * 0.5 } },
   });
+
+  if (period) {
+    const insights = lines
+      .filter(l => l.entry && l.entry.reportStatus !== 'NOT_REQUESTED')
+      .map(l => ({
+        title: l.activity.title, initiative: l.initiative, owner: l.activity.responsible?.name ?? '', office: officeOf(l.activity),
+        endDate: l.activity.endDate, reportStatus: l.entry!.reportStatus, row: l.row, completionDate: l.entry!.completionDate,
+        reasonForVariation: l.entry!.reasonForVariation, wayForward: l.entry!.wayForward, escalationIssues: l.entry!.escalationIssues,
+      }));
+    const delayed = delayedActivities(insights, period.endDate);
+    const attention = attentionItems(insights);
+
+    if (trend && trend.periods.length > 0) {
+      doc.addPage();
+      doc.setFontSize(12);
+      doc.text(pdfText('Trend across reporting periods (achieved result)'), 14, 14);
+      autoTable(doc, {
+        didParseCell: cleanPdfCell,
+        startY: 18,
+        head: [['Pillar', ...trend.periods, 'Change vs previous']],
+        body: trend.lines.map((line, n) => [line.title, ...line.values.map(v => formatRatio(v)), signedPoints(trendChange(line.values))]
+          .map(content => ({ content, styles: n === 0 ? { fontStyle: 'bold', fillColor: [253, 230, 138] } : {} }))),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [217, 119, 6] },
+        columnStyles: { 0: { cellWidth: 90 } },
+      });
+    }
+
+    doc.addPage();
+    doc.setFontSize(12);
+    doc.text(pdfText(`Delayed activities (${delayed.length})`), 14, 14);
+    doc.setFontSize(8);
+    doc.text(pdfText(`Overdue = past its due date at the period end with no approved completion; days counted to ${day(period.endDate)}.`), 14, 19);
+    autoTable(doc, {
+      didParseCell: cleanPdfCell,
+      startY: 22,
+      head: [['Activity', 'Initiative', 'Lead owner', 'Responsible', 'Due date', 'Completed', 'Days delayed', 'Delay']],
+      body: delayed.length
+        ? delayed.map(d => [d.activity, d.initiative, d.office, d.owner, day(d.dueDate), d.completionDate ? day(d.completionDate) : '', String(d.daysDelayed), d.kind])
+        : [[{ content: 'No delayed activities in this report.', colSpan: 8 }]],
+      styles: { fontSize: 7, cellPadding: 1.2 },
+      headStyles: { fillColor: [217, 119, 6] },
+      columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 60 } },
+    });
+
+    doc.addPage();
+    doc.setFontSize(12);
+    doc.text(pdfText(`Challenges & issues for management attention (${attention.length})`), 14, 14);
+    autoTable(doc, {
+      didParseCell: cleanPdfCell,
+      startY: 18,
+      head: [['Activity', 'Lead owner', 'Status', "Achiev't", 'Challenges / Reasons for variation', 'Way forward', 'Issues that need escalation']],
+      body: attention.length
+        ? attention.map(a => [a.activity, a.office, a.status, formatRatio(a.achievement), a.challenge, a.wayForward, a.escalation])
+        : [[{ content: 'No challenges or escalation issues were reported in approved reports.', colSpan: 7 }]],
+      styles: { fontSize: 7, cellPadding: 1.2 },
+      headStyles: { fillColor: [217, 119, 6] },
+      columnStyles: { 0: { cellWidth: 55 }, 4: { cellWidth: 55 }, 5: { cellWidth: 45 }, 6: { cellWidth: 50 } },
+    });
+  }
 
   // Every activity's report line.
   doc.addPage();

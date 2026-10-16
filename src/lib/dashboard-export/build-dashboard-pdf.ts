@@ -130,7 +130,7 @@ export function buildDashboardPdf(data: Ready, charts: Record<ChartKey, ChartIma
     { label: 'Weighted actual / plan', value: `${w(rollup.weightedActual)} / ${w(rollup.weightedPlan)}`, note: 'for the period' },
     { label: 'Full-year progress', value: pct(yearProgress), note: 'of total plan weight' },
     { label: 'Initiatives completed', value: `${m.initiativesCompleted} / ${m.initiatives.length}`, note: `${m.initiativesDue} due by ${day(data.period.endDate)}` },
-    { label: 'Objectives >= 80%', value: `${m.objectivesAtLeast80.count} / ${m.objectivesAtLeast80.of}`, note: 'with a target this period' },
+    { label: `Objectives >= ${m.ratingThresholds.veryGood}%`, value: `${m.objectivesAtVeryGood.count} / ${m.objectivesAtVeryGood.of}`, note: 'with a target this period' },
     { label: 'Reports approved', value: `${coverage.approved} / ${coverage.planned}`, note: coverage.pending ? `${coverage.pending} awaiting approval` : 'planned activities' },
   ]);
   {

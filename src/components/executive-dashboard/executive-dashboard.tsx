@@ -210,7 +210,7 @@ function KpiStrip({ m, previous, current, periodEnd }: { m: DashboardMetrics; pr
         delta={<DeltaChip value={diff(current.yearProgress, previous?.yearProgress)} />} note="of total plan weight" />
       <Kpi icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Initiatives completed" value={`${m.initiativesCompleted}`} suffix={`/ ${m.initiatives.length}`}
         delta={<DeltaChip value={diff(current.initiativesCompleted, previous?.initiativesCompleted)} unit="count" />} note={`${m.initiativesDue} due by ${shortDate(periodEnd)}`} />
-      <Kpi icon={<Target className="h-3.5 w-3.5" />} label="Objectives ≥ 80%" value={`${m.objectivesAtLeast80.count}`} suffix={`/ ${m.objectivesAtLeast80.of}`} note="with a target this period" />
+      <Kpi icon={<Target className="h-3.5 w-3.5" />} label={`Objectives ≥ ${m.ratingThresholds.veryGood}%`} value={`${m.objectivesAtVeryGood.count}`} suffix={`/ ${m.objectivesAtVeryGood.of}`} note="rated Very Good or better · with a target this period" />
       <Kpi icon={<ClipboardCheck className="h-3.5 w-3.5" />} label="Reports approved" value={`${coverage.approved}`} suffix={`/ ${coverage.planned}`}
         note={coverage.pending > 0 ? `${coverage.pending} awaiting approval` : coverage.missing > 0 ? `${coverage.missing} not yet approved` : "all planned activities reported"} />
       <div className="flex flex-col items-center justify-center sm:col-span-2 lg:col-span-1 lg:pl-6">

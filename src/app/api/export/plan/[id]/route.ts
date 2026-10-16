@@ -5,6 +5,8 @@ import { userCan } from '@/lib/auth/permissions-server';
 import { recordAudit } from '@/lib/auth/audit';
 import { buildPlanWorkbook } from '@/lib/plan-export/build-plan-workbook';
 import { buildPerformancePdf } from '@/lib/plan-export/build-performance-pdf';
+import { buildPerformanceTree } from '@/lib/performance-report';
+import { performanceTrend } from '@/lib/performance-insights';
 
 /**
  * Downloads a strategic plan as an Excel workbook in the cascaded-initiatives
@@ -63,7 +65,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const entries = period ? await prisma.activityPeriodEntry.findMany({ where: { reportingPeriodId: period.id } }) : [];
 
   const asPdf = request.nextUrl.searchParams.get('format') === 'pdf';
-  const buffer = asPdf ? buildPerformancePdf(plan, period, entries) : buildPlanWorkbook(plan, period, entries);
+  let trend;
+  if (asPdf && period) {
+    // Trend: this period and the ones before it, from approved reports only.
+    const history = await prisma.reportingPeriod.findMany({ where: { strategicPlanId: id, endDate: { lte: period.endDate } }, orderBy: { endDate: 'asc' } });
+    const approved = await prisma.activityPeriodEntry.findMany({ where: { reportingPeriodId: { in: history.map(h => h.id) }, reportStatus: 'APPROVED' } });
+    trend = performanceTrend(history
+      .map(h => ({ id: h.id, name: h.name, pillars: buildPerformanceTree(plan.pillars, approved.filter(e => e.reportingPeriodId === h.id), h.endDate) }))
+      .filter(h => h.id === period.id || h.pillars.length > 0));
+  }
+  const buffer = asPdf ? buildPerformancePdf(plan, period, entries, trend) : buildPlanWorkbook(plan, period, entries);
   const safeName = `${plan.name} v${plan.version}${period ? ` - ${period.name}` : ''}${asPdf ? ' - performance report' : ''}`.replace(/[^\w\s.-]+/g, '').trim() || 'strategic-plan';
   const extension = asPdf ? 'pdf' : 'xlsx';
   await recordAudit({

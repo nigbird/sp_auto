@@ -5,6 +5,7 @@ import { userCan } from '@/lib/auth/permissions-server';
 import { recordAudit } from '@/lib/auth/audit';
 import { buildPerformanceTree, describeFilters, filterPerformanceTree, filtersFromParams, isNarrowed } from '@/lib/performance-report';
 import { buildPerformanceWorkbook } from '@/lib/performance-export/build-performance-workbook';
+import { performanceTrend } from '@/lib/performance-insights';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,8 +62,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const pillars = filterPerformanceTree(buildPerformanceTree(plan.pillars, entries, period.endDate), filters);
   const filterText = describeFilters(filters, plan.pillars.find(p => p.id === filters.pillar)?.title);
 
+  // Trend: this period and the ones before it, from approved reports only, under the same filters.
+  const history = await prisma.reportingPeriod.findMany({ where: { strategicPlanId: id, endDate: { lte: period.endDate } }, orderBy: { endDate: 'asc' } });
+  const approvedEntries = await prisma.activityPeriodEntry.findMany({ where: { reportingPeriodId: { in: history.map(h => h.id) }, reportStatus: 'APPROVED' } });
+  const trend = performanceTrend(history
+    .map(h => ({ id: h.id, name: h.name, pillars: filterPerformanceTree(buildPerformanceTree(plan.pillars, approvedEntries.filter(e => e.reportingPeriodId === h.id), h.endDate), filters) }))
+    .filter(h => h.id === period.id || h.pillars.length > 0));
+
   const generatedAt = new Date();
-  const buffer = buildPerformanceWorkbook({ planName: plan.name, period, pillars, filters: filterText, generatedAt });
+  const buffer = buildPerformanceWorkbook({ planName: plan.name, period, pillars, filters: filterText, trend, generatedAt });
 
   const safeName = `${plan.name} - Performance Report - ${period.name}${isNarrowed(filters) ? ' (filtered)' : ''}`.replace(/[^\w\s().-]+/g, '').replace(/\s+/g, ' ').trim() || 'performance-report';
   await recordAudit({
