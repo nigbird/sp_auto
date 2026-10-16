@@ -33,7 +33,7 @@ export function buildDashboardPdf(data: Ready, charts: Record<ChartKey, ChartIma
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const PW = doc.internal.pageSize.getWidth();
   const PH = doc.internal.pageSize.getHeight();
-  const subtitle = `${data.plan.name} · As of ${day(data.period.endDate)} (${data.period.name})`;
+  const subtitle = `${data.plan.name} · As of ${day(data.period.endDate)} (${data.period.name}${data.view === 'cumulative' ? ', cumulative to date' : ''})`;
   let y = M;
 
   const setColor = (c: RGB) => doc.setTextColor(c[0], c[1], c[2]);

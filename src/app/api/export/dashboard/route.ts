@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth/session';
 import { userCan } from '@/lib/auth/permissions-server';
 import { recordAudit } from '@/lib/auth/audit';
-import { loadDashboard } from '@/lib/dashboard-data';
+import { isDashboardView, loadDashboard } from '@/lib/dashboard-data';
 import { renderDashboardCharts } from '@/lib/dashboard-export/dashboard-charts';
 import { buildDashboardWorkbook } from '@/lib/dashboard-export/build-dashboard-workbook';
 import { buildDashboardPdf } from '@/lib/dashboard-export/build-dashboard-pdf';
@@ -24,7 +24,8 @@ export async function GET(request: NextRequest) {
   }
 
   const params = request.nextUrl.searchParams;
-  const data = await loadDashboard(params.get('plan') ?? undefined, params.get('period') ?? undefined);
+  const view = params.get('view');
+  const data = await loadDashboard(params.get('plan') ?? undefined, params.get('period') ?? undefined, isDashboardView(view) ? view : 'period');
   if (data.state !== 'ready') {
     return NextResponse.json({ error: data.state === 'no-plan' ? 'There is no strategic plan to export.' : 'This plan has no reporting period to export yet.' }, { status: 404 });
   }

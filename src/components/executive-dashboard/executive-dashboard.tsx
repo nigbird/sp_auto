@@ -5,7 +5,7 @@ import {
   LayoutGrid, Layers, ListChecks, Sparkles, Target, TriangleAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { DashboardData, TrendPoint } from "@/lib/dashboard-data";
+import type { DashboardData, DashboardView, TrendPoint } from "@/lib/dashboard-data";
 import { INITIATIVE_STATUS_ORDER, type DashboardMetrics, type DelayBucket, type Highlight, type InitiativeSummary, type PillarSummary } from "@/lib/dashboard-metrics";
 import { DashboardFilters } from "./dashboard-filters";
 import { TrendChart } from "./trend-chart";
@@ -19,6 +19,8 @@ import {
 } from "./primitives";
 
 const TZ = "Africa/Addis_Ababa";
+
+const viewParam = (view: DashboardView) => (view === "cumulative" ? "&view=cumulative" : "");
 
 export const DASHBOARD_TABS = [
   { id: "overview", label: "Overview", icon: LayoutGrid },
@@ -47,7 +49,7 @@ export function ExecutiveDashboard({ data, tab = "overview" }: { data: Dashboard
   }
 
   const periodId = data.state === "ready" ? data.period.id : undefined;
-  const filters = <DashboardFilters plans={data.plans} planId={data.plan.id} periods={data.periods} periodId={periodId} tab={tab} />;
+  const filters = <DashboardFilters plans={data.plans} planId={data.plan.id} periods={data.periods} periodId={periodId} view={data.state === "ready" ? data.view : "period"} tab={tab} />;
 
   if (data.state === "no-period") {
     return (
@@ -72,6 +74,9 @@ export function ExecutiveDashboard({ data, tab = "overview" }: { data: Dashboard
               <span className="font-medium text-foreground">{data.plan.name}</span>
               <span aria-hidden>·</span>
               <span>As of {shortDate(data.period.endDate)}</span>
+              {data.view === "cumulative" && (
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">Cumulative to date · latest approved report per activity</span>
+              )}
               {data.periodOpen && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:text-amber-300">
                   <CalendarClock className="h-3 w-3" /> In progress · approved reports so far
@@ -83,17 +88,20 @@ export function ExecutiveDashboard({ data, tab = "overview" }: { data: Dashboard
         right={filters}
       />
 
-      <TabNav active={tab} planId={data.plan.id} periodId={data.period.id} />
+      <TabNav active={tab} planId={data.plan.id} periodId={data.period.id} view={data.view} />
 
       {tab === "overview" && <OverviewTab data={data} m={m} />}
       {tab === "pillars" && <PillarsTab m={m} />}
       {tab === "initiatives" && <InitiativesTab m={m} />}
-      {tab === "delivery" && <DeliveryTab m={m} planId={data.plan.id} periodId={data.period.id} />}
+      {tab === "delivery" && <DeliveryTab m={m} planId={data.plan.id} periodId={data.period.id} view={data.view} />}
       {tab === "streams" && <StreamsTab m={m} previous={data.previousMetrics} />}
 
       <p className="px-1 text-xs leading-relaxed text-muted-foreground">
         Every figure is cumulative from the start of the plan year to the end of the selected reporting period. Achievement = weighted actual ÷ weighted plan,
-        from approved reports only; planned activities without an approved report count as zero. Delay penalty: −10% after 30 days late, −20% after 60, −50% after 90.
+        {data.view === "cumulative"
+          ? " using each activity's latest approved report from any period up to this one (measured against the plan to this period's end); activities never approved count as zero."
+          : " from approved reports for this period only; planned activities without an approved report count as zero."}{" "}
+        Delay penalty: −10% after 30 days late, −20% after 60, −50% after 90.
       </p>
     </div>
   );
@@ -127,14 +135,14 @@ function TopBar({ left, right }: { left: React.ReactNode; right?: React.ReactNod
   );
 }
 
-function TabNav({ active, planId, periodId }: { active: DashboardTab; planId: string; periodId: string }) {
+function TabNav({ active, planId, periodId, view }: { active: DashboardTab; planId: string; periodId: string; view: DashboardView }) {
   return (
     <nav aria-label="Dashboard sections" className="-mx-1 overflow-x-auto px-1 pb-1">
       <div className="inline-flex min-w-max gap-1 rounded-2xl bg-muted/70 p-1">
         {DASHBOARD_TABS.map(t => {
           const Icon = t.icon;
           const on = t.id === active;
-          const search = new URLSearchParams({ plan: planId, period: periodId, ...(t.id === "overview" ? {} : { tab: t.id }) });
+          const search = new URLSearchParams({ plan: planId, period: periodId, ...(view === "cumulative" ? { view } : {}), ...(t.id === "overview" ? {} : { tab: t.id }) });
           return (
             <Link
               key={t.id}
@@ -188,8 +196,8 @@ function OverviewTab({ data, m }: { data: Extract<DashboardData, { state: "ready
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
-        <PillarList pillars={m.pillars} planId={data.plan.id} periodId={data.period.id} />
-        <AttentionTable initiatives={m.initiatives} planId={data.plan.id} periodId={data.period.id} className="lg:col-span-2" />
+        <PillarList pillars={m.pillars} planId={data.plan.id} periodId={data.period.id} view={data.view} />
+        <AttentionTable initiatives={m.initiatives} planId={data.plan.id} periodId={data.period.id} view={data.view} className="lg:col-span-2" />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -318,12 +326,12 @@ function HighlightCard({ label, icon, highlight, pillar, note }: { label: string
   );
 }
 
-function PillarList({ pillars, planId, periodId }: { pillars: PillarSummary[]; planId: string; periodId: string }) {
+function PillarList({ pillars, planId, periodId, view }: { pillars: PillarSummary[]; planId: string; periodId: string; view: DashboardView }) {
   return (
     <SectionCard
       title="Pillars"
       description="Achievement against the period plan"
-      action={<Link href={`/?plan=${planId}&period=${periodId}&tab=pillars`} scroll={false} className="text-xs text-muted-foreground transition hover:text-foreground">View all</Link>}
+      action={<Link href={`/?plan=${planId}&period=${periodId}${viewParam(view)}&tab=pillars`} scroll={false} className="text-xs text-muted-foreground transition hover:text-foreground">View all</Link>}
     >
       <ul className="divide-y">
         {pillars.map(p => {
@@ -355,7 +363,7 @@ function PillarList({ pillars, planId, periodId }: { pillars: PillarSummary[]; p
   );
 }
 
-function AttentionTable({ initiatives, planId, periodId, className }: { initiatives: InitiativeSummary[]; planId: string; periodId: string; className?: string }) {
+function AttentionTable({ initiatives, planId, periodId, view, className }: { initiatives: InitiativeSummary[]; planId: string; periodId: string; view: DashboardView; className?: string }) {
   const rows = initiatives
     .filter(i => i.summary.rollup.weightedPlan > 0)
     .sort((a, b) => (a.summary.rollup.achievedResult ?? 0) - (b.summary.rollup.achievedResult ?? 0))
@@ -365,7 +373,7 @@ function AttentionTable({ initiatives, planId, periodId, className }: { initiati
       className={className}
       title="Initiatives to watch"
       description="Initiatives with a plan this period, weakest first"
-      action={<Link href={`/?plan=${planId}&period=${periodId}&tab=initiatives`} scroll={false} className="inline-flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground">All initiatives <ArrowRight className="h-3 w-3" /></Link>}
+      action={<Link href={`/?plan=${planId}&period=${periodId}${viewParam(view)}&tab=initiatives`} scroll={false} className="inline-flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground">All initiatives <ArrowRight className="h-3 w-3" /></Link>}
     >
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">No initiative has a plan for this period.</p>

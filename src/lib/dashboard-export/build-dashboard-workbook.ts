@@ -31,7 +31,7 @@ function summaryCells(s: Summary, kind: 'row' | 'group' | 'total'): StyledCell[]
 export function buildDashboardWorkbook(data: Ready, charts: Record<ChartKey, ChartImage>, generatedAt = new Date()): Buffer {
   const m = data.metrics;
   const asOf = day(data.period.endDate);
-  const subtitle = `${data.plan.name} · As of ${asOf} (${data.period.name}) · Generated ${generatedAt.toLocaleString('en-GB', { timeZone: 'Africa/Addis_Ababa' })}`;
+  const subtitle = `${data.plan.name} · As of ${asOf} (${data.period.name}${data.view === 'cumulative' ? ', cumulative to date' : ''}) · Generated ${generatedAt.toLocaleString('en-GB', { timeZone: 'Africa/Addis_Ababa' })}`;
   const chart = (key: ChartKey, name: string) => ({ ...charts[key], name });
 
   // --- Overview -------------------------------------------------------------

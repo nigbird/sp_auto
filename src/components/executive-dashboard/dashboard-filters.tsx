@@ -6,14 +6,17 @@ import { CalendarDays, ChevronDown, FileSpreadsheet, FileText, Loader2, Upload }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { usePermissions } from "@/components/permissions-provider";
-import type { DashboardPeriodOption, DashboardPlanOption } from "@/lib/dashboard-data";
+import { cn } from "@/lib/utils";
+import type { DashboardPeriodOption, DashboardPlanOption, DashboardView } from "@/lib/dashboard-data";
 
 /** Plan and period pickers plus export. Changing a picker reloads the dashboard for that selection from the server. */
-export function DashboardFilters({ plans, planId, periods, periodId, tab }: {
+export function DashboardFilters({ plans, planId, periods, periodId, view = "period", tab }: {
   plans: DashboardPlanOption[];
   planId?: string;
   periods: DashboardPeriodOption[];
   periodId?: string;
+  /** This period's reports only, or each activity's latest approved report up to the period. */
+  view?: DashboardView;
   /** The active dashboard tab, kept when the plan or period changes. */
   tab?: string;
 }) {
@@ -21,19 +24,43 @@ export function DashboardFilters({ plans, planId, periods, periodId, tab }: {
   const { can } = usePermissions();
   const [pending, startTransition] = useTransition();
 
-  const go = (params: Record<string, string | undefined>) => {
+  const go = (params: Record<string, string | undefined>, nextView: DashboardView = view) => {
     const search = new URLSearchParams();
-    for (const [k, v] of Object.entries({ ...params, tab: tab && tab !== "overview" ? tab : undefined })) if (v) search.set(k, v);
+    for (const [k, v] of Object.entries({ ...params, view: nextView === "cumulative" ? nextView : undefined, tab: tab && tab !== "overview" ? tab : undefined })) if (v) search.set(k, v);
     startTransition(() => router.push(`/?${search.toString()}`));
   };
 
   const exportBase = planId ? `/api/export/plan/${planId}${periodId ? `?period=${periodId}` : ""}` : null;
-  const dashboardQuery = new URLSearchParams({ ...(planId ? { plan: planId } : {}), ...(periodId ? { period: periodId } : {}) }).toString();
+  const dashboardQuery = new URLSearchParams({ ...(planId ? { plan: planId } : {}), ...(periodId ? { period: periodId } : {}), ...(view === "cumulative" ? { view } : {}) }).toString();
   const now = Date.now();
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       {pending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-label="Loading" />}
+
+      {periods.length > 0 && (
+        <div role="radiogroup" aria-label="Results" className="inline-flex h-10 items-center rounded-xl border border-border/70 bg-card p-1 shadow-sm">
+          {([
+            { id: "period", label: "This period", hint: "Only reports submitted for the selected period" },
+            { id: "cumulative", label: "Cumulative to date", hint: "Each activity's latest approved report from any period up to the selected one" },
+          ] as const).map(o => (
+            <button
+              key={o.id}
+              type="button"
+              role="radio"
+              aria-checked={view === o.id}
+              title={o.hint}
+              onClick={() => view !== o.id && go({ plan: planId, period: periodId }, o.id)}
+              className={cn(
+                "h-full rounded-lg px-3 text-xs font-medium transition",
+                view === o.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {plans.length > 1 && (
         <Select value={planId} onValueChange={id => go({ plan: id })}>

@@ -27,6 +27,7 @@ import { Pagination, usePagination } from "../list-controls";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { usePermissions } from "@/components/permissions-provider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { DashboardView } from "@/lib/dashboard-data";
 
 // Radix Select can't use "" as a value.
 const ALL_STREAMS = "__all__";
@@ -75,7 +76,7 @@ function Days({ value, late }: { value: number | null; late: boolean }) {
  * per work stream and initiative (worst delay), expanding to its activities.
  * Filterable by activity status, delivery, stream and text; exports as filtered.
  */
-export function ActivityDelayTable({ rows, planId, periodId }: { rows: ActivityDelayRow[]; planId: string; periodId: string }) {
+export function ActivityDelayTable({ rows, planId, periodId, view }: { rows: ActivityDelayRow[]; planId: string; periodId: string; view: DashboardView }) {
   const { can } = usePermissions();
   const canExport = can("reports:export") && (can("dashboard:view") || can("dashboard:view-own"));
   const [filter, setFilter] = useState<DelayTableFilter>(EMPTY_DELAY_FILTER);
@@ -92,7 +93,7 @@ export function ActivityDelayTable({ rows, planId, periodId }: { rows: ActivityD
   const pagination = usePagination(groups, JSON.stringify(filter), 25);
 
   const isFiltered = filter.statuses.length + filter.deliveries.length > 0 || !!filter.stream || !!filter.search.trim();
-  const exportQuery = delayFilterToParams(filter, new URLSearchParams({ plan: planId, period: periodId })).toString();
+  const exportQuery = delayFilterToParams(filter, new URLSearchParams({ plan: planId, period: periodId, ...(view === "cumulative" ? { view } : {}) })).toString();
   const allCollapsed = groups.length > 0 && groups.every(g => collapsed.has(g.key));
   const toggleGroup = (key: string) => setCollapsed(prev => {
     const next = new Set(prev);

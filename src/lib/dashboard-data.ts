@@ -23,6 +23,17 @@ export interface TrendPoint {
   initiativesCompleted: number;
 }
 
+/**
+ * 'period': only reports submitted for the selected period count.
+ * 'cumulative': each activity uses its latest approved report from any period up to the selected one,
+ * so results reported earlier still count while the selected period's reports come in.
+ */
+export type DashboardView = 'period' | 'cumulative';
+
+export function isDashboardView(value: string | null | undefined): value is DashboardView {
+  return value === 'period' || value === 'cumulative';
+}
+
 interface Context {
   userName: string;
   today: string;
@@ -39,6 +50,7 @@ export type DashboardData =
       plan: DashboardPlanOption;
       periods: DashboardPeriodOption[];
       period: DashboardPeriodOption;
+      view: DashboardView;
       /** The selected period hasn't ended yet: numbers show what has been approved so far. */
       periodOpen: boolean;
       metrics: DashboardMetrics;
@@ -55,7 +67,7 @@ export type DashboardData =
  * has been sent, else the latest period that has ended, else the one in progress).
  * Only the fields the calculation needs are selected — no user records leave the server.
  */
-export async function loadDashboard(planId?: string, periodId?: string): Promise<DashboardData> {
+export async function loadDashboard(planId?: string, periodId?: string, view: DashboardView = 'period'): Promise<DashboardData> {
   const user = await requireUser();
   // The full dashboard needs dashboard:view; with only dashboard:view-own it covers the user's own activities.
   const scope = userCan(user, 'dashboard:view') ? 'all' : userCan(user, 'dashboard:view-own') ? 'own' : null;
@@ -210,11 +222,24 @@ export async function loadDashboard(planId?: string, periodId?: string): Promise
     entriesByPeriod.set(e.reportingPeriodId, list);
   }
 
+  // Cumulative view: per activity, the latest approved entry up to each period (else that period's own entry, if any).
+  const entriesFor = (index: number): MetricEntry[] => {
+    if (view === 'period') return entriesByPeriod.get(history[index].id) ?? [];
+    const latest = new Map<string, MetricEntry>();
+    for (const p of history.slice(0, index + 1)) {
+      for (const e of entriesByPeriod.get(p.id) ?? []) {
+        const kept = latest.get(e.activityId);
+        if (!kept || e.reportStatus === 'APPROVED' || kept.reportStatus !== 'APPROVED') latest.set(e.activityId, e);
+      }
+    }
+    return [...latest.values()];
+  };
+
   let metrics: DashboardMetrics | null = null;
   let previousMetrics: DashboardMetrics | null = null;
   const previousPeriodId = history.length > 1 ? history[history.length - 2].id : null;
-  const trend: TrendPoint[] = history.map(p => {
-    const m = computeDashboard(pillars, entriesByPeriod.get(p.id) ?? [], p, ratingThresholds);
+  const trend: TrendPoint[] = history.map((p, index) => {
+    const m = computeDashboard(pillars, entriesFor(index), p, ratingThresholds);
     if (p.id === period.id) metrics = m;
     if (p.id === previousPeriodId) previousMetrics = m;
     const { rollup, coverage, yearProgress } = m.overall;
@@ -239,8 +264,9 @@ export async function loadDashboard(planId?: string, periodId?: string): Promise
     plan,
     periods,
     period,
+    view,
     periodOpen: new Date(period.endDate).getTime() > now,
-    metrics: metrics ?? computeDashboard(pillars, entriesByPeriod.get(period.id) ?? [], period, ratingThresholds),
+    metrics: metrics ?? computeDashboard(pillars, entriesFor(history.length - 1), period, ratingThresholds),
     trend,
     previousMetrics,
     ...context,

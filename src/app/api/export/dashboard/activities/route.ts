@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth/session';
 import { userCan } from '@/lib/auth/permissions-server';
 import { recordAudit } from '@/lib/auth/audit';
-import { loadDashboard } from '@/lib/dashboard-data';
+import { isDashboardView, loadDashboard } from '@/lib/dashboard-data';
 import { delayFilterFromParams, describeDelayFilter, filterDelayRows } from '@/lib/activity-delay-table';
 import { buildActivityDelayPdf, buildActivityDelayWorkbook } from '@/lib/dashboard-export/activity-delay-export';
 
@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
 
   const params = request.nextUrl.searchParams;
   // loadDashboard limits a dashboard:view-own user to their own activities.
-  const data = await loadDashboard(params.get('plan') ?? undefined, params.get('period') ?? undefined);
+  const view = params.get('view');
+  const data = await loadDashboard(params.get('plan') ?? undefined, params.get('period') ?? undefined, isDashboardView(view) ? view : 'period');
   if (data.state !== 'ready') {
     return NextResponse.json({ error: data.state === 'no-plan' ? 'There is no strategic plan to export.' : 'This plan has no reporting period yet.' }, { status: 404 });
   }
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
   const filter = delayFilterFromParams(params);
   const rows = filterDelayRows(data.metrics.activityDelayRows, filter);
   const asOf = new Date(data.period.endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
-  const subtitle = `${data.plan.name} · As of ${asOf} (${data.period.name})`;
+  const subtitle = `${data.plan.name} · As of ${asOf} (${data.period.name}${data.view === 'cumulative' ? ', cumulative to date' : ''})`;
   const asPdf = params.get('format') === 'pdf';
   const buffer = asPdf
     ? buildActivityDelayPdf(rows, 'Activity delays', subtitle, describeDelayFilter(filter))
