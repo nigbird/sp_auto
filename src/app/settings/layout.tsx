@@ -16,7 +16,7 @@ export default async function SettingsLayout({ children }: { children: React.Rea
         tabs={[
           { href: "/settings/reporting-periods", label: "Reporting Periods" },
           { href: "/settings/rules", label: "Performance Rules" },
-          { href: "/settings/organization", label: "Departments & Lead Owners" },
+          { href: "/settings/organization", label: "Lead Owners" },
         ]}
       />
       {children}

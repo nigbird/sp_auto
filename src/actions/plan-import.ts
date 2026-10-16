@@ -12,7 +12,6 @@ import { monthKey, monthLabel } from '@/lib/monthly-breakdown';
 
 export interface LeadOwnerMapping {
   userId: string;
-  department: string;
 }
 
 export interface PlanImportOptions {
@@ -20,7 +19,7 @@ export interface PlanImportOptions {
   version: string;
   startYear: number;
   endYear: number;
-  /** Excel "Lead/ Owner (Activity)" title → the app user and department it stands for. */
+  /** Excel "Lead/ Owner (Activity)" title → the app user who holds that office. */
   leadOwners: Record<string, LeadOwnerMapping>;
   /** Import the sheet's monthly values as already-approved breakdowns. */
   importBreakdowns: boolean;
@@ -59,7 +58,7 @@ export async function previewPlanImport(formData: FormData): Promise<PreviewResu
 /**
  * Step 2: re-read the same workbook on the server (so what's saved is exactly
  * what the sheet says) and create the plan as a DRAFT, with every lead owner
- * mapped to a user and department. Everything is written in one transaction —
+ * mapped to the user who holds it. Everything is written in one transaction —
  * a failure leaves nothing half-imported.
  */
 export async function importStrategicPlan(formData: FormData): Promise<ImportResult> {
@@ -97,7 +96,6 @@ export async function importStrategicPlan(formData: FormData): Promise<ImportRes
     const mapping = options.leadOwners?.[title];
     if (!mapping?.userId) problems.push(`Pick the user for "${title}".`);
     else if (!users.has(mapping.userId)) problems.push(`The user picked for "${title}" no longer exists.`);
-    if (!mapping?.department?.trim()) problems.push(`Pick or enter the department for "${title}".`);
   }
 
   const periods = Array.isArray(options.periods) ? options.periods : [];

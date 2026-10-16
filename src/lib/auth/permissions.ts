@@ -72,7 +72,7 @@ export const PERMISSION_GROUPS = [
     title: 'Configuration',
     permissions: [
       { id: 'settings:view', label: 'View configuration' },
-      { id: 'settings:manage', label: 'Change reporting periods, rules, departments and lead owners' },
+      { id: 'settings:manage', label: 'Change reporting periods, rules and lead owners' },
     ],
   },
   {

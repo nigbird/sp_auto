@@ -20,7 +20,6 @@ import { EmptyState } from "@/components/empty-state";
 export interface PendingActivityPlan {
   id: string;
   title: string;
-  department: string;
   leadOwner?: string | null;
   collaborators?: string[];
   deliverable: string | null;
@@ -90,7 +89,7 @@ export function PlanApprovalList({ plans: initialPlans }: { plans: PendingActivi
   const narrowed = query.trim() !== "" || isRangeSet(range);
   const matching = plans.filter(p =>
     overlapsDateRange(p.startDate, p.endDate, range) &&
-    matchesSearch(query, p.title, p.leadOwner, p.department, ...(p.collaborators ?? []), p.responsible?.name, p.initiative?.title, p.deliverable));
+    matchesSearch(query, p.title, p.leadOwner, ...(p.collaborators ?? []), p.responsible?.name, p.initiative?.title, p.deliverable));
   const pagination = usePagination(matching, `${query}|${range.from}|${range.to}`);
 
   if (plans.length === 0) {
@@ -128,7 +127,7 @@ export function PlanApprovalList({ plans: initialPlans }: { plans: PendingActivi
                 </p>
               )}
               <p className="text-sm text-muted-foreground">
-                {plan.leadOwner || plan.department} · {plan.responsible?.name ?? "Unassigned"}{plan.collaborators?.length ? ` · with ${plan.collaborators.join(", ")}` : ""} · {format(new Date(plan.startDate), "PP")} – {format(new Date(plan.endDate), "PP")}
+                {plan.leadOwner || "—"} · {plan.responsible?.name ?? "Unassigned"}{plan.collaborators?.length ? ` · with ${plan.collaborators.join(", ")}` : ""} · {format(new Date(plan.startDate), "PP")} – {format(new Date(plan.endDate), "PP")}
               </p>
               {plan.deliverable && <p className="text-sm"><span className="font-medium">Deliverable:</span> {plan.deliverable}</p>}
             </div>

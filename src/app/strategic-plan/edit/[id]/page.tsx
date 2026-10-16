@@ -1,7 +1,6 @@
 import { guardPage } from "@/lib/auth/page-guard";
 
 import { getUsers }from "@/actions/users";
-import { getDepartments } from "@/actions/departments";
 import { getStrategicPlanById } from "@/actions/strategic-plan";
 import { EditPlanClient } from "@/components/strategic-plan/edit-plan-client";
 import type { User } from "@/lib/types";
@@ -18,12 +17,9 @@ export default async function EditStrategicPlanPage({ params }: { params: Promis
         notFound();
     }
 
-    const departmentList = await getDepartments();
-
-    const users = userList.map(u => ({ id: u.id, name: u.name, leadOwner: u.leadOwner ?? null, department: u.department ?? null }));
-    const departments = departmentList.map(d => d.name);
+    const users = userList.map(u => ({ id: u.id, name: u.name, leadOwner: u.leadOwner ?? null }));
 
     return (
-        <EditPlanClient users={users} departments={departments} plan={plan} />
+        <EditPlanClient users={users} plan={plan} />
     );
 }

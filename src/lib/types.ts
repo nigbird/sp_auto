@@ -58,7 +58,6 @@ export type User = {
   /** The lead-owner office the person holds, if any. */
   leadOwnerId?: string | null;
   leadOwner?: string | null;
-  department?: string | null;
   lastLoginAt?: Date | null;
   /** True until the user signs in for the first time; the invitation can be resent meanwhile. */
   invitePending?: boolean;

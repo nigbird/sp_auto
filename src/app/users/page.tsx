@@ -69,7 +69,7 @@ export default function UsersPage() {
   const narrowed = query.trim() !== "" || isRangeSet(range);
   const matchingUsers = users.filter(u =>
     inDateRange(u.createdAt, range) &&
-    matchesSearch(query, u.name, u.email, u.role, u.leadOwner, u.department, statusLabel(u.status)));
+    matchesSearch(query, u.name, u.email, u.role, u.leadOwner, statusLabel(u.status)));
   const userPages = usePagination(matchingUsers, `${query}|${range.from}|${range.to}`);
 
   /** Tells the admin the invite went out, or hands them the link when it couldn't be emailed. */
@@ -139,8 +139,7 @@ export default function UsersPage() {
       name: values.name,
       email: values.email,
       roleId: values.roleId,
-      leadOwnerId: values.leadOwnerId || null,
-      department: values.department || null,
+      leadOwnerId: values.leadOwnerId || null,
     });
     if (!result.success) return result; // shown on the form so it can be corrected
     setUsers(await getUsers());
@@ -161,8 +160,7 @@ export default function UsersPage() {
       await updateUser(selectedUser.email, {
         name: values.name,
         roleId: values.roleId,
-        leadOwnerId: values.leadOwnerId || null,
-        department: values.department || null,
+        leadOwnerId: values.leadOwnerId || null,
       });
     } catch (error) {
       return { message: describeError(error, "Could not save the changes. Please try again.") };
@@ -195,7 +193,7 @@ export default function UsersPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <ListToolbar count={narrowed ? `${matchingUsers.length} of ${users.length} users match` : `${users.length} users`}>
-            <SearchBox value={query} onChange={setQuery} placeholder="Search name, email, role, lead owner or department" className="sm:w-96" />
+            <SearchBox value={query} onChange={setQuery} placeholder="Search name, email, role or lead owner" className="sm:w-96" />
             <DateRangeFilter value={range} onChange={setRange} label="Any creation date" hint="Shows users created in this range." />
             {narrowed && <Button variant="ghost" className="h-9 px-3" onClick={() => { setQuery(""); setRange({}); }}>Reset</Button>}
           </ListToolbar>
@@ -205,8 +203,7 @@ export default function UsersPage() {
               <TableRow className="hover:bg-transparent">
                 <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">User</TableHead>
                 <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Role</TableHead>
-                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Lead Owner</TableHead>
-                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Department</TableHead>
+                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Lead Owner</TableHead>
                 <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Status</TableHead>
                 <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Created At</TableHead>
                 <TableHead><span className="sr-only">Actions</span></TableHead>
@@ -215,13 +212,13 @@ export default function UsersPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={6} className="h-24 text-center">
                     Loading users...
                   </TableCell>
                 </TableRow>
               ) : matchingUsers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                     {narrowed ? "No users match the search or dates." : "No users yet."}
                   </TableCell>
                 </TableRow>
@@ -241,8 +238,7 @@ export default function UsersPage() {
                         </div>
                     </TableCell>
                   <TableCell className="text-sm text-foreground/90">{user.role}</TableCell>
-                  <TableCell className="max-w-[220px] text-sm text-foreground/90">{user.leadOwner ?? <span className="text-muted-foreground">—</span>}</TableCell>
-                  <TableCell className="text-sm text-foreground/90">{user.department ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                  <TableCell className="max-w-[220px] text-sm text-foreground/90">{user.leadOwner ?? <span className="text-muted-foreground">—</span>}</TableCell>
                    <TableCell>
                     <Badge variant="outline" className={cn("whitespace-nowrap font-medium", user.status === 'ACTIVE' ? "border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-700" : "border-border/60 bg-muted/60 text-muted-foreground")}>
                       {statusLabel(user.status)}

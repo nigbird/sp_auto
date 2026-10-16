@@ -58,7 +58,7 @@ async function activitiesNeedingReport(period: { id: string; strategicPlanId: st
         include: {
             monthlyTargets: true,
             periodEntries: { where: { reportingPeriodId: period.id } },
-            responsible: { select: { id: true, name: true, department: true, leadOwner: { select: { name: true } } } },
+            responsible: { select: { id: true, name: true, leadOwner: { select: { name: true } } } },
         },
         orderBy: { title: 'asc' },
     });
@@ -71,7 +71,7 @@ export type ReportRequestState = 'waiting' | 'requested' | 'submitted' | 'approv
 export interface ReportRecipient {
     id: string;
     name: string;
-    /** Lead-owner office or department, to tell people apart. */
+    /** Lead-owner office, to tell people apart. */
     office: string;
     activities: { id: string; title: string; state: ReportRequestState }[];
 }
@@ -91,7 +91,7 @@ export async function getReportRequestRecipients(periodId: string): Promise<{ su
     const owners = new Map<string, ReportRecipient>();
     for (const a of await activitiesNeedingReport(period)) {
         const person = a.responsible;
-        const owner = owners.get(person.id) ?? { id: person.id, name: person.name, office: person.leadOwner?.name || person.department || a.leadOwner || a.department || '—', activities: [] };
+        const owner = owners.get(person.id) ?? { id: person.id, name: person.name, office: person.leadOwner?.name || a.leadOwner || '—', activities: [] };
         owner.activities.push({ id: a.id, title: a.title, state: requestStateOf(a.periodEntries[0]?.reportStatus) });
         owners.set(person.id, owner);
     }

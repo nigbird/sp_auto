@@ -39,7 +39,6 @@ function activityData(a: PlanActivity) {
         description: a.description ?? '',
         deliverable: a.deliverable?.trim() || null,
         leadOwner: a.leadOwner?.trim() || null,
-        department: a.department ?? '',
         collaborators: Array.from(new Set((a.collaborators ?? []).map(c => c.trim()).filter(Boolean))),
         responsibleId: a.responsible,
         startDate: new Date(a.startDate),

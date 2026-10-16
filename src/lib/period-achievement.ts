@@ -50,7 +50,7 @@ export function computeDelayAdjustedAchievement(
  * Mirrors AR/AT: the activity's full weight is only earned once achievement
  * reaches 100%; below that the weight is scaled down by the achievement
  * ratio. Duplicate rows (countsTowardWeight === false) contribute nothing,
- * so a shared activity's weight isn't counted once per owning department.
+ * so a shared activity's weight isn't counted once per owning office.
  */
 export function computeWeightedContribution(
   activity: ActivityLike,

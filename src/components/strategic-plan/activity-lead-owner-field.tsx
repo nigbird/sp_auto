@@ -8,11 +8,11 @@ import { getLeadOwners } from "@/actions/lead-owners";
 
 const NONE = "__none__";
 
-export type PlanPerson = { id: string; name: string; leadOwner?: string | null; department?: string | null };
+export type PlanPerson = { id: string; name: string; leadOwner?: string | null };
 
 let cached: Promise<string[]> | null = null;
-/** The Configuration → Departments & Lead Owners list, loaded once per page. */
-function useLeadOwnerNames() {
+/** The Configuration → Lead Owners list, loaded once per page. */
+export function useLeadOwnerNames() {
   const [names, setNames] = React.useState<string[]>([]);
   React.useEffect(() => {
     cached ??= getLeadOwners().then(list => list.map(l => l.name)).catch(() => []);
@@ -48,13 +48,11 @@ export function ActivityLeadOwnerField({ form, name }: { form: UseFormReturn<any
 }
 
 /**
- * When the responsible person changes, bring along their office and
- * department (if their department is on the list) — the usual case, which
- * the planner can still override.
+ * When the responsible person changes, bring along their office as the lead
+ * owner — the usual case, which the planner can still override.
  */
-export function applyResponsibleDefaults(form: UseFormReturn<any>, activityPath: string, userId: string, users: PlanPerson[], departments: string[]) {
+export function applyResponsibleDefaults(form: UseFormReturn<any>, activityPath: string, userId: string, users: PlanPerson[]) {
   const person = users.find(u => u.id === userId);
   if (!person) return;
   if (person.leadOwner) form.setValue(`${activityPath}.leadOwner`, person.leadOwner, { shouldDirty: true });
-  if (person.department && departments.includes(person.department)) form.setValue(`${activityPath}.department`, person.department, { shouldDirty: true, shouldValidate: true });
 }

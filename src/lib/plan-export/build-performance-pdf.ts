@@ -4,7 +4,7 @@ import { cleanPdfCell, pdfText } from '@/lib/pdf-text';
 import { monthKey, formatTargetValue, type TargetAggregation, type TargetType } from '@/lib/monthly-breakdown';
 import { computeReportRow, formatRatio, formatWeight, rollUp, type ReportRow } from '@/lib/report-calculations';
 import { attentionItems, delayedActivities, trendChange, type PerformanceTrend } from '@/lib/performance-insights';
-import { officeOf } from '@/lib/performance-report';
+import { collaboratorsOf, officeOf } from '@/lib/performance-report';
 import type { ExportEntry, ExportPeriod, ExportPlan } from './build-plan-workbook';
 
 const day = (d: Date | string) => new Date(d).toISOString().slice(0, 10);
@@ -89,7 +89,7 @@ export function buildPerformancePdf(plan: ExportPlan, period: ExportPeriod | nul
     const insights = lines
       .filter(l => l.entry && l.entry.reportStatus !== 'NOT_REQUESTED')
       .map(l => ({
-        title: l.activity.title, initiative: l.initiative, owner: l.activity.responsible?.name ?? '', office: officeOf(l.activity),
+        title: l.activity.title, initiative: l.initiative, owner: l.activity.responsible?.name ?? '', office: officeOf(l.activity), collaborators: collaboratorsOf(l.activity).join(', '),
         endDate: l.activity.endDate, reportStatus: l.entry!.reportStatus, row: l.row, completionDate: l.entry!.completionDate,
         reasonForVariation: l.entry!.reasonForVariation, wayForward: l.entry!.wayForward, escalationIssues: l.entry!.escalationIssues,
       }));
@@ -120,10 +120,10 @@ export function buildPerformancePdf(plan: ExportPlan, period: ExportPeriod | nul
     autoTable(doc, {
       didParseCell: cleanPdfCell,
       startY: 22,
-      head: [['Activity', 'Initiative', 'Lead owner', 'Responsible', 'Due date', 'Completed', 'Days delayed', 'Delay']],
+      head: [['Activity', 'Initiative', 'Lead owner', 'Collaborating unit', 'Responsible', 'Due date', 'Completed', 'Days delayed', 'Delay']],
       body: delayed.length
-        ? delayed.map(d => [d.activity, d.initiative, d.office, d.owner, day(d.dueDate), d.completionDate ? day(d.completionDate) : '', String(d.daysDelayed), d.kind])
-        : [[{ content: 'No delayed activities in this report.', colSpan: 8 }]],
+        ? delayed.map(d => [d.activity, d.initiative, d.office, d.collaborators, d.owner, day(d.dueDate), d.completionDate ? day(d.completionDate) : '', String(d.daysDelayed), d.kind])
+        : [[{ content: 'No delayed activities in this report.', colSpan: 9 }]],
       styles: { fontSize: 7, cellPadding: 1.2 },
       headStyles: { fillColor: [217, 119, 6] },
       columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 60 } },
@@ -135,13 +135,13 @@ export function buildPerformancePdf(plan: ExportPlan, period: ExportPeriod | nul
     autoTable(doc, {
       didParseCell: cleanPdfCell,
       startY: 18,
-      head: [['Activity', 'Lead owner', 'Status', "Achiev't", 'Challenges / Reasons for variation', 'Way forward', 'Issues that need escalation']],
+      head: [['Activity', 'Lead owner', 'Collaborating unit', 'Status', "Achiev't", 'Challenges / Reasons for variation', 'Way forward', 'Issues that need escalation']],
       body: attention.length
-        ? attention.map(a => [a.activity, a.office, a.status, formatRatio(a.achievement), a.challenge, a.wayForward, a.escalation])
-        : [[{ content: 'No challenges or escalation issues were reported in approved reports.', colSpan: 7 }]],
+        ? attention.map(a => [a.activity, a.office, a.collaborators, a.status, formatRatio(a.achievement), a.challenge, a.wayForward, a.escalation])
+        : [[{ content: 'No challenges or escalation issues were reported in approved reports.', colSpan: 8 }]],
       styles: { fontSize: 7, cellPadding: 1.2 },
       headStyles: { fillColor: [217, 119, 6] },
-      columnStyles: { 0: { cellWidth: 55 }, 4: { cellWidth: 55 }, 5: { cellWidth: 45 }, 6: { cellWidth: 50 } },
+      columnStyles: { 0: { cellWidth: 45 }, 2: { cellWidth: 35 }, 5: { cellWidth: 50 }, 6: { cellWidth: 40 }, 7: { cellWidth: 45 } },
     });
   }
 

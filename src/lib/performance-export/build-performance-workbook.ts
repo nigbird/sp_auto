@@ -76,7 +76,7 @@ export interface PerformanceWorkbookInput {
 /** The report's activities with their initiative, for the delay and attention sheets. */
 function insightActivities(pillars: TreePillar<ReportActivity>[]): InsightActivity[] {
   return pillars.flatMap(p => p.objectives.flatMap(o => o.initiatives.flatMap(i => i.activities.map(a => ({
-    title: a.title, initiative: i.title, owner: a.owner, office: a.office, endDate: a.endDate,
+    title: a.title, initiative: i.title, owner: a.owner, office: a.office, collaborators: a.collaborators.join(", "), endDate: a.endDate,
     reportStatus: a.state, row: a.row, completionDate: a.entry.completionDate,
     reasonForVariation: a.entry.reasonForVariation, wayForward: a.entry.wayForward, escalationIssues: a.entry.escalationIssues,
   })))));
@@ -172,8 +172,8 @@ export function buildPerformanceWorkbook({ planName, period, pillars, filters, t
   }
 
   // --- Report -------------------------------------------------------------------
-  const lead = ['Major Activities', 'Lead owner', 'Responsible', 'Report status'];
-  const rp = new SheetBuilder('Performance Report', [56, 24, 22, 17, 12, 12, 11, 12, 10, 12, 42, 42, 42, 42, 11, 11, 12, 12, 11, 11, 24]);
+  const lead = ['Major Activities', 'Lead owner', 'Collaborating unit', 'Responsible', 'Report status'];
+  const rp = new SheetBuilder('Performance Report', [56, 24, 30, 22, 17, 12, 12, 11, 12, 10, 12, 42, 42, 42, 42, 11, 11, 12, 12, 11, 11, 24]);
   rp.row([{ v: 'Performance Report', role: 'title' }]);
   rp.row([{ v: subtitle, role: 'subtitle' }]);
   rp.row([{ v: `${scope} Blue columns are filled in by the activity owner; totals count approved reports only.`, role: 'subtitle' }]);
@@ -199,45 +199,45 @@ export function buildPerformanceWorkbook({ planName, period, pillars, filters, t
       for (const i of o.initiatives) {
         lineRow(i.title, i.activities, 'ini');
         for (const a of i.activities) {
-          rp.row([cell(a.title, 'wrap'), cell(a.office, 'wrap'), cell(a.owner, 'wrap'), cell(REPORT_STATE_LABEL[a.state], 'text'), ...activityCells(a)]);
+          rp.row([cell(a.title, 'wrap'), cell(a.office, 'wrap'), cell(a.collaborators.join(', '), 'wrap'), cell(a.owner, 'wrap'), cell(REPORT_STATE_LABEL[a.state], 'text'), ...activityCells(a)]);
         }
       }
     }
   }
   const last = rp.row([cell('Overall', 'total'), ...blanks(lead.length - 1 + 10, 'total'), ...rollupCells(total, 'total')]);
-  rp.autoFilter = `A${header + 1}:U${last}`; // the Overall line stays out of the filter range
+  rp.autoFilter = `A${header + 1}:V${last}`; // the Overall line stays out of the filter range
 
   // --- Delayed activities ------------------------------------------------------
-  const dl = new SheetBuilder('Delayed Activities', [56, 44, 24, 22, 17, 14, 14, 12, 16]);
+  const dl = new SheetBuilder('Delayed Activities', [56, 44, 24, 30, 22, 17, 14, 14, 12, 16]);
   dl.row([{ v: 'Delayed Activities', role: 'title' }]);
   dl.row([{ v: subtitle, role: 'subtitle' }]);
   dl.row([{ v: `${scope} Overdue = past its due date at the period end with no approved completion; days counted to ${day(period.endDate)}.`, role: 'subtitle' }]);
   dl.blank();
-  const dlHeader = dl.row(['Activity', 'Initiative', 'Lead owner', 'Responsible', 'Report status', 'Due date', 'Completion date', 'Days delayed', 'Delay'], 'header');
+  const dlHeader = dl.row(['Activity', 'Initiative', 'Lead owner', 'Collaborating unit', 'Responsible', 'Report status', 'Due date', 'Completion date', 'Days delayed', 'Delay'], 'header');
   dl.rowHeights.set(dlHeader, 32);
   dl.freezeRows = dlHeader + 1;
   if (delayed.length === 0) dl.row([cell('No delayed activities in this report.', 'text')]);
   for (const d of delayed) {
     dl.row([
-      cell(d.activity, 'wrap'), cell(d.initiative, 'wrap'), cell(d.office, 'wrap'), cell(d.owner, 'wrap'),
+      cell(d.activity, 'wrap'), cell(d.initiative, 'wrap'), cell(d.office, 'wrap'), cell(d.collaborators, 'wrap'), cell(d.owner, 'wrap'),
       cell(REPORT_STATE_LABEL[d.reportStatus as ReportState] ?? d.reportStatus, 'text'),
       cell(day(d.dueDate), 'text'), cell(d.completionDate ? day(d.completionDate) : '', 'text'), cell(d.daysDelayed, 'int'), cell(d.kind, 'text'),
     ]);
   }
 
   // --- Challenges and management attention -----------------------------------
-  const ma = new SheetBuilder('Management Attention', [48, 40, 22, 22, 12, 46, 46, 46]);
+  const ma = new SheetBuilder('Management Attention', [48, 40, 22, 30, 22, 12, 46, 46, 46]);
   ma.row([{ v: 'Challenges & Issues for Management Attention', role: 'title' }]);
   ma.row([{ v: subtitle, role: 'subtitle' }]);
   ma.row([{ v: `${scope} Approved reports that raise an escalation issue, or are behind plan with a reason for variation. Escalations first.`, role: 'subtitle' }]);
   ma.blank();
-  const maHeader = ma.row(['Activity', 'Initiative', 'Lead owner', 'Activity status', "%age Achiev't", 'Challenges / Reasons for Variation', 'The Way Forward', 'Issues that need Escalation'], 'header');
+  const maHeader = ma.row(['Activity', 'Initiative', 'Lead owner', 'Collaborating unit', 'Activity status', "%age Achiev't", 'Challenges / Reasons for Variation', 'The Way Forward', 'Issues that need Escalation'], 'header');
   ma.rowHeights.set(maHeader, 32);
   ma.freezeRows = maHeader + 1;
   if (attention.length === 0) ma.row([cell('No challenges or escalation issues were reported in approved reports.', 'text')]);
   for (const a of attention) {
     ma.row([
-      cell(a.activity, 'wrap'), cell(a.initiative, 'wrap'), cell(a.office, 'wrap'), cell(a.status, 'text'), cell(num(a.achievement), 'pct'),
+      cell(a.activity, 'wrap'), cell(a.initiative, 'wrap'), cell(a.office, 'wrap'), cell(a.collaborators, 'wrap'), cell(a.status, 'text'), cell(num(a.achievement), 'pct'),
       cell(a.challenge, 'wrap'), cell(a.wayForward, 'wrap'), cell(a.escalation, 'wrap'),
     ]);
   }

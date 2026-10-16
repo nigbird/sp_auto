@@ -26,14 +26,6 @@ export interface KpiInput {
     direction?: 'HIGHER_IS_BETTER' | 'LOWER_IS_BETTER';
 }
 
-async function assertValidDepartment(department: string | undefined): Promise<void> {
-    if (!department) return;
-    const match = await prisma.department.findUnique({ where: { name: department } });
-    if (!match) {
-        throw new Error(`"${department}" is not in the approved department list.`);
-    }
-}
-
 function buildKpiData(kpi: KpiInput) {
     return {
         name: kpi.name,
@@ -91,8 +83,6 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
         throw new Error('An activity must be linked to an initiative.');
     }
 
-    await assertValidDepartment(data.department);
-
     // Auto-approve when the creator can also approve activities (the same
     // authority, applied to their own submission); otherwise it's pending review.
     const approvalStatus: ApprovalStatus = (await hasPermission(creator.roleId, 'plan-approvals:approve')) ? 'APPROVED' : 'PENDING';
@@ -101,7 +91,7 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
         data: {
             title: data.title,
             description: data.description,
-            department: data.department,
+            leadOwner: data.leadOwner?.trim() || null,
             responsibleId: data.responsible, // This is already the ID
             startDate: new Date(data.startDate),
             endDate: new Date(data.endDate),
@@ -123,7 +113,7 @@ export async function createActivity(data: Omit<Activity, 'id' | 'kpis' | 'updat
     await recordAudit({
         action: 'ACTIVITY_CREATED', entityType: 'Activity', entityId: newActivity.id,
         summary: `Created activity "${newActivity.title}"${approvalStatus === 'PENDING' ? ' (pending approval)' : ''}`,
-        metadata: { strategicPlanId: data.strategicPlanId, initiativeId: data.initiativeId, responsibleId: data.responsible, weight: data.weight, department: data.department },
+        metadata: { strategicPlanId: data.strategicPlanId, initiativeId: data.initiativeId, responsibleId: data.responsible, weight: data.weight, leadOwner: data.leadOwner ?? null },
     });
 
     if (data.responsible !== creator.id) {
@@ -157,8 +147,6 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
     if (!isOwnerResubmittingDeclined && !userCan(user, 'strategic-plan:edit', 'plan-approvals:approve')) {
         throw new Error("You don't have permission to edit this activity.");
     }
-
-    await assertValidDepartment(data.department);
 
     const { kpi, deliverables, ...rest } = data;
     const activityData: any = { ...rest };

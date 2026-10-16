@@ -15,7 +15,7 @@ export interface ImportPlanSettings {
   version: string;
   startYear: number;
   endYear: number;
-  leadOwners: Record<string, { userId: string; department: string }>;
+  leadOwners: Record<string, { userId: string }>;
   importBreakdowns: boolean;
   /** Reporting periods to create with the plan. */
   periods: ImportPeriodSettings[];
@@ -32,8 +32,7 @@ export interface ImportPlanSettings {
  */
 export async function writeImportedPlan(tx: Prisma.TransactionClient, parsed: ParsedWorkbook, options: ImportPlanSettings, importerId: string): Promise<string> {
   const { name, version, startYear, endYear } = options;
-  const departmentNames = Array.from(new Set(parsed.leadOwners.map(t => options.leadOwners[t].department.trim())));
-  const map = (title: string) => ({ userId: options.leadOwners[title].userId, department: options.leadOwners[title].department.trim() });
+  const map = (title: string) => ({ userId: options.leadOwners[title].userId });
 
   // Codes that appear more than once are one activity carried by several leads.
   const codeCounts = new Map<string, number>();
@@ -45,19 +44,14 @@ export async function writeImportedPlan(tx: Prisma.TransactionClient, parsed: Pa
   const nextCreatedAt = () => new Date(now.getTime() + sequence++);
   const importer = { id: importerId };
 
-  for (const dept of departmentNames) {
-    await tx.department.upsert({ where: { name: dept }, update: {}, create: { name: dept } });
-  }
-
   // Every office in the sheet joins the Lead Owners list, and the person picked
   // for it is linked to it unless they already hold an office — so the next
   // import matches them automatically.
   for (const title of parsed.leadOwners) {
-    const { userId, department } = map(title);
+    const { userId } = map(title);
     const office = await tx.leadOwner.findFirst({ where: { name: { equals: title, mode: 'insensitive' } } })
-      ?? await tx.leadOwner.create({ data: { name: title, department } });
+      ?? await tx.leadOwner.create({ data: { name: title } });
     await tx.user.updateMany({ where: { id: userId, leadOwnerId: null }, data: { leadOwnerId: office.id } });
-    await tx.user.updateMany({ where: { id: userId, department: null }, data: { department } });
   }
 
   const plan = await tx.strategicPlan.create({ data: { name, version, startYear, endYear, status: 'DRAFT' } });
@@ -109,7 +103,6 @@ export async function writeImportedPlan(tx: Prisma.TransactionClient, parsed: Pa
       description: '',
       collaborators: Array.from(new Set(a.collaborators.split(/[,;]/).map(c => c.trim()).filter(Boolean))),
       deliverable: a.deliverable || null,
-      department: owner.department,
       leadOwner: a.leadOwner || null,
       responsibleId: owner.userId,
       startDate,

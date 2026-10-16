@@ -19,7 +19,7 @@ export type RequestState = "waiting" | "sent" | "accepted";
 export interface BreakdownOwner {
   id: string;
   name: string;
-  /** Lead-owner office or department, to tell people apart. */
+  /** Lead-owner office, to tell people apart. */
   office: string;
   activities: { id: string; title: string; state: RequestState }[];
 }

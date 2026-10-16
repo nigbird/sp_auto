@@ -27,7 +27,7 @@ export const DASHBOARD_TABS = [
   { id: "pillars", label: "Pillars & Objectives", icon: Layers },
   { id: "initiatives", label: "Initiatives", icon: ListChecks },
   { id: "delivery", label: "Delivery & Delays", icon: CalendarClock },
-  { id: "streams", label: "Streams & Departments", icon: Building2 },
+  { id: "streams", label: "Streams & Lead Owners", icon: Building2 },
 ] as const;
 
 export type DashboardTab = (typeof DASHBOARD_TABS)[number]["id"];

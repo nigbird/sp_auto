@@ -150,16 +150,7 @@ model Milestone {
 model LeadOwner {
   id         String  @id @default(cuid())
   name       String  @unique
-  department String?
   users      User[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Department {
-  id   String @id @default(cuid())
-  name String @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -169,7 +160,6 @@ model Activity {
   id              String         @id @default(cuid())
   title           String
   description     String?
-  department      String
   // The lead-owner office for this activity, kept as written so the plan
   // shows it even if the office list changes later.
   leadOwner       String?
@@ -362,11 +352,10 @@ model User {
   sessions       ActiveSession[]
   uploadedEvidence Evidence[]
   ownedInitiatives Initiative[]
-  // The office this person holds (e.g. "Chief Strategy Officer") and their
-  // department. Both optional; used to match plan lead owners to people.
+  // The office this person holds (e.g. "Chief Strategy Officer"). Optional;
+  // used to match plan lead owners to people.
   leadOwner        LeadOwner?   @relation(fields: [leadOwnerId], references: [id], onDelete: SetNull)
   leadOwnerId      String?
-  department       String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

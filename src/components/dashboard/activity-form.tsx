@@ -39,8 +39,7 @@ const kpiSchema = z.object({
 
 const activitySchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters." }),
-  description: z.string().optional(),
-  department: z.string({ required_error: "Please select a department." }).optional(),
+  description: z.string().optional(),
   responsible: z.string({ required_error: "Please select a responsible person." }),
   startDate: z.date({ required_error: "A start date is required." }),
   endDate: z.date({ required_error: "An end date is required." }),
@@ -87,8 +86,7 @@ export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPla
     resolver: zodResolver(activitySchema),
     defaultValues: {
       title: activity?.title ?? "",
-      description: activity?.description ?? "",
-      department: activity?.department ?? "",
+      description: activity?.description ?? "",
       responsible: (activity?.responsible as any)?.id ?? "",
       startDate: activity?.startDate ? new Date(activity.startDate) : undefined,
       endDate: activity?.endDate ? new Date(activity.endDate) : undefined,

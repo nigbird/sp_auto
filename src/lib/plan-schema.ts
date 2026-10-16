@@ -18,8 +18,6 @@ export const planActivitySchema = z.object({
     .max(100, "Weight can't be more than 100%"),
   startDate: z.string().min(1, "Start date is required").refine(isValidDate, "Start date is not a valid date"),
   endDate: z.string().min(1, "End date is required").refine(isValidDate, "End date is not a valid date"),
-  // Filled in on save from the responsible person (or their office) — the plan shows collaborators instead.
-  department: z.string().optional(),
   collaborators: z.array(z.string().trim().min(1).max(200, "A collaborating unit name must be 200 characters or less")).max(30, "Too many collaborating units").optional(),
   responsible: z.string().min(1, "Responsible person is required"),
   description: z.string().optional(),
@@ -105,7 +103,6 @@ const FIELD_LABELS: Record<string, string> = {
   weight: 'Weight',
   startDate: 'Start date',
   endDate: 'End date',
-  department: 'Department',
   responsible: 'Responsible',
   deliverable: 'Deliverable',
   leadOwner: 'Lead / Owner',

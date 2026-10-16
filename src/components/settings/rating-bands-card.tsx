@@ -86,7 +86,7 @@ export function RatingBandsCard() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground"><Award className="h-5 w-5 text-primary" /> Rating Bands</CardTitle>
         <CardDescription>
-          The minimum achievement for each rating on the dashboard and its exports (streams, departments and initiatives). Anything below Fair is Unsatisfactory.
+          The minimum achievement for each rating on the dashboard and its exports (streams, lead owners and initiatives). Anything below Fair is Unsatisfactory.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

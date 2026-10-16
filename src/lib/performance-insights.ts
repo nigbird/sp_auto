@@ -19,6 +19,8 @@ export interface InsightActivity {
   initiative: string;
   owner: string;
   office: string;
+  /** Collaborating lead-owner offices, comma-separated. */
+  collaborators: string;
   /** The activity's end date, used as the due date when there is no approved monthly plan. */
   endDate: string | Date;
   /** Report status for the period (REQUESTED, SUBMITTED, APPROVED, RETURNED). */
@@ -42,6 +44,7 @@ export interface DelayedActivity {
   initiative: string;
   owner: string;
   office: string;
+  collaborators: string;
   reportStatus: string;
   dueDate: Date;
   completionDate: Date | null;
@@ -63,7 +66,7 @@ export function delayedActivities(activities: InsightActivity[], periodEndDate: 
     if (Number.isNaN(due.getTime())) continue;
     const approved = a.reportStatus === 'APPROVED';
     const completed = approved && a.completionDate ? new Date(a.completionDate) : null;
-    const base = { activity: a.title, initiative: a.initiative, owner: a.owner, office: a.office, reportStatus: a.reportStatus, dueDate: due };
+    const base = { activity: a.title, initiative: a.initiative, owner: a.owner, office: a.office, collaborators: a.collaborators, reportStatus: a.reportStatus, dueDate: due };
     if (completed) {
       const days = a.row?.daysDelayed ?? Math.round((completed.getTime() - due.getTime()) / DAY_MS);
       if (days > 0) out.push({ ...base, completionDate: completed, daysDelayed: days, kind: 'Completed late' });
@@ -83,6 +86,7 @@ export interface AttentionItem {
   initiative: string;
   owner: string;
   office: string;
+  collaborators: string;
   status: string;
   achievement: number | null;
   /** The reported challenge (Reasons for Variation). */
@@ -106,6 +110,7 @@ export function attentionItems(activities: InsightActivity[]): AttentionItem[] {
       initiative: a.initiative,
       owner: a.owner,
       office: a.office,
+      collaborators: a.collaborators,
       status: a.row!.status,
       achievement: a.row!.achievement,
       challenge: text(a.reasonForVariation),

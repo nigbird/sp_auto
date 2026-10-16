@@ -57,7 +57,7 @@ export function PerformanceReportGrid({ pillars: allPillars, exportBase }: { pil
   );
   const all = useMemo(() => treeActivities(allPillars), [allPillars]);
   const shown = useMemo(() => treeActivities(pillars), [pillars]);
-  const owners = useMemo(() => [...new Set(all.map(a => a.office))].filter(o => o !== '—').sort(), [all]);
+  const owners = useMemo(() => [...new Set(all.flatMap(a => [a.office, ...a.collaborators]))].filter(o => o !== '—').sort(), [all]);
 
   const approved = shown.filter(a => a.state === 'APPROVED').length;
   const total = rollUp(weightedOf(shown));
@@ -65,7 +65,7 @@ export function PerformanceReportGrid({ pillars: allPillars, exportBase }: { pil
   const columns = REPORT_COLUMNS
     .map((column, index) => ({ column, index }))
     .filter(({ column }) => view === 'all' || column.group === view);
-  const colSpan = columns.length + 2; // activity + report status + data columns
+  const colSpan = columns.length + 4; // activity + lead owner + collaborating unit + report status + data columns
   const exportHref = exportBase && narrowed ? `${exportBase}&${filtersToParams(filters).toString()}` : null;
 
   return (
@@ -149,7 +149,9 @@ export function PerformanceReportGrid({ pillars: allPillars, exportBase }: { pil
             <thead>
               <tr>
                 <th className={cn(HEAD, "left-0 z-30 min-w-[300px] max-w-[380px] border-r text-left")}>Activity</th>
-                <th className={cn(HEAD, "z-20 min-w-[150px] text-left")}>Report</th>
+                <th className={cn(HEAD, "z-20 min-w-[170px] max-w-[220px] text-left")}>Lead owner</th>
+                <th className={cn(HEAD, "z-20 min-w-[200px] max-w-[260px] border-l text-left")}>Collaborating unit</th>
+                <th className={cn(HEAD, "z-20 min-w-[150px] border-l text-left")}>Report</th>
                 {columns.map(({ column }) => (
                   <th key={column.label} className={cn(
                     HEAD,
@@ -271,7 +273,9 @@ function InitiativeRows({ initiative, columns }: { initiative: GridInitiative; c
     <>
       <tr className="font-medium text-foreground/90">
         <td className="sticky left-0 z-10 border-b border-r border-border/50 bg-card py-2 pl-12 pr-4">{initiative.title}</td>
-        <td className="whitespace-nowrap border-b border-border/50 px-4 py-2 text-xs font-normal text-muted-foreground">{approved} of {initiative.activities.length} approved</td>
+        <td className="border-b border-border/50" />
+        <td className={CELL} />
+        <td className="whitespace-nowrap border-b border-l border-border/50 px-4 py-2 text-xs font-normal text-muted-foreground">{approved} of {initiative.activities.length} approved</td>
         {columns.map(({ column }) => {
           const value = column.rollup?.(rollup) ?? '';
           return (
@@ -303,7 +307,13 @@ function ActivityRow({ activity, columns }: { activity: GridActivity; columns: I
         <div className="text-foreground">{activity.title}</div>
         {activity.owner && <div className="mt-0.5 text-xs text-muted-foreground">{activity.owner}</div>}
       </td>
-      <td className="border-b border-border/50 px-4 py-2.5 align-top">
+      <td className="max-w-[220px] border-b border-border/50 px-4 py-2.5 align-top text-foreground/90">
+        {activity.office !== '—' ? activity.office : <span className="text-muted-foreground/40">—</span>}
+      </td>
+      <td className={cn(CELL, "max-w-[260px] py-2.5 align-top text-foreground/90")}>
+        {activity.collaborators.length ? activity.collaborators.join(', ') : <span className="text-muted-foreground/40">—</span>}
+      </td>
+      <td className="border-b border-l border-border/50 px-4 py-2.5 align-top">
         <Badge variant="outline" className={cn("whitespace-nowrap font-medium", STATE_PILL[activity.state] ?? "border-border/60 bg-muted/60 text-muted-foreground")}>{activity.statusText}</Badge>
       </td>
       {columns.map(({ column, index }) => {

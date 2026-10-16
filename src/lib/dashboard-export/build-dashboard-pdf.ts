@@ -249,8 +249,8 @@ export function buildDashboardPdf(data: Ready, charts: Record<ChartKey, ChartIma
   txt(`${m.activityDelayRows.length} activities. Days delayed = completion date (or the period end, if still open) minus the due date; negative = days still to go.`, M, y);
   y = drawActivityDelayTable(doc, m.activityDelayRows, y + 3, M) + 4;
 
-  // --- Streams & Departments --------------------------------------------------------
-  sectionHeader('Streams & Departments');
+  // --- Streams & Lead Owners --------------------------------------------------------
+  sectionHeader('Streams & Lead Owners');
   const totals = streamTotals(m);
   kpiTiles([
     { label: 'Initiatives, with duplication', value: String(totals.initiativesWithDuplication), note: "sum of every lead owner's count" },
@@ -261,7 +261,7 @@ export function buildDashboardPdf(data: Ready, charts: Record<ChartKey, ChartIma
   ]);
   imagePair('streamWorkload', 'streamAchievement');
   imageFull('streamDelivery', (PW - 2 * M - 6) / 2);
-  sub('Streams & departments performance');
+  sub('Streams & lead owners performance');
   const prevByName = new Map(data.previousMetrics?.streams.map(s => [s.name, s]) ?? []);
   const streamRows: RowInput[] = m.streams.map((s, k) => {
     const hasPlan = s.summary.rollup.weightedPlan > 0 && s.summary.coverage.approved > 0;

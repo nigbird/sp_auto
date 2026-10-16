@@ -14,7 +14,7 @@ import { SheetBuilder, writeStyledWorkbook, type StyledCell } from './xlsx-styli
 
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '—');
 
-const HEAD = ['Work Stream / Department', 'Initiatives Assigned', '# of Days Delayed', 'Major Activities', 'Deliverable', 'Due Date', 'Completed', '# of Days Delayed', 'Activity Status', 'Delivery'];
+const HEAD = ['Work Stream / Lead Owner', 'Initiatives Assigned', '# of Days Delayed', 'Major Activities', 'Deliverable', 'Due Date', 'Completed', '# of Days Delayed', 'Activity Status', 'Delivery'];
 
 /** A styled sheet with the stream and initiative cells merged down their rows, as in the Excel. */
 export function activityDelaySheet(rows: ActivityDelayRow[], subtitle: string, filterLabel: string, name = 'Activity Delays'): SheetBuilder {
@@ -102,7 +102,7 @@ export function drawActivityDelayTable(doc: jsPDF, rows: ActivityDelayRow[], sta
   autoTable(doc, {
     startY,
     margin: { left: margin, right: margin, bottom: margin + 6 },
-    head: [['Work Stream / Department', 'Initiatives Assigned', '# Days', 'Major Activities', 'Due', '# Days', 'Activity Status', 'Delivery']],
+    head: [['Work Stream / Lead Owner', 'Initiatives Assigned', '# Days', 'Major Activities', 'Due', '# Days', 'Activity Status', 'Delivery']],
     body: body.length ? body : [[{ content: 'No activities match the selected filters.', colSpan: 8, styles: { textColor: MUTED } }]],
     theme: 'grid',
     styles: { fontSize: 7.5, cellPadding: 1.5, textColor: INK, lineColor: [226, 216, 200], lineWidth: 0.1, overflow: 'linebreak', valign: 'top' },

@@ -74,7 +74,7 @@ export function focusFieldByPath(path: string): boolean {
   return true;
 }
 
-/** Pulls the first "quoted" substring out of a server error message (e.g. an activity title named in a department-mismatch error). */
+/** Pulls the first "quoted" substring out of a server error message (e.g. an activity title named in a validation error). */
 export function extractQuoted(message: string): string | null {
   const match = message.match(/"([^"]+)"/);
   return match ? match[1] : null;

@@ -89,11 +89,11 @@ async function main() {
     );
     console.log(`Seeded ${rules.length} rules.`);
 
-    const baseDepartments = ["Marketing", "Sales", "Engineering", "Human Resources", "Support", "Finance"];
-    for (const name of baseDepartments) {
-        await prisma.department.upsert({ where: { name }, update: {}, create: { name } });
+    const baseLeadOwners = ["Chief Marketing Officer", "Chief Information Officer", "Chief Human Capital Officer", "Chief Operations Officer"];
+    for (const name of baseLeadOwners) {
+        await prisma.leadOwner.upsert({ where: { name }, update: {}, create: { name } });
     }
-    console.log(`Seeded ${baseDepartments.length} departments.`);
+    console.log(`Seeded ${baseLeadOwners.length} lead owners.`);
 
     for (const [roleName, permissions] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
         const roleId = roleByName.get(roleName)!;
@@ -164,7 +164,7 @@ async function main() {
                                         {
                                             title: "Q3 Marketing Campaign Launch",
                                             description: "Launch the new marketing campaign for the fall season, including social media, email, and content marketing.",
-                                            department: "Marketing",
+                                            leadOwner: "Chief Marketing Officer",
                                             responsibleId: olivia.id,
                                             startDate: new Date("2024-07-01"),
                                             endDate: new Date("2024-09-30"),
@@ -190,7 +190,7 @@ async function main() {
                                     create: {
                                         title: "Website Redesign Project",
                                         description: "Complete redesign of the corporate website for improved user experience and mobile responsiveness.",
-                                        department: "Engineering",
+                                        leadOwner: "Chief Information Officer",
                                         responsibleId: noah.id,
                                         startDate: new Date("2024-05-01"),
                                         endDate: new Date("2024-07-31"),
@@ -235,7 +235,7 @@ async function main() {
                                     create: {
                                         title: "Employee Wellness Program",
                                         description: "Develop and roll out a new employee wellness program.",
-                                        department: "Human Resources",
+                                        leadOwner: "Chief Human Capital Officer",
                                         responsibleId: emma.id,
                                         startDate: new Date("2024-08-01"),
                                         endDate: new Date("2024-10-31"),
@@ -260,7 +260,7 @@ async function main() {
                                     create: {
                                         title: "Customer Support Training",
                                         description: "Advanced training for all customer support staff on new product features.",
-                                        department: "Support",
+                                        leadOwner: "Chief Operations Officer",
                                         responsibleId: oliver.id,
                                         startDate: new Date("2024-07-10"),
                                         endDate: new Date("2024-07-20"),

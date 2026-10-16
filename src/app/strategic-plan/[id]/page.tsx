@@ -25,14 +25,14 @@ export default async function StrategicPlanDetailPage({ params }: { params: Prom
     }
 
     const userNames = Object.fromEntries(users.map(u => [u.id, u.name]));
-    const userOffices = new Map(users.map(u => [u.id, u.leadOwner || u.department || null]));
+    const userOffices = new Map(users.map(u => [u.id, u.leadOwner || null]));
     const activities = plan.pillars.flatMap(p => p.objectives.flatMap(o => o.initiatives.flatMap(i => i.activities)));
     // Everyone responsible for an activity, with where each of their breakdown requests stands.
     const owners = new Map<string, BreakdownOwner>();
     for (const a of activities) {
         const person = a.responsible as { id?: string; name?: string } | null;
         if (!person?.id) continue;
-        const owner = owners.get(person.id) ?? { id: person.id, name: person.name ?? userNames[person.id] ?? "Unknown user", office: userOffices.get(person.id) || a.leadOwner || a.department || "—", activities: [] };
+        const owner = owners.get(person.id) ?? { id: person.id, name: person.name ?? userNames[person.id] ?? "Unknown user", office: userOffices.get(person.id) || a.leadOwner || "—", activities: [] };
         const state: RequestState = a.planRequestStatus === 'SENT' ? 'sent' : a.planRequestStatus === 'ACCEPTED' ? 'accepted' : 'waiting';
         owner.activities.push({ id: a.id, title: a.title, state });
         owners.set(person.id, owner);

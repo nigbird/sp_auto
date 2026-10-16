@@ -90,6 +90,7 @@ export const AUDIT_ACTIONS = {
   ACHIEVEMENT_CAP_UPDATED: { label: 'Changed the achievement cap', category: 'Configuration' },
   RATING_THRESHOLDS_UPDATED: { label: 'Changed rating thresholds', category: 'Configuration' },
   RATING_THRESHOLDS_RESET: { label: 'Reset rating thresholds', category: 'Configuration' },
+  // Departments were retired; kept so older audit entries still read well.
   DEPARTMENT_CREATED: { label: 'Created a department', category: 'Configuration' },
   DEPARTMENT_RENAMED: { label: 'Renamed a department', category: 'Configuration' },
   DEPARTMENT_DELETED: { label: 'Deleted a department', category: 'Configuration' },

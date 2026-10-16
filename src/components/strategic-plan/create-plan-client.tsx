@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -58,27 +57,25 @@ const getOneMonthFromToday = () => {
     return format(d, 'yyyy-MM-dd');
 }
 
-function newActivity(users: Person[], departments: string[], title = "", weight = 0) {
+function newActivity(users: Person[], title = "", weight = 0) {
     const person = users[0];
-    const department = person?.department && departments.includes(person.department) ? person.department : departments[0] ?? '';
-    return { id: generateId('A'), title, weight, description: '', deliverable: '', startDate: getToday(), endDate: getOneMonthFromToday(), department, collaborators: [] as string[], leadOwner: person?.leadOwner ?? '', responsible: person?.id ?? '' };
+    return { id: generateId('A'), title, weight, description: '', deliverable: '', startDate: getToday(), endDate: getOneMonthFromToday(), collaborators: [] as string[], leadOwner: person?.leadOwner ?? '', responsible: person?.id ?? '' };
 }
-function newInitiative(users: Person[], departments: string[], title = "") {
-    return { id: generateId('I'), title, description: "", owners: users[0]?.id ? [users[0].id] : [], collaborators: [], activities: [newActivity(users, departments)] };
+function newInitiative(users: Person[], title = "") {
+    return { id: generateId('I'), title, description: "", owners: users[0]?.id ? [users[0].id] : [], collaborators: [], activities: [newActivity(users)] };
 }
-function newObjective(users: Person[], departments: string[], statement = "") {
-    return { id: generateId('O'), statement, initiatives: [newInitiative(users, departments)] };
+function newObjective(users: Person[], statement = "") {
+    return { id: generateId('O'), statement, initiatives: [newInitiative(users)] };
 }
-function newPillar(users: Person[], departments: string[], title = "") {
-    return { id: generateId('P'), title, description: "", objectives: [newObjective(users, departments)] };
+function newPillar(users: Person[], title = "") {
+    return { id: generateId('P'), title, description: "", objectives: [newObjective(users)] };
 }
 
 type CreatePlanClientProps = {
     users: Person[];
-    departments: string[];
 }
 
-export function CreatePlanClient({ users, departments }: CreatePlanClientProps) {
+export function CreatePlanClient({ users }: CreatePlanClientProps) {
     const { toast } = useToast();
     const [currentTab, setCurrentTab] = useState(TABS[0].value);
     const [highestCompletedStep, setHighestCompletedStep] = useState(0);
@@ -98,12 +95,12 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
             version: "1.0",
             pillars: [
                 {
-                    ...newPillar(users, departments, "Pillar 1"),
+                    ...newPillar(users, "Pillar 1"),
                     objectives: [{
-                        ...newObjective(users, departments, "Objective 1.1"),
+                        ...newObjective(users, "Objective 1.1"),
                         initiatives: [{
-                            ...newInitiative(users, departments, "Initiative 1.1.1"),
-                            activities: [newActivity(users, departments, "Activity 1.1.1.1", 100)],
+                            ...newInitiative(users, "Initiative 1.1.1"),
+                            activities: [newActivity(users, "Activity 1.1.1.1", 100)],
                         }],
                     }],
                 },
@@ -346,7 +343,7 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
                                             </Card>
                                         ))}
                                         <ListIssue path="pillars" />
-                                        <Button type="button" variant="outline" onClick={() => appendPillar(newPillar(users, departments, `Pillar ${pillarFields.length + 1}`))}>
+                                        <Button type="button" variant="outline" onClick={() => appendPillar(newPillar(users, `Pillar ${pillarFields.length + 1}`))}>
                                             <PlusCircle className="mr-2 h-4 w-4" /> Add Pillar
                                         </Button>
                                     </div>
@@ -355,7 +352,7 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
                                 <TabsContent value="objectives" className="space-y-6">
                                     <StepHeader title="Step 3: Define Objectives" description="An Objective is a specific, measurable goal that supports a Pillar." />
                                     <PillarSections form={form} render={(pIndex) => (
-                                        <ObjectiveList pIndex={pIndex} form={form} users={users} departments={departments} />
+                                        <ObjectiveList pIndex={pIndex} form={form} users={users} />
                                     )} />
                                 </TabsContent>
 
@@ -363,21 +360,18 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
                                     <StepHeader title="Step 4: Define Initiatives" description="An Initiative is a specific project or program designed to achieve an Objective." />
                                     <PillarSections form={form} render={(pIndex) => (
                                         <ObjectiveSections form={form} pIndex={pIndex} render={(oIndex) => (
-                                            <InitiativeList pIndex={pIndex} oIndex={oIndex} form={form} users={users} departments={departments} peopleOptions={userOptions} />
+                                            <InitiativeList pIndex={pIndex} oIndex={oIndex} form={form} users={users} peopleOptions={userOptions} />
                                         )} />
                                     )} />
                                 </TabsContent>
 
                                 <TabsContent value="activities" className="space-y-6">
                                     <StepHeader title="Step 5: Define Activities" description="An Activity is a specific task required to complete an Initiative. Every activity shares one 100% weight pool across the whole plan." />
-                                    {departments.length === 0 && (
-                                        <Alert><AlertDescription>No departments exist yet. Add them on the Departments page to pick collaborating units for activities.</AlertDescription></Alert>
-                                    )}
                                     <PlanWeightSummary pillars={values.pillars} />
                                     <PillarSections form={form} render={(pIndex) => (
                                         <ObjectiveSections form={form} pIndex={pIndex} render={(oIndex) => (
                                             <InitiativeSections form={form} pIndex={pIndex} oIndex={oIndex} render={(iIndex) => (
-                                                <ActivityTable pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} form={form} users={users} departments={departments} userOptions={userOptions} />
+                                                <ActivityTable pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} form={form} users={users} userOptions={userOptions} />
                                             )} />
                                         )} />
                                     )} />
@@ -497,7 +491,7 @@ function ListIssueOr({ path, text }: { path: string; text: string }) {
     );
 }
 
-function ObjectiveList({ pIndex, form, users, departments }: { pIndex: number; form: PlanForm; users: Person[]; departments: string[] }) {
+function ObjectiveList({ pIndex, form, users }: { pIndex: number; form: PlanForm; users: Person[] }) {
     const { control } = form;
     const { fields: objectiveFields, append: appendObjective, remove: removeObjective } = useFieldArray({ control, name: `pillars.${pIndex}.objectives` });
 
@@ -527,14 +521,14 @@ function ObjectiveList({ pIndex, form, users, departments }: { pIndex: number; f
                 </Card>
             ))}
             <ListIssue path={`pillars.${pIndex}.objectives`} />
-            <Button type="button" variant="outline" size="sm" onClick={() => appendObjective(newObjective(users, departments, `Objective ${pIndex + 1}.${objectiveFields.length + 1}`))}>
+            <Button type="button" variant="outline" size="sm" onClick={() => appendObjective(newObjective(users, `Objective ${pIndex + 1}.${objectiveFields.length + 1}`))}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Objective
             </Button>
         </>
     )
 }
 
-function InitiativeList({ pIndex, oIndex, form, peopleOptions, users, departments }: { pIndex: number; oIndex: number; form: PlanForm; peopleOptions: MultiSelectOption[]; users: Person[]; departments: string[] }) {
+function InitiativeList({ pIndex, oIndex, form, peopleOptions, users }: { pIndex: number; oIndex: number; form: PlanForm; peopleOptions: MultiSelectOption[]; users: Person[] }) {
     const { control } = form;
     const base = `pillars.${pIndex}.objectives.${oIndex}.initiatives` as const;
     const { fields: initiativeFields, append: appendInitiative, remove: removeInitiative } = useFieldArray({ control, name: base });
@@ -604,14 +598,14 @@ function InitiativeList({ pIndex, oIndex, form, peopleOptions, users, department
                 </Card>
             ))}
             <ListIssue path={base} />
-            <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative(newInitiative(users, departments, `Initiative ${pIndex + 1}.${oIndex + 1}.${initiativeFields.length + 1}`))}>
+            <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative(newInitiative(users, `Initiative ${pIndex + 1}.${oIndex + 1}.${initiativeFields.length + 1}`))}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Initiative
             </Button>
         </>
     );
 }
 
-function ActivityTable({ pIndex, oIndex, iIndex, form, users, departments, userOptions }: { pIndex: number; oIndex: number; iIndex: number; form: PlanForm; users: Person[]; departments: string[]; userOptions: { value: string; label: string }[] }) {
+function ActivityTable({ pIndex, oIndex, iIndex, form, users, userOptions }: { pIndex: number; oIndex: number; iIndex: number; form: PlanForm; users: Person[]; userOptions: { value: string; label: string }[] }) {
     const { control } = form;
     const base = `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities` as const;
     const { fields: activityFields, append: appendActivity, remove: removeActivity } = useFieldArray({ control, name: base });
@@ -680,7 +674,7 @@ function ActivityTable({ pIndex, oIndex, iIndex, form, users, departments, userO
                                 <TableCell className="min-w-[170px]">
                                     <FormField control={control} name={`${base}.${aIndex}.responsible`} render={({ field }) => (
                                         <FormItem data-field-path={field.name} tabIndex={-1}>
-                                            <Select onValueChange={(v) => { field.onChange(v); applyResponsibleDefaults(form, `${base}.${aIndex}`, v, users, departments); }} value={field.value}>
+                                            <Select onValueChange={(v) => { field.onChange(v); applyResponsibleDefaults(form, `${base}.${aIndex}`, v, users); }} value={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
                                                 </FormControl>
@@ -694,7 +688,7 @@ function ActivityTable({ pIndex, oIndex, iIndex, form, users, departments, userO
                                     <ActivityLeadOwnerField form={form} name={`${base}.${aIndex}.leadOwner`} />
                                 </TableCell>
                                 <TableCell className="min-w-[220px]">
-                                    <ActivityCollaboratorsField form={form} name={`${base}.${aIndex}.collaborators`} units={departments} />
+                                    <ActivityCollaboratorsField form={form} name={`${base}.${aIndex}.collaborators`} />
                                 </TableCell>
                                 <TableCell>
                                     <Button type="button" variant="ghost" size="icon" aria-label="Remove activity" onClick={() => removeActivity(aIndex)}>
@@ -708,7 +702,7 @@ function ActivityTable({ pIndex, oIndex, iIndex, form, users, departments, userO
             </div>
             <ListIssue path={base} />
             <div className="flex flex-wrap items-center justify-between gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => appendActivity(newActivity(users, departments))}>
+                <Button type="button" variant="outline" size="sm" onClick={() => appendActivity(newActivity(users))}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
                 </Button>
                 <p className="text-sm font-medium text-muted-foreground">

@@ -214,7 +214,7 @@ export async function proposeActivityWithBreakdown(siblingActivityId: string, in
                 title,
                 description: '',
                 deliverable: input.deliverable?.trim() || null,
-                department: sibling.department,
+                leadOwner: sibling.leadOwner,
                 responsibleId: user.id,
                 startDate: start,
                 endDate: end,

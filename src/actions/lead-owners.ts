@@ -20,36 +20,36 @@ export async function getLeadOwners() {
     orderBy: { name: 'asc' },
     include: { users: { select: { id: true, name: true } } },
   });
-  return JSON.parse(JSON.stringify(leadOwners)) as { id: string; name: string; department: string | null; users: { id: string; name: string }[] }[];
+  return JSON.parse(JSON.stringify(leadOwners)) as { id: string; name: string; users: { id: string; name: string }[] }[];
 }
 
 function clean(name: string) {
   return (name ?? '').replace(/\s+/g, ' ').trim();
 }
 
-export async function createLeadOwner(name: string, department?: string | null): Promise<LeadOwnerResult<{ id: string }>> {
+export async function createLeadOwner(name: string): Promise<LeadOwnerResult<{ id: string }>> {
   await requirePermission('settings:manage');
   const trimmed = clean(name);
   if (!trimmed) return { success: false, message: 'Lead owner name is required.' };
   const existing = await prisma.leadOwner.findFirst({ where: { name: { equals: trimmed, mode: 'insensitive' } } });
   if (existing) return { success: false, message: `"${existing.name}" already exists.` };
-  const created = await prisma.leadOwner.create({ data: { name: trimmed, department: clean(department ?? '') || null } });
+  const created = await prisma.leadOwner.create({ data: { name: trimmed } });
   await recordAudit({
     action: 'LEAD_OWNER_CREATED', entityType: 'LeadOwner', entityId: created.id,
-    summary: `Created lead owner "${trimmed}"${created.department ? ` in ${created.department}` : ''}`,
+    summary: `Created lead owner "${trimmed}"`,
   });
   revalidate();
   return { success: true, data: { id: created.id } };
 }
 
-export async function updateLeadOwner(id: string, name: string, department?: string | null): Promise<LeadOwnerResult> {
+export async function updateLeadOwner(id: string, name: string): Promise<LeadOwnerResult> {
   await requirePermission('settings:manage');
   const trimmed = clean(name);
   if (!trimmed) return { success: false, message: 'Lead owner name is required.' };
   const clash = await prisma.leadOwner.findFirst({ where: { id: { not: id }, name: { equals: trimmed, mode: 'insensitive' } } });
   if (clash) return { success: false, message: `"${clash.name}" already exists.` };
-  const before = await prisma.leadOwner.findUnique({ where: { id }, select: { name: true, department: true } });
-  const next = { name: trimmed, department: clean(department ?? '') || null };
+  const before = await prisma.leadOwner.findUnique({ where: { id }, select: { name: true } });
+  const next = { name: trimmed };
   await prisma.leadOwner.update({ where: { id }, data: next });
   const changes = before ? changedFields(before, next) : {};
   if (Object.keys(changes).length > 0) {

@@ -194,10 +194,10 @@ export function buildDashboardWorkbook(data: Ready, charts: Record<ChartKey, Cha
     chart('deliveryInitiatives', 'Initiative delivery'), chart('deliveryActivities', 'Activity delivery'), chart('delays', 'Delays'),
   ], 9, 3, 0.75);
 
-  // --- Streams & Departments ------------------------------------------------------
+  // --- Streams & Lead Owners ------------------------------------------------------
   const prevByName = new Map(data.previousMetrics?.streams.map(s => [s.name, s]) ?? []);
-  const st = new SheetBuilder('Streams & Departments', [5, 42, 10, 10, 10, 11, 11, 11, 12, 12, 9, 15, 12, 9, 9, 9, 9, 9, 9, 11, 11, 3]);
-  st.row([{ v: 'Streams & Departments Performance', role: 'title' }]);
+  const st = new SheetBuilder('Streams & Lead Owners', [5, 42, 10, 10, 10, 11, 11, 11, 12, 12, 9, 15, 12, 9, 9, 9, 9, 9, 9, 11, 11, 3]);
+  st.row([{ v: 'Streams & Lead Owners Performance', role: 'title' }]);
   st.row([{ v: subtitle, role: 'subtitle' }]);
   st.blank();
   const stHeader = st.row([

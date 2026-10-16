@@ -40,7 +40,7 @@ export async function setActivityMonthlyPlan(activityId: string, entries: Monthl
 
 /**
  * Links an activity as a duplicate/shared copy of another (same underlying
- * work item, reported separately by a second owning department). The linked
+ * work item, reported separately by a second owning office). The linked
  * activity is excluded from weight rollups so its contribution isn't counted
  * twice — mirrors the Excel's "No Duplicate" weight column.
  */

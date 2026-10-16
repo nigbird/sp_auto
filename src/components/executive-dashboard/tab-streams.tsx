@@ -41,7 +41,7 @@ export function StreamsTab({ m, previous }: { m: DashboardMetrics; previous: Das
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <MiniStat label="Streams & departments" value={String(m.streams.length)} note={`${measured.length} measured this period`} />
+        <MiniStat label="Streams & lead owners" value={String(m.streams.length)} note={`${measured.length} measured this period`} />
         <MiniStat label="Average score" value={avgScore == null ? "—" : `${avgScore.toFixed(1)}%`} note="out of 30% (achievement after delays × 30%), measured streams" />
         <MiniStat label="Rated Outstanding" value={String(m.streams.filter(s => s.rating === "Outstanding").length)} note={`${m.ratingThresholds.outstanding}% or more of their period plan`} />
         <MiniStat label="Not submitted" value={String(notSubmittedReports)} note="no report sent in yet — counts as zero" />
@@ -93,9 +93,9 @@ export function StreamsTab({ m, previous }: { m: DashboardMetrics; previous: Das
       </SectionCard>
 
       <SectionCard
-        title="Streams & departments performance"
+        title="Streams & lead owners performance"
         description="Every lead owner, ranked by achievement. Deviation = completed − due."
-        action={<ExportCsvButton filename="streams-departments" headers={streamCsvHeaders} rows={streamCsvRows} />}
+        action={<ExportCsvButton filename="streams-lead-owners" headers={streamCsvHeaders} rows={streamCsvRows} />}
       >
         <div className="-mx-2 overflow-x-auto">
           <table className="w-full min-w-[1380px] text-sm">

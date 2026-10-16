@@ -30,7 +30,6 @@ export interface MetricActivity {
   weight: number;
   countsTowardWeight: boolean;
   leadOwner: string | null;
-  department: string;
   deliverable?: string | null;
   startDate: string;
   /** Planned end date on the activity itself; used when there is no approved breakdown. */
@@ -345,7 +344,7 @@ function emptyCounts<K extends string>(keys: readonly K[]): Record<K, number> {
 
 const DELAY_KEYS: DelayBucket[] = ['onTime', 'd1_30', 'd31_60', 'd61_90', 'd90plus', 'notElapsed'];
 
-const streamOf = (a: MetricActivity) => a.leadOwner?.trim() || a.department?.trim() || 'Unassigned';
+const streamOf = (a: MetricActivity) => a.leadOwner?.trim() || 'Unassigned';
 
 function evaluateActivity(activity: MetricActivity, entry: MetricEntry | undefined, periodEnd: Date, progressEntry: MetricEntry | undefined = entry): ActivityResult {
   const approved = entry?.reportStatus === 'APPROVED';

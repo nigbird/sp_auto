@@ -41,19 +41,18 @@ const getOneMonthFromToday = () => {
     return format(d, 'yyyy-MM-dd');
 }
 
-function newActivity(users: Person[], departments: string[]) {
+function newActivity(users: Person[]) {
     const person = users[0];
-    const department = person?.department && departments.includes(person.department) ? person.department : departments[0] ?? '';
-    return { id: generateId('A'), title: '', weight: 0, description: '', deliverable: '', startDate: getToday(), endDate: getOneMonthFromToday(), department, collaborators: [] as string[], leadOwner: person?.leadOwner ?? '', responsible: person?.id ?? '' };
+    return { id: generateId('A'), title: '', weight: 0, description: '', deliverable: '', startDate: getToday(), endDate: getOneMonthFromToday(), collaborators: [] as string[], leadOwner: person?.leadOwner ?? '', responsible: person?.id ?? '' };
 }
-function newInitiative(users: Person[], departments: string[]) {
-    return { id: generateId('I'), title: '', description: '', owners: users[0]?.id ? [users[0].id] : [], collaborators: [], activities: [newActivity(users, departments)] };
+function newInitiative(users: Person[]) {
+    return { id: generateId('I'), title: '', description: '', owners: users[0]?.id ? [users[0].id] : [], collaborators: [], activities: [newActivity(users)] };
 }
-function newObjective(users: Person[], departments: string[]) {
-    return { id: generateId('O'), statement: '', initiatives: [newInitiative(users, departments)] };
+function newObjective(users: Person[]) {
+    return { id: generateId('O'), statement: '', initiatives: [newInitiative(users)] };
 }
-function newPillar(users: Person[], departments: string[]) {
-    return { id: generateId('P'), title: '', description: '', objectives: [newObjective(users, departments)] };
+function newPillar(users: Person[]) {
+    return { id: generateId('P'), title: '', description: '', objectives: [newObjective(users)] };
 }
 
 const toDateInput = (value: unknown) => typeof value === 'string' ? value.split('T')[0] : value instanceof Date ? format(value, 'yyyy-MM-dd') : '';
@@ -88,7 +87,6 @@ function planToFormValues(plan: StrategicPlan): FormValues {
                         leadOwner: a.leadOwner ?? '',
                         startDate: toDateInput(a.startDate),
                         endDate: toDateInput(a.endDate),
-                        department: a.department,
                         collaborators: a.collaborators ?? [],
                         responsible: idOf(a.responsible),
                         countsTowardWeight: a.countsTowardWeight,
@@ -116,11 +114,10 @@ function PlanWeightSummary({ pillars }: { pillars: any[] }) {
 
 type EditPlanClientProps = {
     users: Person[];
-    departments: string[];
     plan: StrategicPlan;
 }
 
-export function EditPlanClient({ users, departments, plan }: EditPlanClientProps) {
+export function EditPlanClient({ users, plan }: EditPlanClientProps) {
     const { toast } = useToast();
     const planId = plan.id;
     const [showIssues, setShowIssues] = useState(false);
@@ -298,11 +295,11 @@ export function EditPlanClient({ users, departments, plan }: EditPlanClientProps
 
                         <Accordion type="multiple" className="w-full space-y-4" {...pillarAccordion}>
                             {pillarFields.map((pillar, pIndex) => (
-                                <PillarAccordion key={pillar.id} pIndex={pIndex} form={form} removePillar={() => removePillar(pIndex)} users={users} departments={departments} peopleOptions={userOptions} userOptions={userOptions} />
+                                <PillarAccordion key={pillar.id} pIndex={pIndex} form={form} removePillar={() => removePillar(pIndex)} users={users} peopleOptions={userOptions} userOptions={userOptions} />
                             ))}
                         </Accordion>
                         <ListIssue path="pillars" />
-                        <Button type="button" variant="outline" onClick={() => appendPillar(newPillar(users, departments))}>
+                        <Button type="button" variant="outline" onClick={() => appendPillar(newPillar(users))}>
                             <PlusCircle className="mr-2 h-4 w-4" /> Add Pillar
                         </Button>
                     </CardContent>
@@ -313,9 +310,9 @@ export function EditPlanClient({ users, departments, plan }: EditPlanClientProps
     );
 }
 
-type SectionProps = { form: PlanForm; users: Person[]; departments: string[]; peopleOptions: MultiSelectOption[]; userOptions: { value: string; label: string }[] };
+type SectionProps = { form: PlanForm; users: Person[]; peopleOptions: MultiSelectOption[]; userOptions: { value: string; label: string }[] };
 
-function PillarAccordion({ pIndex, form, removePillar, users, departments, peopleOptions, userOptions }: SectionProps & { pIndex: number; removePillar: () => void }) {
+function PillarAccordion({ pIndex, form, removePillar, users, peopleOptions, userOptions }: SectionProps & { pIndex: number; removePillar: () => void }) {
     const { control, watch } = form;
     const { fields: objectiveFields, append: appendObjective, remove: removeObjective } = useFieldArray({ control, name: `pillars.${pIndex}.objectives` });
     const pillar = watch(`pillars.${pIndex}`);
@@ -338,11 +335,11 @@ function PillarAccordion({ pIndex, form, removePillar, users, departments, peopl
                 <h3 className="font-semibold text-lg mt-4">Objectives</h3>
                 <Accordion type="multiple" className="space-y-4" {...objectiveAccordion}>
                     {objectiveFields.map((objective, oIndex) => (
-                        <ObjectiveAccordion key={objective.id} pIndex={pIndex} oIndex={oIndex} form={form} removeObjective={() => removeObjective(oIndex)} users={users} departments={departments} peopleOptions={peopleOptions} userOptions={userOptions} />
+                        <ObjectiveAccordion key={objective.id} pIndex={pIndex} oIndex={oIndex} form={form} removeObjective={() => removeObjective(oIndex)} users={users} peopleOptions={peopleOptions} userOptions={userOptions} />
                     ))}
                 </Accordion>
                 <ListIssue path={`pillars.${pIndex}.objectives`} />
-                <Button type="button" variant="outline" size="sm" onClick={() => appendObjective(newObjective(users, departments))}>
+                <Button type="button" variant="outline" size="sm" onClick={() => appendObjective(newObjective(users))}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Objective
                 </Button>
             </AccordionContent>
@@ -350,7 +347,7 @@ function PillarAccordion({ pIndex, form, removePillar, users, departments, peopl
     )
 }
 
-function ObjectiveAccordion({ pIndex, oIndex, form, removeObjective, users, departments, peopleOptions, userOptions }: SectionProps & { pIndex: number; oIndex: number; removeObjective: () => void }) {
+function ObjectiveAccordion({ pIndex, oIndex, form, removeObjective, users, peopleOptions, userOptions }: SectionProps & { pIndex: number; oIndex: number; removeObjective: () => void }) {
     const { control, watch } = form;
     const base = `pillars.${pIndex}.objectives.${oIndex}` as const;
     const { fields: initiativeFields, append: appendInitiative, remove: removeInitiative } = useFieldArray({ control, name: `${base}.initiatives` });
@@ -368,11 +365,11 @@ function ObjectiveAccordion({ pIndex, oIndex, form, removeObjective, users, depa
                 <h4 className="font-semibold mt-4">Initiatives</h4>
                 <div className="space-y-4">
                     {initiativeFields.map((initiative, iIndex) => (
-                        <InitiativeCard key={initiative.id} pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} form={form} removeInitiative={() => removeInitiative(iIndex)} users={users} departments={departments} peopleOptions={peopleOptions} userOptions={userOptions} />
+                        <InitiativeCard key={initiative.id} pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} form={form} removeInitiative={() => removeInitiative(iIndex)} users={users} peopleOptions={peopleOptions} userOptions={userOptions} />
                     ))}
                 </div>
                 <ListIssue path={`${base}.initiatives`} />
-                <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative(newInitiative(users, departments))}>
+                <Button type="button" variant="outline" size="sm" onClick={() => appendInitiative(newInitiative(users))}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Initiative
                 </Button>
             </AccordionContent>
@@ -380,7 +377,7 @@ function ObjectiveAccordion({ pIndex, oIndex, form, removeObjective, users, depa
     );
 }
 
-function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users, departments, peopleOptions, userOptions }: SectionProps & { pIndex: number; oIndex: number; iIndex: number; removeInitiative: () => void }) {
+function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users, peopleOptions, userOptions }: SectionProps & { pIndex: number; oIndex: number; iIndex: number; removeInitiative: () => void }) {
     const { control, watch } = form;
     const base = `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}` as const;
     const { fields: activityFields, append: appendActivity, remove: removeActivity } = useFieldArray({ control, name: `${base}.activities` });
@@ -429,7 +426,7 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users,
                                             <TableCell className="min-w-[170px]">
                                                 <FormField control={control} name={`${aBase}.responsible`} render={({ field }) => (
                                                     <FormItem data-field-path={field.name} tabIndex={-1}>
-                                                        <Select onValueChange={(v) => { field.onChange(v); applyResponsibleDefaults(form, aBase, v, users, departments); }} value={field.value}>
+                                                        <Select onValueChange={(v) => { field.onChange(v); applyResponsibleDefaults(form, aBase, v, users); }} value={field.value}>
                                                             <FormControl><SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger></FormControl>
                                                             <SelectContent>{userOptions.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}</SelectContent>
                                                         </Select>
@@ -441,7 +438,7 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users,
                                                 <ActivityLeadOwnerField form={form} name={`${aBase}.leadOwner`} />
                                             </TableCell>
                                             <TableCell className="min-w-[220px]">
-                                                <ActivityCollaboratorsField form={form} name={`${aBase}.collaborators`} units={departments} />
+                                                <ActivityCollaboratorsField form={form} name={`${aBase}.collaborators`} />
                                             </TableCell>
                                             <TableCell><Button type="button" variant="ghost" size="icon" aria-label="Remove activity" onClick={() => removeActivity(aIndex)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                                         </TableRow>
@@ -452,7 +449,7 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users,
                     </div>
                     <ListIssue path={`${base}.activities`} />
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendActivity(newActivity(users, departments))}>
+                        <Button type="button" variant="outline" size="sm" onClick={() => appendActivity(newActivity(users))}>
                             <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
                         </Button>
                         <p className="text-sm font-medium text-muted-foreground">

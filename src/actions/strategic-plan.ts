@@ -48,7 +48,7 @@ function forEachInitiative(pillars: PlanPillar[], fn: (i: PlanInitiative, path: 
 
 /**
  * Parses and checks a submitted plan: the shared schema first, then the
- * things only the server can know (departments and people that actually
+ * things only the server can know (people that actually
  * exist), then — for publishing — the 100% weight rule.
  */
 async function validatePlanSubmission(formData: FormData): Promise<{ ok: true; data: PlanFormValues; status: 'DRAFT' | 'PUBLISHED' } | { ok: false; result: SavePlanFailure }> {
@@ -75,13 +75,13 @@ async function validatePlanSubmission(formData: FormData): Promise<{ ok: true; d
     const data = parsed.data;
     const issues: PlanIssue[] = [];
 
-    const users = await prisma.user.findMany({ select: { id: true, department: true, leadOwner: { select: { department: true } } } });
+    const users = await prisma.user.findMany({ select: { id: true, leadOwner: { select: { name: true } } } });
     const userIds = new Set(users.map(u => u.id));
-    // The plan no longer asks for a department; each activity takes its responsible person's.
-    const departmentOf = new Map(users.map(u => [u.id, u.department || u.leadOwner?.department || '']));
+    // An activity left without a lead owner takes its responsible person's office.
+    const officeOf = new Map(users.map(u => [u.id, u.leadOwner?.name ?? '']));
 
     forEachActivity(data.pillars, (a, path) => {
-        a.department = departmentOf.get(a.responsible) || a.department || '';
+        if (!a.leadOwner?.trim()) a.leadOwner = officeOf.get(a.responsible) || '';
         if (!userIds.has(a.responsible)) {
             issues.push({ path: `${path}.responsible`, message: 'The selected responsible person no longer exists. Pick someone else.' });
         }

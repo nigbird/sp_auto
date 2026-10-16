@@ -186,7 +186,7 @@ function ActivityDetailSheet({ activity: a, onClose }: { activity: PlanApprovalA
             <SheetHeader className="space-y-2 pr-6 text-left">
               <StageBadge stage={a.stage} />
               <SheetTitle className="text-lg leading-snug">{a.title}</SheetTitle>
-              <SheetDescription>{a.leadOwner || a.department}</SheetDescription>
+              <SheetDescription>{a.leadOwner || "—"}</SheetDescription>
             </SheetHeader>
 
             <div className="mt-6 space-y-6">
@@ -336,7 +336,7 @@ export function NewActivityApprovalList({ activities: initial }: { activities: P
               <h3 className="font-semibold">{a.title}</h3>
               <p className="text-xs text-muted-foreground">{a.pillar} → {a.objective} → {a.initiative}</p>
               <p className="text-sm text-muted-foreground">
-                {a.leadOwner || a.department} · {a.responsible ?? "Unassigned"} · {dateText(a.startDate)} – {dateText(a.endDate)} · Weight {formatWeight(a.weight)}
+                {a.leadOwner || "—"} · {a.responsible ?? "Unassigned"} · {dateText(a.startDate)} – {dateText(a.endDate)} · Weight {formatWeight(a.weight)}
               </p>
               {a.deliverable && <p className="text-sm"><span className="font-medium">Deliverable:</span> {a.deliverable}</p>}
             </div>

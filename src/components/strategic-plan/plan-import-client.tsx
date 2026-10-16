@@ -24,7 +24,7 @@ import type { ParsedWorkbook } from "@/lib/plan-import/parse-workbook";
 import type { ImportPeriodSettings } from "@/lib/plan-import/write-plan";
 import { monthKey, monthLabel } from "@/lib/monthly-breakdown";
 
-type Person = { id: string; name: string; email?: string; leadOwner?: string | null; department?: string | null };
+type Person = { id: string; name: string; email?: string; leadOwner?: string | null };
 
 const ISSUES_SHOWN = 12;
 const CUT_OFF_DAYS = 10;
@@ -46,7 +46,7 @@ function nextPeriod(last: ImportPeriodSettings): ImportPeriodSettings {
 
 const sameText = (a?: string | null, b?: string | null) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
 
-export function PlanImportClient({ users: initialUsers, departments, canRegister = false }: { users: Person[]; departments: string[]; canRegister?: boolean }) {
+export function PlanImportClient({ users: initialUsers, canRegister = false }: { users: Person[]; canRegister?: boolean }) {
   const router = useRouter();
   const { toast } = useToast();
   const [users, setUsers] = React.useState<Person[]>(initialUsers);
@@ -94,15 +94,13 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
       const reportMonths = p.reportThroughMonth ? p.months.indexOf(p.reportThroughMonth) + 1 : 0;
       setPeriods(p.counts.withReport > 0 && reportMonths > 0 ? [periodFor(p.months[0], reportMonths)] : []);
       setImportReport(true);
-      // Match each office to the person registered as holding it (Users → Lead Owner),
-      // and take their department; otherwise suggest a department named like the office.
+      // Match each office to the person registered as holding it (Users → Lead Owner).
       setMapping(prev => {
         const next: Record<string, LeadOwnerMapping> = {};
         for (const title of p.leadOwners) {
           if (prev[title]) { next[title] = prev[title]; continue; }
           const holder = users.find(u => sameText(u.leadOwner, title));
-          const existingDept = departments.find(d => sameText(d, title));
-          next[title] = { userId: holder?.id ?? "", department: holder?.department ?? existingDept ?? title };
+          next[title] = { userId: holder?.id ?? "" };
         }
         return next;
       });
@@ -141,8 +139,6 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
     else if (ey < sy) clientProblems.push("End year must be the same as or after the start year.");
     const unmappedUsers = preview.leadOwners.filter(t => !mapping[t]?.userId);
     if (unmappedUsers.length) clientProblems.push(`Pick a user for ${unmappedUsers.length} lead owner${unmappedUsers.length === 1 ? "" : "s"}.`);
-    const noDept = preview.leadOwners.filter(t => !mapping[t]?.department?.trim());
-    if (noDept.length) clientProblems.push(`Enter a department for ${noDept.length} lead owner${noDept.length === 1 ? "" : "s"}.`);
     if (periods.some(p => !p.name.trim())) clientProblems.push("Give every reporting period a name.");
     if (periods.some(p => !p.startDate || !p.endDate || !p.cutOffDate)) clientProblems.push("Fill in every reporting period's start, end and cut-off dates.");
     if (hasReport && importReport && preview.reportThroughMonth && reportPeriodIndex < 0) {
@@ -171,7 +167,7 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
 
   const handleRegistered = (title: string, person: Person, invited: boolean) => {
     setUsers(prev => [...prev, person].sort((a, b) => a.name.localeCompare(b.name)));
-    setOwner(title, { userId: person.id, department: person.department || mapping[title]?.department || title });
+    setOwner(title, { userId: person.id });
     setRegisteringTitle(null);
     toast({ title: "User registered", description: `${person.name} was created as ${title} and assigned to its ${activitiesPerOwner(title)} activities.${invited ? " They've been emailed a link to set their password." : ""}` });
   };
@@ -344,7 +340,7 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
             <CardHeader>
               <CardTitle>4. Match lead owners to people</CardTitle>
               <CardDescription>
-                The sheet names offices ("Lead/ Owner (Activity)"). Pick the person who holds each one — they become responsible for its activities and receive its breakdown and report requests. Departments that don't exist yet are created.
+                The sheet names offices ("Lead/ Owner (Activity)"). Pick the person who holds each one — they become responsible for its activities and receive its breakdown and report requests.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -355,7 +351,6 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
                   <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <datalist id="import-departments">{departments.map(d => <option key={d} value={d} />)}</datalist>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -363,22 +358,19 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
                       <TableHead>Lead / Owner in the sheet</TableHead>
                       <TableHead className="text-right">Activities</TableHead>
                       <TableHead>Person</TableHead>
-                      <TableHead>Department</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {preview.leadOwners.map(title => {
-                      const m = mapping[title] ?? { userId: "", department: "" };
+                      const m = mapping[title] ?? { userId: "" };
                       const missingUser = attempted && !m.userId;
-                      const missingDept = attempted && !m.department?.trim();
-                      const isNewDept = !!m.department?.trim() && !departments.some(d => d.toLowerCase() === m.department.trim().toLowerCase());
                       return (
                         <TableRow key={title} className="align-top">
                           <TableCell className="font-medium">{title}</TableCell>
                           <TableCell className="text-right">{activitiesPerOwner(title)}</TableCell>
                           <TableCell className="min-w-[280px]">
                             <div className="flex items-center gap-2">
-                              <Select value={m.userId} onValueChange={(v) => setOwner(title, { userId: v, department: users.find(u => u.id === v)?.department || m.department })}>
+                              <Select value={m.userId} onValueChange={(v) => setOwner(title, { userId: v })}>
                                 <SelectTrigger className={cn(missingUser && "border-destructive")}><SelectValue placeholder="Choose a person…" /></SelectTrigger>
                                 <SelectContent>
                                   {users.map(u => (
@@ -401,11 +393,6 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
                             {!users.some(u => sameText(u.leadOwner, title)) && !m.userId && (
                               <p className="mt-1 text-xs text-amber-600">No one is registered as this office yet.</p>
                             )}
-                          </TableCell>
-                          <TableCell className="min-w-[260px]">
-                            <Input list="import-departments" value={m.department} onChange={(e) => setOwner(title, { department: e.target.value })} className={cn(missingDept && "border-destructive")} />
-                            {missingDept && <p className="mt-1 text-xs text-destructive">Required</p>}
-                            {isNewDept && <p className="mt-1 text-xs text-muted-foreground">New department — it will be created.</p>}
                           </TableCell>
                         </TableRow>
                       );
@@ -497,7 +484,6 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
                       <dl className="grid grid-cols-[150px_1fr] gap-x-3 gap-y-1">
                         <dt className="text-muted-foreground">Lead / Owner</dt><dd className="font-medium">{registeringTitle}</dd>
                         <dt className="text-muted-foreground">Activities</dt><dd>{details.owned.length} in {details.initiatives.length} initiative{details.initiatives.length === 1 ? "" : "s"}</dd>
-                        <dt className="text-muted-foreground">Department</dt><dd>{mapping[registeringTitle]?.department || registeringTitle}</dd>
                         {details.collaborators.length > 0 && (<><dt className="text-muted-foreground">Works with</dt><dd>{details.collaborators.join(", ")}</dd></>)}
                       </dl>
                       <details>
@@ -510,7 +496,6 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
                     <UserForm
                       user={null}
                       fixedLeadOwnerName={registeringTitle}
-                      initialValues={{ department: mapping[registeringTitle]?.department || registeringTitle }}
                       submitLabel="Register & assign"
                       onCancel={() => setRegisteringTitle(null)}
                       onSubmit={async (values) => {
@@ -518,7 +503,6 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
                           name: values.name,
                           email: values.email,
                           roleId: values.roleId,
-                          department: values.department || null,
                           leadOwnerName: registeringTitle,
                         });
                         if (!result.success) return result; // shown on the form so it can be corrected
@@ -527,7 +511,6 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
                           name: result.user.name,
                           email: result.user.email,
                           leadOwner: result.user.leadOwner ?? registeringTitle,
-                          department: result.user.department ?? null,
                         }, result.invite.emailed);
                         if (!result.invite.emailed && result.invite.link) {
                           setManualInvite({ name: result.user.name, email: result.user.email, link: result.invite.link });

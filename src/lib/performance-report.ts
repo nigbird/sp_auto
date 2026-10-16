@@ -41,8 +41,10 @@ export interface FilterableActivity {
   title: string;
   /** The responsible person. */
   owner: string;
-  /** The lead-owner office (or department). */
+  /** The lead-owner office. */
   office: string;
+  /** The other lead-owner offices collaborating on the activity. */
+  collaborators: string[];
   startDate: string;
   endDate: string;
   state: ReportState;
@@ -80,7 +82,7 @@ interface PlanActivityInput {
   targetDirection?: string | null;
   monthlyTargets?: { month: string | Date; value: number }[] | null;
   leadOwner?: string | null;
-  department?: string | null;
+  collaborators?: string[] | null;
   responsible?: unknown;
   startDate: string | Date;
   endDate: string | Date;
@@ -93,7 +95,10 @@ interface PlanPillarInput {
 }
 
 const iso = (d: string | Date) => (typeof d === 'string' ? d : d.toISOString());
-export const officeOf = (a: { leadOwner?: string | null; department?: string | null }) => a.leadOwner || a.department || '—';
+export const officeOf = (a: { leadOwner?: string | null }) => a.leadOwner || '—';
+/** Collaborating lead-owner offices, minus the lead owner itself, as a list. */
+export const collaboratorsOf = (a: { leadOwner?: string | null; collaborators?: string[] | null }) =>
+  Array.from(new Set((a.collaborators ?? []).map(c => c.trim()).filter(c => c && c !== a.leadOwner)));
 
 /**
  * Builds the report tree for a period. Only activities with a report request
@@ -126,6 +131,7 @@ export function buildPerformanceTree(pillars: PlanPillarInput[], entries: Report
       title: a.title,
       owner: (a.responsible as { name?: string } | null)?.name ?? '',
       office: officeOf(a),
+      collaborators: collaboratorsOf(a),
       startDate: iso(a.startDate),
       endDate: iso(a.endDate),
       state: entry.reportStatus,
@@ -178,7 +184,7 @@ export function filterPerformanceTree<A extends FilterableActivity>(pillars: Tre
   if (!isNarrowed(f)) return pillars;
   const q = f.q?.trim() ?? '';
   const keep = (a: A) =>
-    (!f.owner || a.office === f.owner) &&
+    (!f.owner || a.office === f.owner || a.collaborators.includes(f.owner)) &&
     (!f.report || a.state === f.report) &&
     (!f.result || a.result === f.result) &&
     (!f.range || overlapsDateRange(a.startDate, a.endDate, f.range));
@@ -191,7 +197,7 @@ export function filterPerformanceTree<A extends FilterableActivity>(pillars: Tre
         ...o,
         initiatives: o.initiatives.map(i => {
           const groupHit = !q || matchesSearch(q, p.title, o.statement, i.title);
-          return { ...i, activities: i.activities.filter(a => keep(a) && (groupHit || matchesSearch(q, a.title, a.owner, a.office))) };
+          return { ...i, activities: i.activities.filter(a => keep(a) && (groupHit || matchesSearch(q, a.title, a.owner, a.office, ...a.collaborators))) };
         }).filter(i => i.activities.length > 0),
       })).filter(o => o.initiatives.length > 0),
     }))

@@ -48,7 +48,7 @@ function BreakdownBadge({ activity }: { activity: Activity }) {
 // ---------------------------------------------------------------------------
 
 const responsibleName = (a: Activity) => (a.responsible as { name?: string } | null)?.name ?? null;
-const office = (a: Activity) => a.leadOwner || a.department || "—";
+const office = (a: Activity) => a.leadOwner || "—";
 
 /** The activity's collaborating units. Plans imported before they had their own field kept them in the description. */
 function splitDescription(a: Activity) {
@@ -99,7 +99,7 @@ export function PlanStructureView({ pillars, userNames }: { pillars: Pillar[]; u
     (owner === ALL || office(a) === owner) &&
     (breakdown === ALL || breakdownState(a) === breakdown) &&
     overlapsDateRange(a.startDate, a.endDate, range) &&
-    matchesSearch(query, a.title, a.deliverable, a.leadOwner, a.department, ...(a.collaborators ?? []), responsibleName(a), a.description, initiative.title, objective.statement, pillar.title)
+    matchesSearch(query, a.title, a.deliverable, a.leadOwner, ...(a.collaborators ?? []), responsibleName(a), a.description, initiative.title, objective.statement, pillar.title)
   ), [located, query, pillarId, owner, breakdown, range]);
   const matchingIds = React.useMemo(() => new Set(matching.map(l => l.activity.id)), [matching]);
 
@@ -321,7 +321,7 @@ function ActivityDetail({ activity: a }: { activity: Activity }) {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Lead / Owner">{a.leadOwner || a.department}</Field>
+        <Field label="Lead / Owner">{a.leadOwner || "—"}</Field>
         <Field label="Responsible person">{responsibleName(a) ?? "Unassigned"}</Field>
         <Field label="Weight">{a.weight}%</Field>
         <Field label="Start date">{format(new Date(a.startDate), "PP")}</Field>
