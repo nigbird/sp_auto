@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma';
 import { requirePermission, userCan } from '@/lib/auth/permissions-server';
 import { recordAudit } from '@/lib/auth/audit';
 import { requireUser } from '@/lib/auth/session';
-import { isCutOffPassed, isPeriodClosedForSubmissions } from '@/lib/reporting-period';
+import { isCutOffPassed, isPeriodClosedForSubmissions, wasSubmittedLate } from '@/lib/reporting-period';
 import { computeReportRow, planToDateForPeriod } from '@/lib/report-calculations';
 import { formatTargetValue, monthKey, monthsBetween, type TargetType } from '@/lib/monthly-breakdown';
 import { calculateActivityStatus } from '@/lib/utils';
@@ -39,21 +39,16 @@ function reportableActivitiesWhere(strategicPlanId: string, periodEnd: Date) {
 }
 
 /**
- * Whether an activity has to report for a period: it has planned work in one
- * of the period's months, or planned work from earlier months that wasn't
- * finished by the time the period started (it's catching up). Activities whose
- * planned months all come later, or that finished before the period, are left out.
+ * Whether an activity has to report for a period: it has a planned target (a
+ * monthly value above zero) in at least one of the period's months. Activities
+ * with nothing planned in the period are left out.
  */
 function needsReportInPeriod(
-    activity: { completionDate: Date | null; monthlyTargets: { month: Date; value: number }[] },
+    activity: { monthlyTargets: { month: Date; value: number }[] },
     period: { startDate: Date; endDate: Date },
 ): boolean {
     const periodMonths = new Set(monthsBetween(period.startDate, period.endDate));
-    const planned = activity.monthlyTargets.filter(t => t.value > 0).map(t => monthKey(t.month));
-    if (planned.some(m => periodMonths.has(m))) return true;
-    if (activity.completionDate && activity.completionDate < period.startDate) return false;
-    const firstMonth = monthKey(period.startDate);
-    return planned.some(m => m < firstMonth);
+    return activity.monthlyTargets.some(t => t.value > 0 && periodMonths.has(monthKey(t.month)));
 }
 
 /** The activities that need a report for this period, with their owner and any report row already made. */
@@ -146,7 +141,7 @@ export async function sendReportRequest(periodId: string, message: string, owner
 
     const activities = await activitiesNeedingReport(period);
     if (activities.length === 0) {
-        return fail('No activity needs a report for this period. Activities need an approved monthly breakdown with planned work in (or before, and still unfinished) the period.');
+        return fail('No activity needs a report for this period. Activities need an approved monthly breakdown with a planned target in one of the period\'s months.');
     }
 
     const now = new Date();
@@ -249,9 +244,9 @@ export async function submitPeriodReport(entryId: string, input: PeriodReportInp
     if (!entry) return fail('This report no longer exists.');
     const { activity, reportingPeriod: period } = entry;
     if (activity.responsibleId !== user.id) return fail('Only the person responsible for this activity can submit its report.');
-    if (entry.reportStatus === 'SUBMITTED') return fail('This report is already waiting for approval.');
     if (entry.reportStatus === 'APPROVED') return fail('This report has already been approved and can no longer be changed.');
-    if (entry.reportStatus !== 'REQUESTED' && entry.reportStatus !== 'RETURNED') return fail("This report hasn't been requested.");
+    // SUBMITTED is allowed: the owner may correct a report until the approver acts on it.
+    if (entry.reportStatus !== 'REQUESTED' && entry.reportStatus !== 'RETURNED' && entry.reportStatus !== 'SUBMITTED') return fail("This report hasn't been requested.");
     // Past the cut-off is fine — the report is accepted and counted as late. Only a manually closed period refuses it.
     if (isPeriodClosedForSubmissions(period)) return fail(`"${period.name}" has been closed, so reports can no longer be submitted. Ask an admin to reopen it.`);
 
@@ -303,9 +298,12 @@ export async function submitPeriodReport(entryId: string, input: PeriodReportInp
         return fail(Object.values(fieldErrors)[0], fieldErrors);
     }
 
-    const late = isCutOffPassed(period);
-    await prisma.activityPeriodEntry.update({
-        where: { id: entryId },
+    // Correcting a report that's still waiting for approval keeps its original submission time (and lateness).
+    const isEdit = entry.reportStatus === 'SUBMITTED';
+    const late = isEdit ? wasSubmittedLate(entry.submittedAt, period) : isCutOffPassed(period);
+    // Only write if nobody acted on the report meanwhile (e.g. the approver approved it a moment ago).
+    const { count } = await prisma.activityPeriodEntry.updateMany({
+        where: { id: entryId, reportStatus: entry.reportStatus },
         data: {
             reportStatus: 'SUBMITTED',
             actualToDate: actual,
@@ -318,12 +316,15 @@ export async function submitPeriodReport(entryId: string, input: PeriodReportInp
             planToDate: row.planToDate,
             declineReason: null,
             submittedById: user.id,
-            submittedAt: new Date(),
+            ...(isEdit ? {} : { submittedAt: new Date() }),
         },
     });
+    if (count === 0) return fail('This report was just handled by the approver, so it can no longer be changed. Refresh to see where it stands.');
     await recordAudit({
-        action: 'REPORT_SUBMITTED', entityType: 'ReportEntry', entityId: entryId,
-        summary: `Submitted the "${period.name}" report for "${activity.title}"${entry.reportStatus === 'RETURNED' ? ' (resubmission)' : ''}${late ? ' after the cut-off' : ''}`,
+        action: isEdit ? 'REPORT_EDITED' : 'REPORT_SUBMITTED', entityType: 'ReportEntry', entityId: entryId,
+        summary: isEdit
+            ? `Corrected the "${period.name}" report for "${activity.title}" before approval`
+            : `Submitted the "${period.name}" report for "${activity.title}"${entry.reportStatus === 'RETURNED' ? ' (resubmission)' : ''}${late ? ' after the cut-off' : ''}`,
         metadata: { activityId: activity.id, reportingPeriodId: period.id, actualToDate: actual, planToDate: row.planToDate, behindPlan: row.isBehindPlan, late },
     });
 
@@ -331,7 +332,9 @@ export async function submitPeriodReport(entryId: string, input: PeriodReportInp
         await prisma.notification.create({
             data: {
                 type: 'REPORT_SUBMITTED',
-                message: `${user.name} submitted the "${period.name}" report for "${activity.title}"${late ? ' (late — after the cut-off)' : ''}.`,
+                message: isEdit
+                    ? `${user.name} corrected the "${period.name}" report for "${activity.title}" — review the updated figures.`
+                    : `${user.name} submitted the "${period.name}" report for "${activity.title}"${late ? ' (late — after the cut-off)' : ''}.`,
                 date: new Date(),
                 read: false,
                 userId: period.reportRequestSentById,
@@ -355,12 +358,19 @@ export async function getPendingPeriodReports() {
     return JSON.parse(JSON.stringify(entries));
 }
 
-export async function approvePeriodReport(entryId: string): Promise<ReportActionResult> {
+/** The owner can correct a submitted report, so a review only counts against the version the reviewer saw. */
+function changedSinceSeen(updatedAt: Date, seenUpdatedAt?: string) {
+    return !!seenUpdatedAt && updatedAt.getTime() !== new Date(seenUpdatedAt).getTime();
+}
+const CHANGED_SINCE_SEEN = 'The owner corrected this report after you opened it. Refresh and review the updated figures.';
+
+export async function approvePeriodReport(entryId: string, seenUpdatedAt?: string): Promise<ReportActionResult> {
     const approver = await requirePermission('report-approvals:approve');
 
     const entry = await prisma.activityPeriodEntry.findUnique({ where: { id: entryId }, include: reportEntryInclude });
     if (!entry) return fail('This report no longer exists.');
     if (entry.reportStatus !== 'SUBMITTED') return fail("This report isn't waiting for approval any more — it may already have been handled.");
+    if (changedSinceSeen(entry.updatedAt, seenUpdatedAt)) return fail(CHANGED_SINCE_SEEN);
     // Segregation of duties: nobody reviews a report they submitted or are responsible for.
     if (entry.submittedById === approver.id || entry.activity.responsibleId === approver.id) return fail('You submitted this report, so someone else has to review it.');
     const { activity, reportingPeriod: period } = entry;
@@ -426,7 +436,7 @@ export async function approvePeriodReport(entryId: string): Promise<ReportAction
     return { success: true };
 }
 
-export async function returnPeriodReport(entryId: string, reason: string): Promise<ReportActionResult> {
+export async function returnPeriodReport(entryId: string, reason: string, seenUpdatedAt?: string): Promise<ReportActionResult> {
     const reviewer = await requirePermission('report-approvals:approve');
 
     const trimmed = (reason ?? '').trim();
@@ -435,6 +445,7 @@ export async function returnPeriodReport(entryId: string, reason: string): Promi
     const entry = await prisma.activityPeriodEntry.findUnique({ where: { id: entryId }, include: { activity: true, reportingPeriod: true } });
     if (!entry) return fail('This report no longer exists.');
     if (entry.reportStatus !== 'SUBMITTED') return fail("This report isn't waiting for approval any more — it may already have been handled.");
+    if (changedSinceSeen(entry.updatedAt, seenUpdatedAt)) return fail(CHANGED_SINCE_SEEN);
     // Segregation of duties: nobody reviews a report they submitted or are responsible for.
     if (entry.submittedById === reviewer.id || entry.activity.responsibleId === reviewer.id) return fail('You submitted this report, so someone else has to review it.');
 

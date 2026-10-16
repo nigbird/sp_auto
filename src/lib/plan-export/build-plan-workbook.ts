@@ -17,6 +17,7 @@ export interface ExportActivity {
   deliverable: string | null;
   description: string | null;
   department: string;
+  collaborators?: string[];
   leadOwner?: string | null;
   responsible: { name: string } | null;
   startDate: Date | string;
@@ -172,7 +173,7 @@ export function buildPlanWorkbook(plan: ExportPlan, period: ExportPeriod | null,
           put(r, col('Activity Weight'), num(a.weight / 100, PCT2));
           put(r, col('Activity Weight (No Dup)'), a.countsTowardWeight ? num(a.weight / 100, PCT2) : undefined);
           put(r, col('Lead/ Owner (Activity)'), str(a.leadOwner || a.department));
-          put(r, col('Responsible / Collaborating Unit'), str((a.description ?? '').replace(/^Responsible \/ collaborating unit:\s*/i, '')));
+          put(r, col('Responsible / Collaborating Unit'), str(a.collaborators?.length ? a.collaborators.join(', ') : (a.description ?? '').replace(/^Responsible \/ collaborating unit:\s*/i, '')));
           put(r, col('Assigned Person'), str(a.responsible?.name));
           put(r, col('Start Date'), { t: 'n', v: excelSerial(a.startDate), z: DATE });
           put(r, col('End Date'), { t: 'n', v: excelSerial(a.endDate), z: DATE });

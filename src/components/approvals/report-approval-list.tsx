@@ -109,7 +109,7 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
   const handleApprove = async (entry: PeriodReportEntry) => {
     setBusyId(entry.id);
     try {
-      const result = await approvePeriodReport(entry.id);
+      const result = await approvePeriodReport(entry.id, entry.updatedAt);
       if (!result.success) {
         toast({ title: "Couldn't approve", description: result.message, variant: "destructive" });
         return;
@@ -130,7 +130,7 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
     }
     setBusyId(returning.id);
     try {
-      const result = await returnPeriodReport(returning.id, reason);
+      const result = await returnPeriodReport(returning.id, reason, returning.updatedAt);
       if (!result.success) {
         setReasonError(result.message);
         return;

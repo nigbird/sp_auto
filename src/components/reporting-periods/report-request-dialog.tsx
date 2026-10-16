@@ -185,7 +185,7 @@ export function ReportRequestButton({ period, disabledReason, onSent }: { period
               <DialogHeader>
                 <DialogTitle>Request reports for {period.name}</DialogTitle>
                 <DialogDescription>
-                  {format(new Date(period.startDate), "PP")} – {format(new Date(period.endDate), "PP")}. Only activities with planned work in this period, or earlier planned work still unfinished, are listed.
+                  {format(new Date(period.startDate), "PP")} – {format(new Date(period.endDate), "PP")}. Only activities with a planned target in this period&apos;s months are listed.
                   {" "}Choose who to send to — each person gets one notification for all their activities.
                   {pastCutOff && " The cut-off date has already passed, so these reports will show as overdue — owners can still submit them."}
                 </DialogDescription>
@@ -195,7 +195,7 @@ export function ReportRequestButton({ period, disabledReason, onSent }: { period
                 <p className="flex items-center gap-2 py-6 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Finding who needs to report…</p>
               ) : owners.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
-                  {error ?? "No activity needs a report for this period. Activities need an approved monthly breakdown with planned work in (or before, and still unfinished) this period."}
+                  {error ?? "No activity needs a report for this period. Activities need an approved monthly breakdown with a planned target in this period's months."}
                 </p>
               ) : (
                 <>

@@ -210,7 +210,7 @@ function ActivityDetailSheet({ activity: a, onClose }: { activity: PlanApprovalA
                 <h4 className="mb-2 text-sm font-semibold">Ownership and timing</h4>
                 <dl className="grid grid-cols-2 gap-4">
                   <DetailField label="Lead owner">{a.leadOwner}</DetailField>
-                  <DetailField label="Department">{a.department}</DetailField>
+                  <DetailField label="Collaborators">{a.collaborators.length ? a.collaborators.join(", ") : null}</DetailField>
                   <DetailField label="Responsible">{a.responsible}</DetailField>
                   <DetailField label="Weight">{a.countsTowardWeight ? formatWeight(a.weight) : `${formatWeight(a.weight)} (duplicate, not counted)`}</DetailField>
                   <DetailField label="Start">{dateText(a.startDate)}</DetailField>

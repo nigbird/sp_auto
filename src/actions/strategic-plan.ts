@@ -75,13 +75,13 @@ async function validatePlanSubmission(formData: FormData): Promise<{ ok: true; d
     const data = parsed.data;
     const issues: PlanIssue[] = [];
 
-    const validDepartments = new Set((await prisma.department.findMany({ select: { name: true } })).map(d => d.name));
-    const userIds = new Set((await prisma.user.findMany({ select: { id: true } })).map(u => u.id));
+    const users = await prisma.user.findMany({ select: { id: true, department: true, leadOwner: { select: { department: true } } } });
+    const userIds = new Set(users.map(u => u.id));
+    // The plan no longer asks for a department; each activity takes its responsible person's.
+    const departmentOf = new Map(users.map(u => [u.id, u.department || u.leadOwner?.department || '']));
 
     forEachActivity(data.pillars, (a, path) => {
-        if (!validDepartments.has(a.department)) {
-            issues.push({ path: `${path}.department`, message: `"${a.department}" is not in the department list. Pick a department from the list.` });
-        }
+        a.department = departmentOf.get(a.responsible) || a.department || '';
         if (!userIds.has(a.responsible)) {
             issues.push({ path: `${path}.responsible`, message: 'The selected responsible person no longer exists. Pick someone else.' });
         }

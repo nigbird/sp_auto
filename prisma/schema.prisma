@@ -173,6 +173,9 @@ model Activity {
   // The lead-owner office for this activity, kept as written so the plan
   // shows it even if the office list changes later.
   leadOwner       String?
+  // The units that work with the lead owner on this activity ("Responsible /
+  // Collaborating Unit" in the plan sheet). Can be more than one.
+  collaborators   String[]       @default([])
   responsible     User           @relation(fields: [responsibleId], references: [id])
   responsibleId   String
   startDate       DateTime

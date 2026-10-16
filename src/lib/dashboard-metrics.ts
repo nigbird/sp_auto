@@ -169,7 +169,7 @@ export interface StreamSummary {
   name: string;
   summary: Summary;
   rating: Rating;
-  /** Achievement × 30 — the Excel's "Result out of 30". */
+  /** Delay-penalised achievement × 30 — the "Result out of 30". */
   score30: number | null;
   initiatives: number;
   initiativesDue: number;
@@ -231,6 +231,8 @@ export interface ActivityDelayRow {
   daysDelayed: number | null;
   status: ActivityStatusLabel;
   delivery: DeliveryState;
+  /** A duplicate copy of an activity shared with another stream: listed under its stream, but counted once plan-wide. */
+  duplicate: boolean;
 }
 
 export interface DashboardMetrics {
@@ -433,22 +435,33 @@ function delayRowFor(r: ActivityResult, stream: string, initiative: { id: string
     daysDelayed,
     status,
     delivery,
+    duplicate: isDuplicate(r),
   };
 }
 
-function summarize(results: ActivityResult[]): Summary {
+/** Duplicate rows (the same activity shared by several streams) count once, except in stream totals. */
+const isDuplicate = (r: ActivityResult) => r.activity.countsTowardWeight === false;
+const withoutDuplicates = (results: ActivityResult[]) => results.filter(r => !isDuplicate(r));
+
+/**
+ * Coverage counts skip duplicate rows unless `countDuplicates` is set — only
+ * stream totals count a shared activity once per stream. Weights are already
+ * duplicate-free through noDupWeight / weightForPeriodNoDup.
+ */
+function summarize(results: ActivityResult[], { countDuplicates = false } = {}): Summary {
+  const counted = countDuplicates ? results : withoutDuplicates(results);
   const totalWeight = results.reduce((s, r) => s + r.noDupWeight, 0);
   const rows = results.map(r => r.row).filter((r): r is ReportRow => r !== null);
   const rollup = rollUp(rows);
   const planNoDup = rows.reduce((s, r) => s + (r.weightForPeriodNoDup ?? 0), 0);
-  const planned = results.filter(r => r.hasPlan);
+  const planned = counted.filter(r => r.hasPlan);
   return {
     totalWeight,
     rollup,
     planShareOfTotal: totalWeight > 0 ? planNoDup / totalWeight : null,
     yearProgress: totalWeight > 0 ? results.reduce((s, r) => s + r.progressNoDup, 0) / totalWeight : null,
     coverage: {
-      activities: results.length,
+      activities: counted.length,
       planned: planned.length,
       approved: planned.filter(r => r.approved).length,
       pending: planned.filter(r => r.status === 'SUBMITTED').length,
@@ -576,7 +589,7 @@ export function computeDashboard(
         const due = dueDates.length ? new Date(Math.max(...dueDates.map(d => d.getTime()))) : null;
         const starts = initiative.activities.map(a => new Date(a.startDate).getTime()).filter(Number.isFinite);
         const dueByPeriodEnd = due != null && due.getTime() <= periodEnd.getTime();
-        const targeted = results.filter(r => r.row !== null);
+        const targeted = withoutDuplicates(results).filter(r => r.row !== null);
         const completed = targeted.length > 0 && targeted.every(r => r.completed);
         const worstDelay = results.reduce<number | null>((m, r) => (r.delayDays == null ? m : Math.max(m ?? 0, r.delayDays)), null);
 
@@ -603,7 +616,7 @@ export function computeDashboard(
           dueByPeriodEnd,
           completed,
           delay: due ? bucketFor({ dueByPeriodEnd, delayDays: worstDelay }) : null,
-          activities: results.length,
+          activities: withoutDuplicates(results).length,
           narratives: {
             accomplished: narrative(e => e.comment),
             variation: narrative(e => e.reasonForVariation),
@@ -625,7 +638,7 @@ export function computeDashboard(
           bucket.initiatives.add(initiative.id);
           byStream.set(stream, bucket);
 
-          if (r.row === null) {
+          if (r.row === null && !isDuplicate(r)) {
             activitiesWithoutTarget.push({
               id: r.activity.id,
               code,
@@ -682,23 +695,25 @@ export function computeDashboard(
     statusCounts[i.status]++;
     if (i.delay) initiativeDelays[i.delay]++;
   }
+  // Plan-wide activity counts take each shared activity once; stream totals below count it per stream.
+  const unique = withoutDuplicates(all);
   const activityDelays = emptyCounts(DELAY_KEYS);
-  for (const r of all) if (r.dueDate) activityDelays[bucketFor(r)]++;
+  for (const r of unique) if (r.dueDate) activityDelays[bucketFor(r)]++;
 
   const fyStart = fiscalYearStart(periodEnd);
   const initiativeQuarters = tallyQuarters(initiativeSummaries.map(i => ({ due: i.dueDate ? new Date(i.dueDate) : null, completed: i.completed })), fyStart);
-  const activityQuarters = tallyQuarters(all.map(r => ({ due: r.dueDate, completed: r.completed })), fyStart);
+  const activityQuarters = tallyQuarters(unique.map(r => ({ due: r.dueDate, completed: r.completed })), fyStart);
 
   const initiativeById = new Map(initiativeSummaries.map(i => [i.id, i]));
   const streams: StreamSummary[] = [...byStream.entries()].map(([name, { results, initiatives }]) => {
-    const summary = summarize(results);
+    const summary = summarize(results, { countDuplicates: true });
     const hasPlan = summary.rollup.weightedPlan > 0 && summary.coverage.approved > 0;
     const inits = [...initiatives].map(id => initiativeById.get(id)!).filter(Boolean);
     return {
       name,
       summary,
       rating: ratingFor(summary.rollup.achievedResult, hasPlan, ratingThresholds),
-      score30: hasPlan && summary.rollup.achievedResult != null ? summary.rollup.achievedResult * 30 : null,
+      score30: hasPlan && summary.rollup.achievedWithDelay != null ? summary.rollup.achievedWithDelay * 30 : null,
       initiatives: initiatives.size,
       initiativesDue: inits.filter(i => i.dueByPeriodEnd).length,
       initiativesCompleted: inits.filter(i => i.completed).length,
@@ -736,13 +751,13 @@ export function computeDashboard(
     initiativeQuarters,
     activityQuarters,
     fiscalYearLabel: `FY ${fyStart}/${String(fyStart + 1).slice(2)}`,
-    activitiesTotal: all.length,
-    activitiesDue: all.filter(r => r.dueByPeriodEnd).length,
-    activitiesCompleted: all.filter(r => r.completed).length,
+    activitiesTotal: unique.length,
+    activitiesDue: unique.filter(r => r.dueByPeriodEnd).length,
+    activitiesCompleted: unique.filter(r => r.completed).length,
     initiativesDue: initiativeSummaries.filter(i => i.dueByPeriodEnd).length,
     initiativesCompleted: initiativeSummaries.filter(i => i.completed).length,
     initiativesOverdue: initiativeSummaries.filter(i => i.dueByPeriodEnd && !i.completed).length,
-    activitiesOverdue: all.filter(r => r.dueByPeriodEnd && !r.completed).length,
+    activitiesOverdue: unique.filter(r => r.dueByPeriodEnd && !r.completed).length,
     completedInitiatives: initiativeSummaries.filter(i => i.completed).map(i => ({
       id: i.id, code: i.code, title: i.title, owner: i.owner, note: i.dueDate ? `Due ${i.dueDate.slice(0, 10)}` : '',
     })),

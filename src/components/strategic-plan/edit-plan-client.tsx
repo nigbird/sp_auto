@@ -24,6 +24,7 @@ import { calculateInitiativeWeight } from "@/lib/utils";
 import { planFormSchema, formatPlanIssue, type PlanFormValues, type PlanIssue } from "@/lib/plan-schema";
 import { applyIssuesToForm, collectPlanIssues, focusIssue, IssueSummary, ListIssue, PlanFormIssuesProvider, useAutoOpenAccordion } from "./plan-form-issues";
 import { ActivityLeadOwnerField, applyResponsibleDefaults, type PlanPerson } from "./activity-lead-owner-field";
+import { ActivityCollaboratorsField } from "./activity-collaborators-field";
 
 type FormValues = PlanFormValues;
 type PlanForm = UseFormReturn<FormValues>;
@@ -43,7 +44,7 @@ const getOneMonthFromToday = () => {
 function newActivity(users: Person[], departments: string[]) {
     const person = users[0];
     const department = person?.department && departments.includes(person.department) ? person.department : departments[0] ?? '';
-    return { id: generateId('A'), title: '', weight: 0, description: '', deliverable: '', startDate: getToday(), endDate: getOneMonthFromToday(), department, leadOwner: person?.leadOwner ?? '', responsible: person?.id ?? '' };
+    return { id: generateId('A'), title: '', weight: 0, description: '', deliverable: '', startDate: getToday(), endDate: getOneMonthFromToday(), department, collaborators: [] as string[], leadOwner: person?.leadOwner ?? '', responsible: person?.id ?? '' };
 }
 function newInitiative(users: Person[], departments: string[]) {
     return { id: generateId('I'), title: '', description: '', owners: users[0]?.id ? [users[0].id] : [], collaborators: [], activities: [newActivity(users, departments)] };
@@ -88,6 +89,7 @@ function planToFormValues(plan: StrategicPlan): FormValues {
                         startDate: toDateInput(a.startDate),
                         endDate: toDateInput(a.endDate),
                         department: a.department,
+                        collaborators: a.collaborators ?? [],
                         responsible: idOf(a.responsible),
                         countsTowardWeight: a.countsTowardWeight,
                     })),
@@ -410,7 +412,7 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users,
                                     <TableHead>End</TableHead>
                                     <TableHead>Responsible</TableHead>
                                     <TableHead>Lead / Owner</TableHead>
-                                    <TableHead>Department</TableHead>
+                                    <TableHead>Collaborators</TableHead>
                                     <TableHead><span className="sr-only">Remove</span></TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -438,16 +440,8 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users,
                                             <TableCell className="min-w-[220px]">
                                                 <ActivityLeadOwnerField form={form} name={`${aBase}.leadOwner`} />
                                             </TableCell>
-                                            <TableCell className="min-w-[150px]">
-                                                <FormField control={control} name={`${aBase}.department`} render={({ field }) => (
-                                                    <FormItem data-field-path={field.name} tabIndex={-1}>
-                                                        <Select onValueChange={field.onChange} value={field.value}>
-                                                            <FormControl><SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger></FormControl>
-                                                            <SelectContent>{departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-                                                        </Select>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )} />
+                                            <TableCell className="min-w-[220px]">
+                                                <ActivityCollaboratorsField form={form} name={`${aBase}.collaborators`} units={departments} />
                                             </TableCell>
                                             <TableCell><Button type="button" variant="ghost" size="icon" aria-label="Remove activity" onClick={() => removeActivity(aIndex)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                                         </TableRow>

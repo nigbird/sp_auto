@@ -42,7 +42,7 @@ export function StreamsTab({ m, previous }: { m: DashboardMetrics; previous: Das
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <MiniStat label="Streams & departments" value={String(m.streams.length)} note={`${measured.length} measured this period`} />
-        <MiniStat label="Average score" value={avgScore == null ? "—" : `${avgScore.toFixed(1)}%`} note="out of 30% (achievement × 30%), measured streams" />
+        <MiniStat label="Average score" value={avgScore == null ? "—" : `${avgScore.toFixed(1)}%`} note="out of 30% (achievement after delays × 30%), measured streams" />
         <MiniStat label="Rated Outstanding" value={String(m.streams.filter(s => s.rating === "Outstanding").length)} note={`${m.ratingThresholds.outstanding}% or more of their period plan`} />
         <MiniStat label="Not submitted" value={String(notSubmittedReports)} note="no report sent in yet — counts as zero" />
         <MiniStat label="Pending approval" value={String(pendingReports)} note="submitted, waiting on an approver" />
@@ -190,7 +190,7 @@ export function StreamsTab({ m, previous }: { m: DashboardMetrics; previous: Das
           </table>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          Streams are the lead-owner offices. Score = achievement × 30% (the result out of 30 in the performance report). Ratings: {describeRatingBands(m.ratingThresholds)}.
+          Streams are the lead-owner offices. Score = achievement after delay penalties × 30% (the result out of 30). Ratings: {describeRatingBands(m.ratingThresholds)}.
         </p>
       </SectionCard>
     </div>

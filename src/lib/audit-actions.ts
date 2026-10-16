@@ -70,6 +70,7 @@ export const AUDIT_ACTIONS = {
   // Reporting
   REPORT_REQUESTS_SENT: { label: 'Sent report requests', category: 'Reporting' },
   REPORT_SUBMITTED: { label: 'Submitted a report', category: 'Reporting' },
+  REPORT_EDITED: { label: 'Corrected a report before approval', category: 'Reporting' },
   REPORT_APPROVED: { label: 'Approved a report', category: 'Reporting' },
   REPORT_RETURNED: { label: 'Returned a report', category: 'Reporting' },
   REPORTS_IMPORTED: { label: 'Imported reports', category: 'Reporting' },

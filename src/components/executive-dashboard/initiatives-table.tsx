@@ -3,13 +3,17 @@
 import { Fragment, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { INITIATIVE_STATUS_LABEL, INITIATIVE_STATUS_ORDER, type InitiativeStatus, type InitiativeSummary, type NarrativeItem } from "@/lib/dashboard-metrics";
+import { INITIATIVE_STATUS_LABEL, INITIATIVE_STATUS_ORDER, type InitiativeStatus, type InitiativeSummary, type NarrativeItem, type Rating } from "@/lib/dashboard-metrics";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { overlapsDateRange, type DateRangeValue } from "@/lib/list-filters";
 import { DateRangeFilter, Pagination, usePagination } from "../list-controls";
 import { MeterBar, RatingChip, STATUS_COLOR, StatusPill, pct, pillarColor, shortDate, weightPct } from "./primitives";
 import { ExportCsvButton } from "./export-csv-button";
 
 type SortKey = "code" | "achieved" | "planned" | "total" | "due";
+type OverallFilter = "all" | "completed" | "notCompleted";
+
+const RATINGS: Rating[] = ["Outstanding", "Very Good", "Good", "Fair", "Unsatisfactory", "No Target"];
 
 const NARRATIVES: { key: keyof InitiativeSummary["narratives"]; label: string }[] = [
   { key: "accomplished", label: "Accomplished tasks" },
@@ -23,6 +27,8 @@ export function InitiativesTable({ initiatives }: { initiatives: InitiativeSumma
   const [query, setQuery] = useState("");
   const [pillar, setPillar] = useState<string>("all");
   const [status, setStatus] = useState<InitiativeStatus | "all">("all");
+  const [overall, setOverall] = useState<OverallFilter>("all");
+  const [rating, setRating] = useState<Rating | "all">("all");
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "code", dir: 1 });
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [range, setRange] = useState<DateRangeValue>({});
@@ -30,9 +36,9 @@ export function InitiativesTable({ initiatives }: { initiatives: InitiativeSumma
   const pillars = useMemo(() => [...new Set(initiatives.map(i => i.pillarCode))], [initiatives]);
   const counts = useMemo(() => {
     const c = Object.fromEntries(INITIATIVE_STATUS_ORDER.map(s => [s, 0])) as Record<InitiativeStatus, number>;
-    for (const i of initiatives) if (pillar === "all" || i.pillarCode === pillar) c[i.status]++;
+    for (const i of initiatives) if ((pillar === "all" || i.pillarCode === pillar) && matchesOverall(i, overall) && (rating === "all" || i.rating === rating)) c[i.status]++;
     return c;
-  }, [initiatives, pillar]);
+  }, [initiatives, pillar, overall, rating]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -48,14 +54,16 @@ export function InitiativesTable({ initiatives }: { initiatives: InitiativeSumma
     return initiatives
       .filter(i => pillar === "all" || i.pillarCode === pillar)
       .filter(i => status === "all" || i.status === status)
+      .filter(i => matchesOverall(i, overall))
+      .filter(i => rating === "all" || i.rating === rating)
       .filter(i => !q || `${i.code} ${i.title} ${i.owner}`.toLowerCase().includes(q))
       .filter(i => overlapsDateRange(i.startDate, i.dueDate, range))
       .sort((a, b) => {
         const va = value(a), vb = value(b);
         return (va < vb ? -1 : va > vb ? 1 : 0) * sort.dir;
       });
-  }, [initiatives, pillar, status, query, sort, range]);
-  const pagination = usePagination(rows, `${query}|${pillar}|${status}|${range.from}|${range.to}|${sort.key}|${sort.dir}`, 25);
+  }, [initiatives, pillar, status, overall, rating, query, sort, range]);
+  const pagination = usePagination(rows, `${query}|${pillar}|${status}|${overall}|${rating}|${range.from}|${range.to}|${sort.key}|${sort.dir}`, 25);
 
   const csvHeaders = ["Code", "Initiative", "Owner", "Pillar", "Start", "Due", "Total weight %", "Planned weight %", "Attained weight %", "Achievement %", "Reports approved", "Reports planned", "Status", "Overall", "Rating"];
   const csvRows = rows.map(i => {
@@ -104,6 +112,21 @@ export function InitiativesTable({ initiatives }: { initiatives: InitiativeSumma
             </button>
           ))}
         </div>
+        <Select value={overall} onValueChange={v => setOverall(v as OverallFilter)}>
+          <SelectTrigger className="h-9 w-[170px] rounded-xl bg-background text-sm" aria-label="Overall"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Overall: all</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="notCompleted">Not completed</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={rating} onValueChange={v => setRating(v as Rating | "all")}>
+          <SelectTrigger className="h-9 w-[170px] rounded-xl bg-background text-sm" aria-label="Rating"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Rating: all</SelectItem>
+            {RATINGS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <ExportCsvButton className="ml-auto" filename="initiatives" headers={csvHeaders} rows={csvRows} />
       </div>
 
@@ -198,6 +221,10 @@ export function InitiativesTable({ initiatives }: { initiatives: InitiativeSumma
       <Pagination state={pagination} noun="initiatives" className="mt-4" />
     </div>
   );
+}
+
+function matchesOverall(i: InitiativeSummary, overall: OverallFilter) {
+  return overall === "all" || (overall === "completed" ? i.completed : !i.completed);
 }
 
 function NarrativeBlock({ label, items }: { label: string; items: NarrativeItem[] }) {

@@ -25,6 +25,7 @@ export interface PlanApprovalActivity {
   title: string;
   leadOwner: string | null;
   department: string;
+  collaborators: string[];
   responsible: string | null;
   startDate: string;
   endDate: string;
@@ -88,7 +89,7 @@ export async function getPlanApprovalOverview(planId?: string): Promise<PlanAppr
   const rows = await prisma.activity.findMany({
     where: { initiative: { objective: { pillar: { strategicPlanId: plan.id } } } },
     select: {
-      id: true, title: true, leadOwner: true, department: true, startDate: true, endDate: true, weight: true, countsTowardWeight: true,
+      id: true, title: true, leadOwner: true, department: true, collaborators: true, startDate: true, endDate: true, weight: true, countsTowardWeight: true,
       deliverable: true, proposedByOwner: true, approvalStatus: true, declineReason: true,
       planRequestStatus: true, planRequestDeclineReason: true, planSubmissionStatus: true, planDeclineReason: true, updatedAt: true,
       description: true, targetType: true, annualTarget: true, targetAggregation: true, targetDirection: true,
@@ -112,6 +113,7 @@ export async function getPlanApprovalOverview(planId?: string): Promise<PlanAppr
       title: a.title,
       leadOwner: a.leadOwner,
       department: a.department,
+      collaborators: a.collaborators,
       responsible: a.responsible?.name ?? null,
       startDate: a.startDate.toISOString(),
       endDate: a.endDate.toISOString(),

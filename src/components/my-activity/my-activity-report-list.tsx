@@ -39,6 +39,7 @@ export interface PeriodReportEntry {
   escalationIssues: string | null;
   declineReason: string | null;
   submittedAt: string | null;
+  updatedAt?: string;
   evidence: EvidenceMeta[];
   reportingPeriod: { id: string; name: string; startDate: string; endDate: string; cutOffDate: string; status: 'OPEN' | 'CLOSED'; reportRequestMessage: string | null };
   activity: {
@@ -127,8 +128,10 @@ function NarrativeField({ label, htmlFor, children }: { label: string; htmlFor?:
 }
 
 /** The owner's blue columns for one activity in one period. */
-function ReportForm({ entry, onSubmitted }: { entry: PeriodReportEntry; onSubmitted: () => Promise<void> }) {
+function ReportForm({ entry, onSubmitted, onCancel }: { entry: PeriodReportEntry; onSubmitted: () => Promise<void>; onCancel?: () => void }) {
   const { activity, reportingPeriod: period } = entry;
+  // Editing a report that's already with the approver: it stays with them, updated.
+  const isEdit = entry.reportStatus === 'SUBMITTED';
   const targetType = activity.targetType;
   const unit = targetType === 'PERCENT' ? '%' : '';
   const [actual, setActual] = React.useState(entry.actualToDate != null ? String(entry.actualToDate) : '');
@@ -177,10 +180,12 @@ function ReportForm({ entry, onSubmitted }: { entry: PeriodReportEntry; onSubmit
       });
       if (!result.success) {
         setErrors(result.fieldErrors ?? {});
-        toast({ title: "Couldn't submit the report", description: result.message, variant: "destructive" });
+        toast({ title: isEdit ? "Couldn't save the changes" : "Couldn't submit the report", description: result.message, variant: "destructive" });
         return;
       }
-      toast({ title: "Report submitted", description: `"${activity.title}" was sent for approval.` });
+      toast(isEdit
+        ? { title: "Report updated", description: `The approver will see your changes to "${activity.title}".` }
+        : { title: "Report submitted", description: `"${activity.title}" was sent for approval.` });
       await onSubmitted();
     } finally {
       setIsSaving(false);
@@ -234,9 +239,12 @@ function ReportForm({ entry, onSubmitted }: { entry: PeriodReportEntry; onSubmit
       <ReportEvidence entryId={entry.id} files={entry.evidence ?? []} editable />
       <div className="flex items-center justify-between gap-2 border-t border-border/50 pt-4">
         <p className="text-xs text-muted-foreground">* required{row.isBehindPlan ? ' — reasons and the way forward are required because the actual is below plan.' : ''}</p>
-        <Button onClick={handleSubmit} disabled={isSaving}>
-          {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Submit report
-        </Button>
+        <div className="flex gap-2">
+          {onCancel && <Button variant="outline" onClick={onCancel} disabled={isSaving}>Cancel</Button>}
+          <Button onClick={handleSubmit} disabled={isSaving}>
+            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {isEdit ? 'Save changes' : 'Submit report'}
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -292,7 +300,23 @@ function ReportSummaryView({ entry }: { entry: PeriodReportEntry }) {
 function ReportDetail({ entry, onChanged }: { entry: PeriodReportEntry; onChanged: () => Promise<void> }) {
   const closed = isPeriodClosedForSubmissions(entry.reportingPeriod);
   const { can } = usePermissions();
-  const editable = can('my-reports:submit') && isEditableStatus(entry) && !closed;
+  const canSubmit = can('my-reports:submit') && !closed;
+  const editable = canSubmit && isEditableStatus(entry);
+  // A submitted report can be corrected until the approver acts on it.
+  const canEditSubmitted = canSubmit && entry.reportStatus === 'SUBMITTED';
+  const [editingSubmitted, setEditingSubmitted] = React.useState(false);
+  React.useEffect(() => setEditingSubmitted(false), [entry.id, entry.reportStatus, entry.submittedAt]);
+
+  if (canEditSubmitted && editingSubmitted) {
+    return (
+      <div className="space-y-4">
+        <Alert className="border-blue-500/25 bg-blue-500/[0.06] text-blue-800 [&>svg]:text-blue-600">
+          <Info className="h-4 w-4" /><AlertDescription>You&apos;re correcting a report that&apos;s waiting for approval. It stays with the approver, who is told it changed.</AlertDescription>
+        </Alert>
+        <ReportForm key={`${entry.id}-edit`} entry={entry} onSubmitted={async () => { setEditingSubmitted(false); await onChanged(); }} onCancel={() => setEditingSubmitted(false)} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -311,6 +335,12 @@ function ReportDetail({ entry, onChanged }: { entry: PeriodReportEntry; onChange
         : <>
             {closed && isEditableStatus(entry) && (
               <p className="text-sm text-destructive">This period has been closed, so this report can no longer be submitted. Ask an admin to reopen it.</p>
+            )}
+            {canEditSubmitted && (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5">
+                <p className="text-sm text-muted-foreground">Spotted a mistake? You can correct this report until it&apos;s approved.</p>
+                <Button size="sm" variant="outline" onClick={() => setEditingSubmitted(true)}><PencilLine className="mr-1.5 h-3.5 w-3.5" />Edit report</Button>
+              </div>
             )}
             {(entry.reportStatus === 'SUBMITTED' || entry.reportStatus === 'APPROVED') && <ReportSummaryView entry={entry} />}
           </>}
@@ -348,8 +378,12 @@ function approvedRow(e: PeriodReportEntry) {
   );
 }
 
-/** Approved, and the activity reported as finished (a completion date is required once the annual target is reached). */
-const isCompletedAsPerTarget = (e: PeriodReportEntry) => e.reportStatus === 'APPROVED' && !!e.completionDate;
+/**
+ * Approved, and the activity's whole target is both planned and achieved by
+ * this period — the same "completed" the dashboard counts. A completion date
+ * alone isn't enough: owners can enter one while the actual is still short.
+ */
+const isCompletedAsPerTarget = (e: PeriodReportEntry) => e.reportStatus === 'APPROVED' && approvedRow(e).isCompleted;
 
 type ReportFilter = 'all' | 'toFill' | 'returned' | 'overdue' | 'waiting' | 'approved' | 'completed' | 'behind';
 

@@ -43,7 +43,7 @@ export function DepartmentalDashboard({
         }
         const isDepartment = departments.includes(selectedUnit);
         if (isDepartment) {
-            return activities.filter(a => a.department === selectedUnit);
+            return activities.filter(a => a.department === selectedUnit || a.collaborators?.includes(selectedUnit));
         } else {
             return activities.filter(a => (a.responsible as User)?.name === selectedUnit);
         }

@@ -26,6 +26,7 @@ import { calculateInitiativeWeight } from "@/lib/utils";
 import { planFormSchema, sectionOfPath, formatPlanIssue, type PlanFormValues, type PlanIssue, type PlanSection } from "@/lib/plan-schema";
 import { applyIssuesToForm, collectPlanIssues, focusIssue, IssueSummary, ListIssue, PlanFormIssuesProvider, useAutoOpenAccordion } from "./plan-form-issues";
 import { ActivityLeadOwnerField, applyResponsibleDefaults, type PlanPerson } from "./activity-lead-owner-field";
+import { ActivityCollaboratorsField } from "./activity-collaborators-field";
 
 type FormValues = PlanFormValues;
 type Person = PlanPerson;
@@ -60,7 +61,7 @@ const getOneMonthFromToday = () => {
 function newActivity(users: Person[], departments: string[], title = "", weight = 0) {
     const person = users[0];
     const department = person?.department && departments.includes(person.department) ? person.department : departments[0] ?? '';
-    return { id: generateId('A'), title, weight, description: '', deliverable: '', startDate: getToday(), endDate: getOneMonthFromToday(), department, leadOwner: person?.leadOwner ?? '', responsible: person?.id ?? '' };
+    return { id: generateId('A'), title, weight, description: '', deliverable: '', startDate: getToday(), endDate: getOneMonthFromToday(), department, collaborators: [] as string[], leadOwner: person?.leadOwner ?? '', responsible: person?.id ?? '' };
 }
 function newInitiative(users: Person[], departments: string[], title = "") {
     return { id: generateId('I'), title, description: "", owners: users[0]?.id ? [users[0].id] : [], collaborators: [], activities: [newActivity(users, departments)] };
@@ -370,7 +371,7 @@ export function CreatePlanClient({ users, departments }: CreatePlanClientProps) 
                                 <TabsContent value="activities" className="space-y-6">
                                     <StepHeader title="Step 5: Define Activities" description="An Activity is a specific task required to complete an Initiative. Every activity shares one 100% weight pool across the whole plan." />
                                     {departments.length === 0 && (
-                                        <Alert variant="destructive"><AlertDescription>No departments exist yet. Add departments on the Departments page before assigning activities.</AlertDescription></Alert>
+                                        <Alert><AlertDescription>No departments exist yet. Add them on the Departments page to pick collaborating units for activities.</AlertDescription></Alert>
                                     )}
                                     <PlanWeightSummary pillars={values.pillars} />
                                     <PillarSections form={form} render={(pIndex) => (
@@ -629,7 +630,7 @@ function ActivityTable({ pIndex, oIndex, iIndex, form, users, departments, userO
                             <TableHead>End Date</TableHead>
                             <TableHead>Responsible</TableHead>
                             <TableHead>Lead / Owner</TableHead>
-                            <TableHead>Department</TableHead>
+                            <TableHead>Collaborators</TableHead>
                             <TableHead><span className="sr-only">Remove</span></TableHead>
                         </TableRow>
                     </TableHeader>
@@ -692,18 +693,8 @@ function ActivityTable({ pIndex, oIndex, iIndex, form, users, departments, userO
                                 <TableCell className="min-w-[220px]">
                                     <ActivityLeadOwnerField form={form} name={`${base}.${aIndex}.leadOwner`} />
                                 </TableCell>
-                                <TableCell className="min-w-[150px]">
-                                    <FormField control={control} name={`${base}.${aIndex}.department`} render={({ field }) => (
-                                        <FormItem data-field-path={field.name} tabIndex={-1}>
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>{departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
+                                <TableCell className="min-w-[220px]">
+                                    <ActivityCollaboratorsField form={form} name={`${base}.${aIndex}.collaborators`} units={departments} />
                                 </TableCell>
                                 <TableCell>
                                     <Button type="button" variant="ghost" size="icon" aria-label="Remove activity" onClick={() => removeActivity(aIndex)}>

@@ -50,10 +50,11 @@ function BreakdownBadge({ activity }: { activity: Activity }) {
 const responsibleName = (a: Activity) => (a.responsible as { name?: string } | null)?.name ?? null;
 const office = (a: Activity) => a.leadOwner || a.department || "—";
 
-/** Imported activities keep the sheet's "Responsible / Collaborating Unit" text in the description. */
+/** The activity's collaborating units. Plans imported before they had their own field kept them in the description. */
 function splitDescription(a: Activity) {
-  const collaborators = (a.description ?? "").match(/^Responsible \/ collaborating unit:\s*([\s\S]*)$/i)?.[1]?.trim();
-  return { collaborators: collaborators || null, description: collaborators ? null : (a.description ?? "").trim() || null };
+  const legacy = (a.description ?? "").match(/^Responsible \/ collaborating unit:\s*([\s\S]*)$/i)?.[1]?.trim();
+  const units = a.collaborators?.length ? a.collaborators.join(", ") : legacy;
+  return { collaborators: units || null, description: legacy ? null : (a.description ?? "").trim() || null };
 }
 
 const span = (a: Activity) => {
@@ -98,7 +99,7 @@ export function PlanStructureView({ pillars, userNames }: { pillars: Pillar[]; u
     (owner === ALL || office(a) === owner) &&
     (breakdown === ALL || breakdownState(a) === breakdown) &&
     overlapsDateRange(a.startDate, a.endDate, range) &&
-    matchesSearch(query, a.title, a.deliverable, a.leadOwner, a.department, responsibleName(a), a.description, initiative.title, objective.statement, pillar.title)
+    matchesSearch(query, a.title, a.deliverable, a.leadOwner, a.department, ...(a.collaborators ?? []), responsibleName(a), a.description, initiative.title, objective.statement, pillar.title)
   ), [located, query, pillarId, owner, breakdown, range]);
   const matchingIds = React.useMemo(() => new Set(matching.map(l => l.activity.id)), [matching]);
 
@@ -322,11 +323,10 @@ function ActivityDetail({ activity: a }: { activity: Activity }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Lead / Owner">{a.leadOwner || a.department}</Field>
         <Field label="Responsible person">{responsibleName(a) ?? "Unassigned"}</Field>
-        <Field label="Department">{a.department}</Field>
         <Field label="Weight">{a.weight}%</Field>
         <Field label="Start date">{format(new Date(a.startDate), "PP")}</Field>
         <Field label="End date">{format(new Date(a.endDate), "PP")}</Field>
-        {collaborators && <Field label="Responsible / collaborating units" wide>{collaborators}</Field>}
+        <Field label="Collaborators" wide>{collaborators ?? "—"}</Field>
         <Field label="Deliverable" wide>{a.deliverable}</Field>
         {description && <Field label="Description" wide>{description}</Field>}
       </div>

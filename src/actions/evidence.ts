@@ -27,7 +27,7 @@ const fail = (message: string): EvidenceActionResult => ({ success: false, messa
 /**
  * Loads a period report and checks that `userId` may change its evidence:
  * only the activity's responsible person, and only while the report can
- * still be edited (requested or returned, in an open period).
+ * still be edited (requested, returned, or submitted and not yet approved, in an open period).
  */
 async function loadEditableEntry(entryId: string, userId: string) {
   const entry = await prisma.activityPeriodEntry.findUnique({
@@ -43,9 +43,15 @@ async function loadEditableEntry(entryId: string, userId: string) {
   });
   if (!entry) return { error: 'This report no longer exists.' } as const;
   if (entry.activity.responsibleId !== userId) return { error: 'Only the person responsible for this activity can change its evidence.' } as const;
-  if (entry.reportStatus !== 'REQUESTED' && entry.reportStatus !== 'RETURNED') return { error: 'Evidence can only be changed while the report is being filled in or after it was returned.' } as const;
+  if (entry.reportStatus === 'APPROVED') return { error: 'This report has been approved, so its evidence can no longer be changed.' } as const;
+  if (entry.reportStatus !== 'REQUESTED' && entry.reportStatus !== 'RETURNED' && entry.reportStatus !== 'SUBMITTED') return { error: "This report hasn't been requested." } as const;
   if (isPeriodClosedForSubmissions(entry.reportingPeriod)) return { error: 'This reporting period is closed, so its evidence can no longer be changed.' } as const;
   return { entry } as const;
+}
+
+/** Bumps the report's updatedAt so an approver who opened it before the file change has to review again. */
+async function markReportChanged(entryId: string) {
+  await prisma.activityPeriodEntry.update({ where: { id: entryId }, data: { updatedAt: new Date() } });
 }
 
 export async function uploadReportEvidence(entryId: string, formData: FormData): Promise<EvidenceActionResult> {
@@ -82,6 +88,7 @@ export async function uploadReportEvidence(entryId: string, formData: FormData):
     summary: `Uploaded "${fileName}" to a report`,
     metadata: { periodEntryId: entry.id, activityId: entry.activityId, mimeType: detected.mimeType, fileSize: bytes.length },
   });
+  await markReportChanged(entry.id);
 
   revalidatePath('/reports/submit');
   return { success: true, evidence };
@@ -102,6 +109,7 @@ export async function deleteReportEvidence(evidenceId: string): Promise<Evidence
     summary: `Removed "${evidence.fileName}" from a report`,
     metadata: { periodEntryId: evidence.periodEntryId, activityId: evidence.activityId },
   });
+  await markReportChanged(evidence.periodEntryId);
   revalidatePath('/reports/submit');
   return { success: true };
 }

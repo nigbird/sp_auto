@@ -105,8 +105,8 @@ export function ActivityDetailsDialog({
                 <p className="text-sm text-muted-foreground">{activity.description}</p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                     <div className="space-y-1">
-                    <Label>Department</Label>
-                    <p className="text-sm font-medium">{activity.department}</p>
+                    <Label>Collaborators</Label>
+                    <p className="text-sm font-medium">{activity.collaborators?.length ? activity.collaborators.join(", ") : "—"}</p>
                     </div>
                     <div className="space-y-1">
                     <Label>Responsible</Label>

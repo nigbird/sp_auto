@@ -106,7 +106,8 @@ export async function writeImportedPlan(tx: Prisma.TransactionClient, parsed: Pa
     return {
       createdAt: nextCreatedAt(),
       title: a.title,
-      description: a.collaborators ? `Responsible / collaborating unit: ${a.collaborators}` : '',
+      description: '',
+      collaborators: Array.from(new Set(a.collaborators.split(/[,;]/).map(c => c.trim()).filter(Boolean))),
       deliverable: a.deliverable || null,
       department: owner.department,
       leadOwner: a.leadOwner || null,

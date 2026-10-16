@@ -32,7 +32,7 @@ function filterPillarsByResponsibleUnit(pillars: Pillar[], unit: string | null, 
                 ...initiative,
                 activities: initiative.activities.filter(activity => {
                     if (unitType === 'department') {
-                        return activity.department === unit;
+                        return activity.department === unit || !!activity.collaborators?.includes(unit);
                     } else { // 'user'
                         return (activity.responsible as User)?.name === unit;
                     }
@@ -101,7 +101,7 @@ export function DashboardClientLayout({ initialPillars, initialActivities, allPl
         const planName = allPlans.find(p => p.id === selectedPlanId)?.name ?? 'Plan';
         const activities = selectedUnit === "All"
             ? currentActivities
-            : currentActivities.filter(a => unitType === 'department' ? a.department === selectedUnit : (a.responsible as { name?: string })?.name === selectedUnit);
+            : currentActivities.filter(a => unitType === 'department' ? (a.department === selectedUnit || !!a.collaborators?.includes(selectedUnit)) : (a.responsible as { name?: string })?.name === selectedUnit);
         return { planName, unitLabel: selectedUnit, pillars: filteredReportData, activities };
     };
 

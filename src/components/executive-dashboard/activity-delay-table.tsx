@@ -84,9 +84,11 @@ export function ActivityDelayTable({ rows, planId, periodId, view }: { rows: Act
   const update = (patch: Partial<DelayTableFilter>) => setFilter(f => ({ ...f, ...patch }));
 
   const streams = useMemo(() => [...new Set(rows.map(r => r.stream))].sort((a, b) => a.localeCompare(b)), [rows]);
-  // Each chip's count reflects the other filters, so it says how many rows it would show.
-  const statusCounts = useMemo(() => countBy(filterDelayRows(rows, { ...filter, statuses: [] }), r => r.status, ACTIVITY_STATUS_ORDER), [rows, filter]);
-  const deliveryCounts = useMemo(() => countBy(filterDelayRows(rows, { ...filter, deliveries: [] }), r => r.delivery, DELIVERY_ORDER), [rows, filter]);
+  // Each chip's count reflects the other filters. Across all streams a shared
+  // activity counts once; within one stream its copy counts for that stream.
+  const countable = (list: ActivityDelayRow[]) => (filter.stream ? list : list.filter(r => !r.duplicate));
+  const statusCounts = useMemo(() => countBy(countable(filterDelayRows(rows, { ...filter, statuses: [] })), r => r.status, ACTIVITY_STATUS_ORDER), [rows, filter]); // eslint-disable-line react-hooks/exhaustive-deps
+  const deliveryCounts = useMemo(() => countBy(countable(filterDelayRows(rows, { ...filter, deliveries: [] })), r => r.delivery, DELIVERY_ORDER), [rows, filter]); // eslint-disable-line react-hooks/exhaustive-deps
   const visible = useMemo(() => filterDelayRows(rows, filter), [rows, filter]);
   // One line per work stream + initiative, as in the sheet.
   const groups = useMemo(() => groupDelayRows(visible).flatMap(s => s.initiatives.map(i => ({ ...i, stream: s.stream, key: `${s.stream}::${i.id}` }))), [visible]);
