@@ -81,10 +81,11 @@ export async function createUser(data: UserInput): Promise<UserActionResult> {
     await requirePermission('users:manage');
     const problem = await checkInput(data);
     if (problem) return problem;
+    const email = data.email.trim().toLowerCase();
     const created = await prisma.user.create({
         data: {
             name: data.name.trim(),
-            email: data.email.trim().toLowerCase(),
+            email,
             roleId: data.roleId,
             leadOwnerId: data.leadOwnerId || null,
             department: data.department || null,
@@ -92,7 +93,12 @@ export async function createUser(data: UserInput): Promise<UserActionResult> {
             status: 'ACTIVE',
         },
         select: { id: true, name: true, email: true, role: { select: { name: true } } },
+    }).catch((error: unknown) => {
+        // Someone registered the same email between the check above and this insert.
+        if ((error as { code?: string })?.code === 'P2002') return null;
+        throw error;
     });
+    if (!created) return { success: false, message: `A user with the email ${email} already exists.`, field: 'email' };
     await recordAudit({
         action: 'USER_CREATED', entityType: 'User', entityId: created.id, userId: created.id,
         summary: `Registered ${created.name} (${created.email}) as ${created.role.name}`,
@@ -139,6 +145,9 @@ export async function registerLeadOwnerUser(data: Omit<UserInput, 'leadOwnerId'>
     await requirePermission('users:manage');
     const officeName = (data.leadOwnerName ?? '').replace(/\s+/g, ' ').trim();
     if (!officeName) return { success: false, message: 'The lead owner title is missing.', field: 'leadOwnerId' };
+    // Check the person first so a rejected registration doesn't leave a new office or department behind.
+    const problem = await checkInput({ ...data, leadOwnerId: null, department: null });
+    if (problem) return problem;
     const department = (data.department ?? '').trim() || null;
     if (department) await prisma.department.upsert({ where: { name: department }, update: {}, create: { name: department } });
     const office = await prisma.leadOwner.findFirst({ where: { name: { equals: officeName, mode: 'insensitive' } } })

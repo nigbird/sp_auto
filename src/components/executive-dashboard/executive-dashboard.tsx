@@ -173,7 +173,7 @@ function OverviewTab({ data, m }: { data: Extract<DashboardData, { state: "ready
   const current = data.trend[data.trend.length - 1];
   return (
     <div className="space-y-5">
-      <KpiStrip m={m} previous={previous} current={current} periodEnd={data.period.endDate} />
+      <KpiStrip m={m} periodEnd={data.period.endDate} />
 
       <div className="grid gap-5 lg:grid-cols-3">
         <TrendCard trend={data.trend} current={current} previous={previous} className="lg:col-span-2" />
@@ -200,16 +200,14 @@ function OverviewTab({ data, m }: { data: Extract<DashboardData, { state: "ready
   );
 }
 
-function KpiStrip({ m, previous, current, periodEnd }: { m: DashboardMetrics; previous: TrendPoint | null; current: TrendPoint; periodEnd: string }) {
+function KpiStrip({ m, periodEnd }: { m: DashboardMetrics; periodEnd: string }) {
   const { rollup, coverage, yearProgress } = m.overall;
-  const diff = (a: number | null | undefined, b: number | null | undefined) => (a == null || b == null ? null : a - b);
 
   return (
     <section className={cn(CARD, "grid gap-x-8 gap-y-6 p-6 sm:grid-cols-2 lg:grid-cols-[repeat(4,minmax(0,1fr))_auto]")}>
-      <Kpi icon={<Flag className="h-3.5 w-3.5" />} label="Full-year progress" value={pct(yearProgress)} accent
-        delta={<DeltaChip value={diff(current.yearProgress, previous?.yearProgress)} />} note="of total plan weight" />
+      <Kpi icon={<Flag className="h-3.5 w-3.5" />} label="Full-year progress" value={pct(yearProgress)} accent note="of total plan weight" />
       <Kpi icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="Initiatives completed" value={`${m.initiativesCompleted}`} suffix={`/ ${m.initiatives.length}`}
-        delta={<DeltaChip value={diff(current.initiativesCompleted, previous?.initiativesCompleted)} unit="count" />} note={`${m.initiativesDue} due by ${shortDate(periodEnd)}`} />
+        note={`${m.initiativesDue} due by ${shortDate(periodEnd)}`} />
       <Kpi icon={<Target className="h-3.5 w-3.5" />} label={`Objectives ≥ ${m.ratingThresholds.veryGood}%`} value={`${m.objectivesAtVeryGood.count}`} suffix={`/ ${m.objectivesAtVeryGood.of}`} note="rated Very Good or better · with a target this period" />
       <Kpi icon={<ClipboardCheck className="h-3.5 w-3.5" />} label="Reports approved" value={`${coverage.approved}`} suffix={`/ ${coverage.planned}`}
         note={coverage.pending > 0 ? `${coverage.pending} awaiting approval` : coverage.missing > 0 ? `${coverage.missing} not yet approved` : "all planned activities reported"} />
@@ -217,13 +215,12 @@ function KpiStrip({ m, previous, current, periodEnd }: { m: DashboardMetrics; pr
         <Tip content={<div className="space-y-1"><TipRow label="Weighted plan" value={weightPct(rollup.weightedPlan)} /><TipRow label="Weighted actual" value={weightPct(rollup.weightedActual)} /><TipRow label="After delays" value={pct(rollup.achievedWithDelay)} /></div>}>
           <Gauge value={rollup.weightedPlan > 0 ? rollup.achievedResult : null} label="Overall execution" caption={`${weightPct(rollup.weightedActual)} of ${weightPct(rollup.weightedPlan)} planned`} />
         </Tip>
-        <DeltaChip value={diff(current.achieved, previous?.achieved)} className="mt-1" />
       </div>
     </section>
   );
 }
 
-function Kpi({ icon, label, value, suffix, delta, note, accent }: { icon: React.ReactNode; label: string; value: string; suffix?: string; delta?: React.ReactNode; note: string; accent?: boolean }) {
+function Kpi({ icon, label, value, suffix, note, accent }: { icon: React.ReactNode; label: string; value: string; suffix?: string; note: string; accent?: boolean }) {
   return (
     <div>
       <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground/80">
@@ -234,10 +231,7 @@ function Kpi({ icon, label, value, suffix, delta, note, accent }: { icon: React.
         <span className={cn("text-[32px] font-bold leading-none tracking-tight", accent ? "text-primary" : "text-foreground")}>{value}</span>
         {suffix && <span className="text-sm text-muted-foreground">{suffix}</span>}
       </div>
-      <div className="mt-2.5 flex flex-wrap items-center gap-2">
-        {delta}
-        <span className="text-xs text-muted-foreground">{note}</span>
-      </div>
+      <p className="mt-2.5 text-xs text-muted-foreground">{note}</p>
     </div>
   );
 }

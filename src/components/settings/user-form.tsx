@@ -31,7 +31,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { AlertTriangle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, AlertTriangle } from "lucide-react";
+import { describeError } from "@/lib/action-error";
 import { useEffect, useState } from "react";
 import { getRoles } from "@/actions/roles";
 import { getLeadOwners } from "@/actions/lead-owners";
@@ -49,10 +51,16 @@ const formSchema = z.object({
 
 export type UserFormValues = z.infer<typeof formSchema>;
 
+/** What a rejected save reports back: shown on the field it names, or above the buttons. */
+export type UserFormError = { message: string; field?: string };
+
 interface UserFormProps {
   user: User | null;
-  /** Return false to keep the form open (e.g. the server rejected it). */
-  onSubmit: (values: UserFormValues) => void | boolean | Promise<void | boolean>;
+  /**
+   * Return an error (e.g. the server's `{ success: false, message, field }`) to
+   * keep the form open and show why; return false to keep it open silently.
+   */
+  onSubmit: (values: UserFormValues) => void | boolean | UserFormError | Promise<void | boolean | UserFormError>;
   onCancel: () => void;
   /** Values to start a new user with (e.g. an office found in an imported plan). */
   initialValues?: Partial<UserFormValues>;
@@ -73,6 +81,7 @@ export function UserForm({ user, onSubmit, onCancel, initialValues, fixedLeadOwn
   const [departments, setDepartments] = useState<string[]>([]);
   const [pending, setPending] = useState<UserFormValues | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     getRoles().then(setRoles);
@@ -107,12 +116,33 @@ export function UserForm({ user, onSubmit, onCancel, initialValues, fixedLeadOwn
   const leadOwnerName = fixedLeadOwnerName ?? leadOwners.find(l => l.id === pending?.leadOwnerId)?.name;
   const missing = pending ? [!leadOwnerName && "lead owner", !pending.department && "department"].filter(Boolean) as string[] : [];
 
+  // Any edit after a rejected save clears the message, so it never describes stale input.
+  useEffect(() => {
+    const sub = form.watch(() => setSubmitError(null));
+    return () => sub.unsubscribe();
+  }, [form]);
+
+  const showError = (error: UserFormError) => {
+    setPending(null);
+    const field = error.field as keyof UserFormValues | undefined;
+    const onForm = field && field in formSchema.shape && !(field === "leadOwnerId" && fixedLeadOwnerName) && !(field === "email" && user);
+    if (onForm) {
+      form.setError(field, { type: "server", message: error.message }, { shouldFocus: true });
+    } else {
+      setSubmitError(error.message);
+    }
+  };
+
   const confirm = async () => {
     if (!pending) return;
     setIsSaving(true);
+    setSubmitError(null);
     try {
       const saved = await onSubmit(pending);
-      if (saved !== false) setPending(null);
+      if (saved && typeof saved === "object") showError(saved);
+      else if (saved !== false) setPending(null);
+    } catch (error) {
+      showError({ message: describeError(error, `Could not ${user ? "save the changes" : "register this user"}. Please try again.`) });
     } finally {
       setIsSaving(false);
     }
@@ -123,7 +153,7 @@ export function UserForm({ user, onSubmit, onCancel, initialValues, fixedLeadOwn
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(values => setPending(values))} className="space-y-6 pt-4">
+      <form onSubmit={form.handleSubmit(values => { setSubmitError(null); setPending(values); })} className="space-y-6 pt-4">
         <FormField
           control={form.control}
           name="name"
@@ -230,6 +260,13 @@ export function UserForm({ user, onSubmit, onCancel, initialValues, fixedLeadOwn
             )}
           />
         </div>
+        {submitError && (
+          <Alert variant="destructive" role="alert">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>{user ? "Could not save" : "Could not register"}</AlertTitle>
+            <AlertDescription>{submitError}</AlertDescription>
+          </Alert>
+        )}
         <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={onCancel}>
                 Cancel

@@ -521,10 +521,7 @@ export function PlanImportClient({ users: initialUsers, departments, canRegister
                           department: values.department || null,
                           leadOwnerName: registeringTitle,
                         });
-                        if (!result.success) {
-                          toast({ title: "Could not register", description: result.message, variant: "destructive" });
-                          return false; // keep the confirmation open so it can be corrected
-                        }
+                        if (!result.success) return result; // shown on the form so it can be corrected
                         handleRegistered(registeringTitle, {
                           id: result.user.id,
                           name: result.user.name,

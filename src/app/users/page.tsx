@@ -40,6 +40,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
 import { getUsers, createUser, updateUser, setUserStatus, resendInvite, type InviteOutcome } from "@/actions/users";
+import { describeError } from "@/lib/action-error";
 import type { User } from "@/lib/types";
 import { format, formatDistanceToNow } from "date-fns";
 import { UserForm, UserFormValues } from "@/components/settings/user-form";
@@ -141,10 +142,7 @@ export default function UsersPage() {
       leadOwnerId: values.leadOwnerId || null,
       department: values.department || null,
     });
-    if (!result.success) {
-      toast({ title: "Could Not Register User", description: result.message, variant: "destructive" });
-      return;
-    }
+    if (!result.success) return result; // shown on the form so it can be corrected
     setUsers(await getUsers());
     setIsRegisterDialogOpen(false);
     if (result.invite.emailed) {
@@ -167,8 +165,7 @@ export default function UsersPage() {
         department: values.department || null,
       });
     } catch (error) {
-      toast({ title: "Could Not Update User", description: error instanceof Error ? error.message : "An unexpected error occurred.", variant: "destructive" });
-      return;
+      return { message: describeError(error, "Could not save the changes. Please try again.") };
     }
     setUsers(await getUsers());
     setIsEditDialogOpen(false);
