@@ -3,7 +3,6 @@
 
 import {
   Bell,
-  Search,
   Menu,
   Volume2,
   VolumeX,
@@ -15,7 +14,6 @@ import {
   useNotificationSound,
 } from "@/lib/notification-client";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
 import { SidebarTrigger } from "./ui/sidebar";
 import {
   Popover,
@@ -177,14 +175,6 @@ export function Header({ pageTitle, headerActions }: { pageTitle: ReactNode, hea
       </div>
 
       <div className="flex w-full items-center justify-end gap-4 md:ml-auto md:gap-2 lg:gap-4">
-        <div className="relative ml-auto flex-1 md:grow-0">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search..."
-            className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[320px]"
-          />
-        </div>
         {headerActions}
         <Notifications />
          <DropdownMenu>
