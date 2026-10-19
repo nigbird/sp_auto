@@ -13,6 +13,7 @@ import type { PlanFormValues } from "@/lib/plan-schema";
 import { ListIssue } from "./plan-form-issues";
 import { ActivityLeadOwnerField, applyResponsibleDefaults, type PlanPerson } from "./activity-lead-owner-field";
 import { ActivityCollaboratorsField } from "./activity-collaborators-field";
+import { useIsFilteredOut } from "./plan-edit-filters";
 
 type PlanActivity = PlanFormValues["pillars"][number]["objectives"][number]["initiatives"][number]["activities"][number];
 type ActivitiesPath = `pillars.${number}.objectives.${number}.initiatives.${number}.activities`;
@@ -48,6 +49,8 @@ export function ActivityRowsEditor({ form, path, number, users, userOptions, cre
   const { control } = form;
   const { fields, append, remove } = useFieldArray({ control, name: path });
   const activities = form.watch(path) ?? [];
+  const isFilteredOut = useIsFilteredOut();
+  let shown = 0;
 
   return (
     <div className="space-y-3">
@@ -55,8 +58,11 @@ export function ActivityRowsEditor({ form, path, number, users, userOptions, cre
         {fields.length === 0 && <p className="px-4 py-8 text-center text-sm text-muted-foreground">No activities yet.</p>}
         {fields.map((activity, aIndex) => {
           const base = `${path}.${aIndex}` as const;
+          const hidden = isFilteredOut(base);
+          // Dividers go between the rows actually shown, so a filtered list has no doubled edge.
+          const divided = !hidden && shown++ > 0;
           return (
-            <div key={activity.id} className={cn("space-y-3 px-4 py-4", aIndex > 0 && "border-t border-border/50")}>
+            <div key={activity.id} className={cn("space-y-3 px-4 py-4", divided && "border-t border-border/50", hidden && "hidden")}>
               <div className="flex items-center justify-between gap-2">
                 <p className={CAPTION}>Activity {number}.{aIndex + 1}</p>
                 <Button type="button" variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => remove(aIndex)}>

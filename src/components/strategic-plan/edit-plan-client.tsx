@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { MultiSelect, type MultiSelectOption } from "@/components/ui/multi-select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { unstable_rethrow } from "next/navigation";
 import { updateStrategicPlan } from "@/actions/strategic-plan";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
@@ -23,6 +23,7 @@ import { planFormSchema, formatPlanIssue, type PlanFormValues, type PlanIssue } 
 import { applyIssuesToForm, collectPlanIssues, focusIssue, IssueSummary, ListIssue, PlanFormIssuesProvider, useAutoOpenAccordion } from "./plan-form-issues";
 import { type PlanPerson } from "./activity-lead-owner-field";
 import { ActivityRowsEditor } from "./activity-rows-editor";
+import { computeVisibility, EditVisibilityProvider, filtersActive, NO_FILTERS, PlanEditToolbar, useHiddenClass, type EditFilters } from "./plan-edit-filters";
 
 type FormValues = PlanFormValues;
 type PlanForm = UseFormReturn<FormValues>;
@@ -121,6 +122,9 @@ export function EditPlanClient({ users, plan }: EditPlanClientProps) {
     const [showIssues, setShowIssues] = useState(false);
     const [serverIssues, setServerIssues] = useState<PlanIssue[]>([]);
     const [expandSignal, setExpandSignal] = useState(0);
+    const [collapseSignal, setCollapseSignal] = useState(0);
+    const [collapsedAll, setCollapsedAll] = useState(false);
+    const [filters, setFilters] = useState<EditFilters>(NO_FILTERS);
     const [isSaving, setIsSaving] = useState(false);
 
     const userOptions = useMemo(() => users.map(u => ({ value: u.id, label: u.name })), [users]);
@@ -147,8 +151,24 @@ export function EditPlanClient({ users, plan }: EditPlanClientProps) {
         return [...schemaIssues, ...stillRelevantServerIssues];
     }, [showIssues, values, serverIssues]);
 
+    const userNames = useMemo(() => new Map(users.map(u => [u.id, u.name])), [users]);
+    const visibility = useMemo(() => computeVisibility(values.pillars, filters, liveIssues, userNames), [values.pillars, filters, liveIssues, userNames]);
+
+    // Filtering searches the whole plan, so open every section to show what matches.
+    useEffect(() => {
+        if (filtersActive(filters)) { setExpandSignal(s => s + 1); setCollapsedAll(false); }
+    }, [filters]);
+
+    const toggleAll = () => {
+        if (collapsedAll) setExpandSignal(s => s + 1); else setCollapseSignal(s => s + 1);
+        setCollapsedAll(c => !c);
+    };
+
     const goToIssue = (issue: PlanIssue) => {
+        // A search or filter could be hiding the field; problems stay visible under "Only rows with problems".
+        setFilters(f => filtersActive(f) ? { ...NO_FILTERS, problemsOnly: f.problemsOnly } : f);
         setExpandSignal(s => s + 1);
+        setCollapsedAll(false);
         setTimeout(() => focusIssue(issue), 150);
     };
 
@@ -211,7 +231,7 @@ export function EditPlanClient({ users, plan }: EditPlanClientProps) {
 
     return (
         <Form {...form}>
-            <PlanFormIssuesProvider issues={liveIssues} expandSignal={expandSignal}>
+            <PlanFormIssuesProvider issues={liveIssues} expandSignal={expandSignal} collapseSignal={collapseSignal}>
             <form onSubmit={e => e.preventDefault()} className="flex-1 space-y-6">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
@@ -291,11 +311,19 @@ export function EditPlanClient({ users, plan }: EditPlanClientProps) {
 
                         <PlanWeightSummary pillars={values.pillars} />
 
+                        <PlanEditToolbar filters={filters} onChange={setFilters} pillars={values.pillars} users={users} visibility={visibility}
+                            issueCount={liveIssues.length} anyCollapsed={collapsedAll} onToggleAll={toggleAll} />
+                        {visibility.active && visibility.matched === 0 && (
+                            <p className="rounded-xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-muted-foreground">No activities match the search or filters.</p>
+                        )}
+
+                        <EditVisibilityProvider value={visibility}>
                         <Accordion type="multiple" className="w-full space-y-4" {...pillarAccordion}>
                             {pillarFields.map((pillar, pIndex) => (
                                 <PillarAccordion key={pillar.id} pIndex={pIndex} form={form} removePillar={() => removePillar(pIndex)} users={users} peopleOptions={userOptions} userOptions={userOptions} />
                             ))}
                         </Accordion>
+                        </EditVisibilityProvider>
                         <ListIssue path="pillars" />
                         <Button type="button" variant="outline" onClick={() => appendPillar(newPillar(users))}>
                             <PlusCircle className="mr-2 h-4 w-4" /> Add Pillar
@@ -353,9 +381,10 @@ function PillarAccordion({ pIndex, form, removePillar, users, peopleOptions, use
     const { fields: objectiveFields, append: appendObjective, remove: removeObjective } = useFieldArray({ control, name: `pillars.${pIndex}.objectives` });
     const pillar = watch(`pillars.${pIndex}`);
     const objectiveAccordion = useAutoOpenAccordion((pillar?.objectives ?? []).map(o => o.id!));
+    const hidden = useHiddenClass(`pillars.${pIndex}`);
 
     return (
-        <AccordionItem value={pillar.id!} className="overflow-hidden rounded-xl border border-border/50 bg-card">
+        <AccordionItem value={pillar.id!} className={cn("overflow-hidden rounded-xl border border-border/50 bg-card", hidden)}>
             <SectionHeader asTrigger tone="pillar" label={`Pillar ${pIndex + 1}`} title={pillar.title || "Untitled pillar"} weight={pillarWeight(pillar)}
                 onRemove={removePillar} removeLabel={`Remove pillar ${pIndex + 1}`} />
             <AccordionContent className="space-y-4 p-4">
@@ -383,9 +412,10 @@ function ObjectiveAccordion({ pIndex, oIndex, form, removeObjective, users, peop
     const base = `pillars.${pIndex}.objectives.${oIndex}` as const;
     const { fields: initiativeFields, append: appendInitiative, remove: removeInitiative } = useFieldArray({ control, name: `${base}.initiatives` });
     const objective = watch(base);
+    const hidden = useHiddenClass(base);
 
     return (
-        <AccordionItem value={objective.id!} className="overflow-hidden rounded-xl border border-border/50">
+        <AccordionItem value={objective.id!} className={cn("overflow-hidden rounded-xl border border-border/50", hidden)}>
             <SectionHeader asTrigger tone="objective" label={`Objective ${pIndex + 1}.${oIndex + 1}`} title={objective.statement || "Untitled objective"} weight={objectiveWeight(objective)}
                 onRemove={removeObjective} removeLabel={`Remove objective ${pIndex + 1}.${oIndex + 1}`} />
             <AccordionContent className="space-y-4 p-4">
@@ -410,9 +440,10 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users,
     const base = `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}` as const;
     const initiative = watch(base);
     const number = `${pIndex + 1}.${oIndex + 1}.${iIndex + 1}`;
+    const hidden = useHiddenClass(base);
 
     return (
-        <div className="overflow-hidden rounded-xl border border-border/50 bg-card">
+        <div className={cn("overflow-hidden rounded-xl border border-border/50 bg-card", hidden)}>
             <SectionHeader asTrigger={false} tone="initiative" label={`Initiative ${number}`} title={initiative?.title || "Untitled initiative"} weight={calculateInitiativeWeight(initiative?.activities)}
                 onRemove={removeInitiative} removeLabel={`Remove initiative ${number}`} />
             <div className="space-y-4 p-4">

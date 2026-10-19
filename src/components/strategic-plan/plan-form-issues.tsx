@@ -36,13 +36,14 @@ export function applyIssuesToForm(form: UseFormReturn<any>, issues: PlanIssue[])
 
 const ListIssuesContext = React.createContext<Map<string, string>>(new Map());
 const ExpandSignalContext = React.createContext(0);
+const CollapseSignalContext = React.createContext(0);
 
 /**
  * Shares list-level issues with <ListIssue>, and an "expand everything" signal
  * with every section using useAutoOpenAccordion — bump `expandSignal` before
  * focusing an issue so it isn't hidden inside a collapsed section.
  */
-export function PlanFormIssuesProvider({ issues, expandSignal, children }: { issues: PlanIssue[]; expandSignal: number; children: React.ReactNode }) {
+export function PlanFormIssuesProvider({ issues, expandSignal, collapseSignal = 0, children }: { issues: PlanIssue[]; expandSignal: number; collapseSignal?: number; children: React.ReactNode }) {
   const map = React.useMemo(() => {
     const m = new Map<string, string>();
     for (const issue of issues) if (isListIssue(issue) && !m.has(issue.path)) m.set(issue.path, issue.message);
@@ -50,7 +51,9 @@ export function PlanFormIssuesProvider({ issues, expandSignal, children }: { iss
   }, [issues]);
   return (
     <ExpandSignalContext.Provider value={expandSignal}>
-      <ListIssuesContext.Provider value={map}>{children}</ListIssuesContext.Provider>
+      <CollapseSignalContext.Provider value={collapseSignal}>
+        <ListIssuesContext.Provider value={map}>{children}</ListIssuesContext.Provider>
+      </CollapseSignalContext.Provider>
     </ExpandSignalContext.Provider>
   );
 }
@@ -123,6 +126,7 @@ export function IssueSummary({ issues, title = "Please fix these before continui
  */
 export function useAutoOpenAccordion(ids: string[]) {
   const expandSignal = React.useContext(ExpandSignalContext);
+  const collapseSignal = React.useContext(CollapseSignalContext);
   const [open, setOpen] = React.useState<string[]>(ids);
   const known = React.useRef(new Set(ids));
   const idsKey = ids.join("|");
@@ -138,6 +142,10 @@ export function useAutoOpenAccordion(ids: string[]) {
     if (expandSignal > 0) setOpen(ids);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expandSignal]);
+
+  React.useEffect(() => {
+    if (collapseSignal > 0) setOpen([]);
+  }, [collapseSignal]);
 
   return { value: open, onValueChange: setOpen };
 }
