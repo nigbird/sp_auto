@@ -10,8 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect, type MultiSelectOption } from "@/components/ui/multi-select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Stepper } from "@/components/ui/stepper";
@@ -24,8 +22,8 @@ import { format } from "date-fns";
 import { calculateInitiativeWeight } from "@/lib/utils";
 import { planFormSchema, sectionOfPath, formatPlanIssue, type PlanFormValues, type PlanIssue, type PlanSection } from "@/lib/plan-schema";
 import { applyIssuesToForm, collectPlanIssues, focusIssue, IssueSummary, ListIssue, PlanFormIssuesProvider, useAutoOpenAccordion } from "./plan-form-issues";
-import { ActivityLeadOwnerField, applyResponsibleDefaults, type PlanPerson } from "./activity-lead-owner-field";
-import { ActivityCollaboratorsField } from "./activity-collaborators-field";
+import { type PlanPerson } from "./activity-lead-owner-field";
+import { ActivityRowsEditor } from "./activity-rows-editor";
 
 type FormValues = PlanFormValues;
 type Person = PlanPerson;
@@ -606,110 +604,15 @@ function InitiativeList({ pIndex, oIndex, form, peopleOptions, users }: { pIndex
 }
 
 function ActivityTable({ pIndex, oIndex, iIndex, form, users, userOptions }: { pIndex: number; oIndex: number; iIndex: number; form: PlanForm; users: Person[]; userOptions: { value: string; label: string }[] }) {
-    const { control } = form;
-    const base = `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities` as const;
-    const { fields: activityFields, append: appendActivity, remove: removeActivity } = useFieldArray({ control, name: base });
-    const activities = form.watch(base) ?? [];
-
     return (
-        <>
-            <div className="overflow-x-auto">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Title</TableHead>
-                            <TableHead>Deliverable</TableHead>
-                            <TableHead>Weight (%)</TableHead>
-                            <TableHead>Start Date</TableHead>
-                            <TableHead>End Date</TableHead>
-                            <TableHead>Responsible</TableHead>
-                            <TableHead>Lead / Owner</TableHead>
-                            <TableHead>Collaborators</TableHead>
-                            <TableHead><span className="sr-only">Remove</span></TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {activityFields.map((activity, aIndex) => (
-                            <TableRow key={activity.id} className="align-top">
-                                <TableCell className="min-w-[200px]">
-                                    <FormField control={control} name={`${base}.${aIndex}.title`} render={({ field }) => (
-                                        <FormItem>
-                                            <FormControl><Input {...field} placeholder="Activity title" /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                </TableCell>
-                                <TableCell className="min-w-[220px]">
-                                    <FormField control={control} name={`${base}.${aIndex}.deliverable`} render={({ field }) => (
-                                        <FormItem>
-                                            <FormControl><Textarea {...field} value={field.value ?? ''} rows={1} placeholder="e.g., Segmented customer report" /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                </TableCell>
-                                <TableCell className="min-w-[100px]">
-                                    <FormField control={control} name={`${base}.${aIndex}.weight`} render={({ field }) => (
-                                        <FormItem>
-                                            <FormControl><Input type="number" step="0.01" min={0} max={100} {...field} placeholder="Weight" /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                </TableCell>
-                                <TableCell className="min-w-[150px]">
-                                    <FormField control={control} name={`${base}.${aIndex}.startDate`} render={({ field }) => (
-                                        <FormItem>
-                                            <FormControl><Input type="date" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                </TableCell>
-                                <TableCell className="min-w-[150px]">
-                                    <FormField control={control} name={`${base}.${aIndex}.endDate`} render={({ field }) => (
-                                        <FormItem>
-                                            <FormControl><Input type="date" {...field} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                </TableCell>
-                                <TableCell className="min-w-[170px]">
-                                    <FormField control={control} name={`${base}.${aIndex}.responsible`} render={({ field }) => (
-                                        <FormItem data-field-path={field.name} tabIndex={-1}>
-                                            <Select onValueChange={(v) => { field.onChange(v); applyResponsibleDefaults(form, `${base}.${aIndex}`, v, users); }} value={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>{userOptions.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}</SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                </TableCell>
-                                <TableCell className="min-w-[220px]">
-                                    <ActivityLeadOwnerField form={form} name={`${base}.${aIndex}.leadOwner`} />
-                                </TableCell>
-                                <TableCell className="min-w-[220px]">
-                                    <ActivityCollaboratorsField form={form} name={`${base}.${aIndex}.collaborators`} />
-                                </TableCell>
-                                <TableCell>
-                                    <Button type="button" variant="ghost" size="icon" aria-label="Remove activity" onClick={() => removeActivity(aIndex)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </div>
-            <ListIssue path={base} />
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => appendActivity(newActivity(users))}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
-                </Button>
-                <p className="text-sm font-medium text-muted-foreground">
-                    Subtotal: {calculateInitiativeWeight(activities).toFixed(1)}% of whole plan
-                </p>
-            </div>
-        </>
+        <ActivityRowsEditor
+            form={form}
+            path={`pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}.activities`}
+            number={`${pIndex + 1}.${oIndex + 1}.${iIndex + 1}`}
+            users={users}
+            userOptions={userOptions}
+            createActivity={() => newActivity(users)}
+        />
     );
 }
 

@@ -20,6 +20,8 @@ export function StreamsTab({ m, previous }: { m: DashboardMetrics; previous: Das
   const pendingReports = m.streams.reduce((s, x) => s + x.summary.coverage.pending, 0);
   const notSubmittedReports = missingReports - pendingReports;
   const totals = streamTotals(m);
+  const totalDue = m.streams.reduce((s, x) => s + x.activitiesDue, 0);
+  const totalCompleted = m.streams.reduce((s, x) => s + x.activitiesCompleted, 0);
 
   const streamCsvHeaders = ["#", "Stream / director", "Initiatives", "Activities", "Planned activities", "Total weight %", "Weighted plan %", "Weighted actual %", "Achievement %", "After delays %", "Score (of 30%)", "Rating", "vs last period %", "Initiatives due", "Initiatives done", "Activities due", "Activities done", "Not submitted", "Pending approval"];
   const streamCsvRows = m.streams.map((s, i) => {
@@ -61,7 +63,8 @@ export function StreamsTab({ m, previous }: { m: DashboardMetrics; previous: Das
               rating: s.rating,
             }))}
           />
-          <div className="mt-4 flex flex-wrap gap-2 border-t pt-4">
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-4">
+            <span className="text-xs font-medium text-muted-foreground">Streams by rating ({m.streams.length}):</span>
             {ratingCounts.map(({ rating, count }) => (
               <span key={rating} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                 <RatingChip rating={rating} /> × {count}
@@ -72,6 +75,17 @@ export function StreamsTab({ m, previous }: { m: DashboardMetrics; previous: Das
 
         <SectionCard title="Activities due vs completed" description="By stream, as of the period end">
           <StreamDeliveryChart data={m.streams.map(s => ({ name: s.name, due: s.activitiesDue, completed: s.activitiesCompleted }))} />
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t pt-4 text-xs text-muted-foreground">
+            <span className="font-medium">Total:</span>
+            <span>Due by period end = <span className="font-semibold text-foreground tabular-nums">{totalDue}</span></span>
+            <span>Completed = <span className="font-semibold text-foreground tabular-nums">{totalCompleted}</span></span>
+            <span>
+              Deviation ={" "}
+              <span className={cn("font-semibold tabular-nums", totalCompleted - totalDue < 0 ? "text-red-700 dark:text-red-400" : totalCompleted - totalDue > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-foreground")}>
+                {totalCompleted - totalDue > 0 ? `+${totalCompleted - totalDue}` : totalCompleted - totalDue}
+              </span>
+            </span>
+          </div>
         </SectionCard>
       </div>
 

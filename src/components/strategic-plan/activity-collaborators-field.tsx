@@ -21,7 +21,7 @@ export function ActivityCollaboratorsField({ form, name }: { form: UseFormReturn
       return (
         <FormItem data-field-path={field.name} tabIndex={-1}>
           <FormControl>
-            <MultiSelect options={options} selected={selected} onChange={field.onChange} placeholder="Select lead owners..." />
+            <MultiSelect options={options} selected={selected} onChange={field.onChange} placeholder="Select lead owners..." maxVisible={2} />
           </FormControl>
           <FormMessage />
         </FormItem>

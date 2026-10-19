@@ -10,8 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelect, type MultiSelectOption } from "@/components/ui/multi-select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useState, useMemo } from "react";
@@ -20,11 +18,11 @@ import { updateStrategicPlan } from "@/actions/strategic-plan";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import type { StrategicPlan } from "@/lib/types";
 import { format } from "date-fns";
-import { calculateInitiativeWeight } from "@/lib/utils";
+import { calculateInitiativeWeight, cn } from "@/lib/utils";
 import { planFormSchema, formatPlanIssue, type PlanFormValues, type PlanIssue } from "@/lib/plan-schema";
 import { applyIssuesToForm, collectPlanIssues, focusIssue, IssueSummary, ListIssue, PlanFormIssuesProvider, useAutoOpenAccordion } from "./plan-form-issues";
-import { ActivityLeadOwnerField, applyResponsibleDefaults, type PlanPerson } from "./activity-lead-owner-field";
-import { ActivityCollaboratorsField } from "./activity-collaborators-field";
+import { type PlanPerson } from "./activity-lead-owner-field";
+import { ActivityRowsEditor } from "./activity-rows-editor";
 
 type FormValues = PlanFormValues;
 type PlanForm = UseFormReturn<FormValues>;
@@ -312,6 +310,44 @@ export function EditPlanClient({ users, plan }: EditPlanClientProps) {
 
 type SectionProps = { form: PlanForm; users: Person[]; peopleOptions: MultiSelectOption[]; userOptions: { value: string; label: string }[] };
 
+type FormPillar = FormValues["pillars"][number];
+type FormObjective = FormPillar["objectives"][number];
+const objectiveWeight = (o?: FormObjective) => (o?.initiatives ?? []).reduce((sum, i) => sum + calculateInitiativeWeight(i.activities), 0);
+const pillarWeight = (p?: FormPillar) => (p?.objectives ?? []).reduce((sum, o) => sum + objectiveWeight(o), 0);
+
+const CAPTION = "text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80";
+
+/** Section headers styled like the plan view's grouped rows: pillar darkest, then objective, then initiative. */
+function SectionHeader({ label, title, weight, tone, onRemove, removeLabel, asTrigger }: {
+    label: string;
+    title: string;
+    weight: number;
+    tone: "pillar" | "objective" | "initiative";
+    onRemove: () => void;
+    removeLabel: string;
+    asTrigger: boolean;
+}) {
+    const body = (
+        <span className="flex min-w-0 flex-1 items-center gap-3 text-left">
+            <span className="min-w-0 flex-1">
+                <span className={cn("block", CAPTION)}>{label}</span>
+                <span className={cn("block truncate", tone === "pillar" ? "font-semibold text-foreground" : "font-medium text-foreground/90")} title={title}>{title}</span>
+            </span>
+            <span className={cn("shrink-0 tabular-nums", tone === "pillar" ? "font-semibold" : "font-medium text-foreground/90")}>{weight.toFixed(1)}%</span>
+        </span>
+    );
+    return (
+        <div className={cn("flex items-center gap-1 pr-2", tone === "pillar" && "bg-muted/70", tone === "objective" && "bg-muted/35", tone === "initiative" && "border-b border-border/50 bg-muted/10")}>
+            {asTrigger
+                ? <AccordionTrigger className="flex-1 gap-3 px-4 py-3 hover:no-underline">{body}</AccordionTrigger>
+                : <div className="flex flex-1 px-4 py-3">{body}</div>}
+            <Button type="button" variant="ghost" size="icon" aria-label={removeLabel} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemove(); }} className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                <Trash2 className="h-4 w-4" />
+            </Button>
+        </div>
+    );
+}
+
 function PillarAccordion({ pIndex, form, removePillar, users, peopleOptions, userOptions }: SectionProps & { pIndex: number; removePillar: () => void }) {
     const { control, watch } = form;
     const { fields: objectiveFields, append: appendObjective, remove: removeObjective } = useFieldArray({ control, name: `pillars.${pIndex}.objectives` });
@@ -319,21 +355,16 @@ function PillarAccordion({ pIndex, form, removePillar, users, peopleOptions, use
     const objectiveAccordion = useAutoOpenAccordion((pillar?.objectives ?? []).map(o => o.id!));
 
     return (
-        <AccordionItem value={pillar.id!}>
-            <div className="flex items-center justify-between w-full">
-                <AccordionTrigger className="text-xl font-semibold p-4 bg-muted/50 rounded-t-lg flex-1">
-                    <span>{pillar.title || `Pillar ${pIndex + 1}`}</span>
-                </AccordionTrigger>
-                <Button type="button" variant="ghost" size="icon" aria-label={`Remove pillar ${pIndex + 1}`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); removePillar(); }} className="mr-2 hover:bg-destructive/20">
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-            </div>
-            <AccordionContent className="p-4 border border-t-0 rounded-b-lg space-y-4">
-                <FormField control={control} name={`pillars.${pIndex}.title`} render={({ field }) => <FormItem><Label>Pillar Title</Label><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>} />
-                <FormField control={control} name={`pillars.${pIndex}.description`} render={({ field }) => <FormItem><Label>Pillar Description</Label><FormControl><Textarea {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>} />
+        <AccordionItem value={pillar.id!} className="overflow-hidden rounded-xl border border-border/50 bg-card">
+            <SectionHeader asTrigger tone="pillar" label={`Pillar ${pIndex + 1}`} title={pillar.title || "Untitled pillar"} weight={pillarWeight(pillar)}
+                onRemove={removePillar} removeLabel={`Remove pillar ${pIndex + 1}`} />
+            <AccordionContent className="space-y-4 p-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <FormField control={control} name={`pillars.${pIndex}.title`} render={({ field }) => <FormItem><Label>Pillar Title</Label><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>} />
+                    <FormField control={control} name={`pillars.${pIndex}.description`} render={({ field }) => <FormItem><Label>Pillar Description</Label><FormControl><Textarea {...field} value={field.value ?? ""} rows={1} className="min-h-10" /></FormControl><FormMessage /></FormItem>} />
+                </div>
 
-                <h3 className="font-semibold text-lg mt-4">Objectives</h3>
-                <Accordion type="multiple" className="space-y-4" {...objectiveAccordion}>
+                <Accordion type="multiple" className="space-y-3" {...objectiveAccordion}>
                     {objectiveFields.map((objective, oIndex) => (
                         <ObjectiveAccordion key={objective.id} pIndex={pIndex} oIndex={oIndex} form={form} removeObjective={() => removeObjective(oIndex)} users={users} peopleOptions={peopleOptions} userOptions={userOptions} />
                     ))}
@@ -354,16 +385,13 @@ function ObjectiveAccordion({ pIndex, oIndex, form, removeObjective, users, peop
     const objective = watch(base);
 
     return (
-        <AccordionItem value={objective.id!}>
-            <AccordionTrigger className="font-semibold text-lg p-3 bg-background rounded-t-md border">{objective.statement || `Objective ${pIndex + 1}.${oIndex + 1}`}</AccordionTrigger>
-            <AccordionContent className="p-4 border border-t-0 rounded-b-md space-y-4">
-                <div className="flex justify-between items-start">
-                    <FormField control={control} name={`${base}.statement`} render={({ field }) => <FormItem className="flex-grow"><Label>Objective Statement</Label><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>} />
-                    <Button type="button" variant="ghost" size="icon" aria-label={`Remove objective ${pIndex + 1}.${oIndex + 1}`} onClick={removeObjective} className="ml-2"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                </div>
+        <AccordionItem value={objective.id!} className="overflow-hidden rounded-xl border border-border/50">
+            <SectionHeader asTrigger tone="objective" label={`Objective ${pIndex + 1}.${oIndex + 1}`} title={objective.statement || "Untitled objective"} weight={objectiveWeight(objective)}
+                onRemove={removeObjective} removeLabel={`Remove objective ${pIndex + 1}.${oIndex + 1}`} />
+            <AccordionContent className="space-y-4 p-4">
+                <FormField control={control} name={`${base}.statement`} render={({ field }) => <FormItem><Label>Objective Statement</Label><FormControl><Textarea {...field} rows={1} className="min-h-10" /></FormControl><FormMessage /></FormItem>} />
 
-                <h4 className="font-semibold mt-4">Initiatives</h4>
-                <div className="space-y-4">
+                <div className="space-y-3">
                     {initiativeFields.map((initiative, iIndex) => (
                         <InitiativeCard key={initiative.id} pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} form={form} removeInitiative={() => removeInitiative(iIndex)} users={users} peopleOptions={peopleOptions} userOptions={userOptions} />
                     ))}
@@ -380,84 +408,25 @@ function ObjectiveAccordion({ pIndex, oIndex, form, removeObjective, users, peop
 function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users, peopleOptions, userOptions }: SectionProps & { pIndex: number; oIndex: number; iIndex: number; removeInitiative: () => void }) {
     const { control, watch } = form;
     const base = `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}` as const;
-    const { fields: activityFields, append: appendActivity, remove: removeActivity } = useFieldArray({ control, name: `${base}.activities` });
-    const activities = watch(`${base}.activities`) || [];
+    const initiative = watch(base);
+    const number = `${pIndex + 1}.${oIndex + 1}.${iIndex + 1}`;
 
     return (
-        <Card>
-            <CardHeader className="flex-row items-center justify-between p-4 bg-muted/30">
-                <CardTitle className="text-base">Initiative {pIndex + 1}.{oIndex + 1}.{iIndex + 1}</CardTitle>
-                <Button type="button" variant="ghost" size="icon" aria-label={`Remove initiative ${pIndex + 1}.${oIndex + 1}.${iIndex + 1}`} onClick={removeInitiative} className="hover:bg-destructive/20"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-            </CardHeader>
-            <CardContent className="space-y-4 p-4">
-                <FormField control={control} name={`${base}.title`} render={({ field }) => <FormItem><Label>Title</Label><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>} />
-                <FormField control={control} name={`${base}.description`} render={({ field }) => <FormItem><Label>Description</Label><FormControl><Textarea {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>} />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField control={control} name={`${base}.owners`} render={({ field }) => <FormItem data-field-path={field.name} tabIndex={-1}><Label>Lead/Owner</Label><FormControl><MultiSelect options={peopleOptions} selected={field.value ?? []} onChange={field.onChange} /></FormControl><FormMessage /></FormItem>} />
-                    <FormField control={control} name={`${base}.collaborators`} render={({ field }) => <FormItem><Label>Collaborators</Label><FormControl><MultiSelect options={peopleOptions} selected={field.value ?? []} onChange={field.onChange} /></FormControl><FormMessage /></FormItem>} />
+        <div className="overflow-hidden rounded-xl border border-border/50 bg-card">
+            <SectionHeader asTrigger={false} tone="initiative" label={`Initiative ${number}`} title={initiative?.title || "Untitled initiative"} weight={calculateInitiativeWeight(initiative?.activities)}
+                onRemove={removeInitiative} removeLabel={`Remove initiative ${number}`} />
+            <div className="space-y-4 p-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <FormField control={control} name={`${base}.title`} render={({ field }) => <FormItem><Label>Title</Label><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>} />
+                    <FormField control={control} name={`${base}.description`} render={({ field }) => <FormItem><Label>Description</Label><FormControl><Textarea {...field} value={field.value ?? ""} rows={1} className="min-h-10" /></FormControl><FormMessage /></FormItem>} />
+                    <FormField control={control} name={`${base}.owners`} render={({ field }) => <FormItem data-field-path={field.name} tabIndex={-1}><Label>Lead/Owner</Label><FormControl><MultiSelect options={peopleOptions} selected={field.value ?? []} onChange={field.onChange} maxVisible={3} /></FormControl><FormMessage /></FormItem>} />
+                    <FormField control={control} name={`${base}.collaborators`} render={({ field }) => <FormItem><Label>Collaborators</Label><FormControl><MultiSelect options={peopleOptions} selected={field.value ?? []} onChange={field.onChange} maxVisible={3} /></FormControl><FormMessage /></FormItem>} />
                 </div>
-                <div className="space-y-2 pt-4">
-                    <Label>Activities</Label>
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Title</TableHead>
-                                    <TableHead>Deliverable</TableHead>
-                                    <TableHead>Weight (%)</TableHead>
-                                    <TableHead>Start</TableHead>
-                                    <TableHead>End</TableHead>
-                                    <TableHead>Responsible</TableHead>
-                                    <TableHead>Lead / Owner</TableHead>
-                                    <TableHead>Collaborators</TableHead>
-                                    <TableHead><span className="sr-only">Remove</span></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {activityFields.map((activity, aIndex) => {
-                                    const aBase = `${base}.activities.${aIndex}` as const;
-                                    return (
-                                        <TableRow key={activity.id} className="align-top">
-                                            <TableCell className="min-w-[200px]"><FormField control={control} name={`${aBase}.title`} render={({ field }) => <FormItem><FormControl><Input {...field} placeholder="Activity title" /></FormControl><FormMessage /></FormItem>} /></TableCell>
-                                            <TableCell className="min-w-[220px]"><FormField control={control} name={`${aBase}.deliverable`} render={({ field }) => <FormItem><FormControl><Textarea {...field} value={field.value ?? ''} rows={1} placeholder="e.g., Segmented customer report" /></FormControl><FormMessage /></FormItem>} /></TableCell>
-                                            <TableCell className="min-w-[100px]"><FormField control={control} name={`${aBase}.weight`} render={({ field }) => <FormItem><FormControl><Input type="number" step="0.01" min={0} max={100} {...field} /></FormControl><FormMessage /></FormItem>} /></TableCell>
-                                            <TableCell className="min-w-[150px]"><FormField control={control} name={`${aBase}.startDate`} render={({ field }) => <FormItem><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>} /></TableCell>
-                                            <TableCell className="min-w-[150px]"><FormField control={control} name={`${aBase}.endDate`} render={({ field }) => <FormItem><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>} /></TableCell>
-                                            <TableCell className="min-w-[170px]">
-                                                <FormField control={control} name={`${aBase}.responsible`} render={({ field }) => (
-                                                    <FormItem data-field-path={field.name} tabIndex={-1}>
-                                                        <Select onValueChange={(v) => { field.onChange(v); applyResponsibleDefaults(form, aBase, v, users); }} value={field.value}>
-                                                            <FormControl><SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger></FormControl>
-                                                            <SelectContent>{userOptions.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}</SelectContent>
-                                                        </Select>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )} />
-                                            </TableCell>
-                                            <TableCell className="min-w-[220px]">
-                                                <ActivityLeadOwnerField form={form} name={`${aBase}.leadOwner`} />
-                                            </TableCell>
-                                            <TableCell className="min-w-[220px]">
-                                                <ActivityCollaboratorsField form={form} name={`${aBase}.collaborators`} />
-                                            </TableCell>
-                                            <TableCell><Button type="button" variant="ghost" size="icon" aria-label="Remove activity" onClick={() => removeActivity(aIndex)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
-                                        </TableRow>
-                                    );
-                                })}
-                            </TableBody>
-                        </Table>
-                    </div>
-                    <ListIssue path={`${base}.activities`} />
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendActivity(newActivity(users))}>
-                            <PlusCircle className="mr-2 h-4 w-4" /> Add Activity
-                        </Button>
-                        <p className="text-sm font-medium text-muted-foreground">
-                            Subtotal: {calculateInitiativeWeight(activities).toFixed(1)}% of whole plan
-                        </p>
-                    </div>
+                <div className="space-y-2 pt-2">
+                    <p className="text-sm font-medium">Activities</p>
+                    <ActivityRowsEditor form={form} path={`${base}.activities`} number={number} users={users} userOptions={userOptions} createActivity={() => newActivity(users)} />
                 </div>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 }

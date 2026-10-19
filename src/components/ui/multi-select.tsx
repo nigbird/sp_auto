@@ -1,8 +1,7 @@
-
 "use client"
 
 import * as React from "react"
-import { X, Check } from "lucide-react"
+import { X, Check, ChevronsUpDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -21,9 +20,15 @@ interface MultiSelectProps {
   onChange: (selected: string[]) => void
   className?: string
   placeholder?: string
+  /**
+   * Show at most this many chips and fold the rest into a "+N more" chip, so a
+   * long selection keeps the field one line tall. All of them stay listed in
+   * the dropdown and in the field's tooltip.
+   */
+  maxVisible?: number
 }
 
-export function MultiSelect({ options, selected, onChange, className, ...props }: MultiSelectProps) {
+export function MultiSelect({ options, selected, onChange, className, maxVisible, ...props }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false)
 
   const handleSelect = (value: string) => {
@@ -37,6 +42,10 @@ export function MultiSelect({ options, selected, onChange, className, ...props }
     onChange(selected.filter((s) => s !== value))
   }
 
+  const labelOf = (value: string) => options.find(o => o.value === value)?.label ?? value
+  const visible = maxVisible != null ? selected.slice(0, maxVisible) : selected
+  const hidden = selected.length - visible.length
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -45,31 +54,36 @@ export function MultiSelect({ options, selected, onChange, className, ...props }
                 variant="outline"
                 role="combobox"
                 aria-expanded={open}
-                className={cn("w-full justify-between h-10 font-normal", className)}
+                title={selected.length > 0 ? selected.map(labelOf).join(", ") : undefined}
+                className={cn("h-auto min-h-10 w-full justify-between gap-2 py-1.5 font-normal", className)}
             >
-                <div className="flex gap-1 flex-wrap">
+                <div className="flex min-w-0 flex-1 flex-wrap gap-1">
                     {selected.length > 0 ? (
-                        selected.map((value) => (
+                        <>
+                        {visible.map((value) => (
                         <Badge
                             variant="secondary"
                             key={value}
-                            className="mr-1"
+                            className="max-w-full"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 handleUnselect(value);
                             }}
                         >
-                            {options.find(o => o.value === value)?.label}
-                            <X className="h-3 w-3 ml-1" />
+                            <span className="truncate">{labelOf(value)}</span>
+                            <X className="ml-1 h-3 w-3 shrink-0" />
                         </Badge>
-                        ))
+                        ))}
+                        {hidden > 0 && <Badge variant="outline" className="font-medium text-muted-foreground">+{hidden} more</Badge>}
+                        </>
                     ) : (
-                        <span className="text-muted-foreground">{props.placeholder ?? "Select..."}</span>
+                        <span className="truncate text-muted-foreground">{props.placeholder ?? "Select..."}</span>
                     )}
                 </div>
+                <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
             </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
+      <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[16rem] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search..." />
           <CommandList>
@@ -100,5 +114,3 @@ export function MultiSelect({ options, selected, onChange, className, ...props }
     </Popover>
   )
 }
-
-    
