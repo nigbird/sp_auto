@@ -77,7 +77,14 @@ export async function middleware(request: NextRequest) {
   // Forced browsing to a page the role can't open gets a real 403 here. The
   // token's permissions can be up to one access-token lifetime old, so before
   // refusing, a token that predates a role change is refreshed and checked again.
-  const need = requiredPermissions(pathname);
+  //
+  // Page loads only. Server actions are posted to whatever page the browser is
+  // on (the shared header polls notifications even on the "no access" page) and
+  // each one checks its own permission, so they always go through. Rewriting
+  // them to /access-denied would also make Next forward the action back to its
+  // own page, here, in an endless loop.
+  const isPageLoad = (request.method === 'GET' || request.method === 'HEAD') && !request.headers.has('next-action');
+  const need = isPageLoad ? requiredPermissions(pathname) : null;
   if (need && !satisfies(claims.permissions, need)) {
     if (!refreshed && canRefresh) {
       refreshed = await refreshInline(request, requestHeaders);

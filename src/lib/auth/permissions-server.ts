@@ -21,8 +21,14 @@ export async function hasPermission(roleId: string, permission: Permission): Pro
  * have themselves, so a non-empty result means the change must be refused.
  */
 export function permissionsBeyond(user: SessionUser, permissions: readonly string[]): string[] {
-  return permissions.filter((p) => !user.permissions.includes(p));
+  return permissions.filter((p) => !user.permissions.includes(p) && !user.permissions.includes(NARROWER_FORM_OF[p] ?? ''));
 }
+
+// "View my …" is a narrower form of "View the full …": holding the full one covers it.
+const NARROWER_FORM_OF: Record<string, string> = {
+  'dashboard:view-own': 'dashboard:view',
+  'reports:view-own': 'reports:view',
+};
 
 /** The signed-in user holds `permission` (checked from the live session, which reads the DB). */
 export function userCan(user: SessionUser, ...anyOf: Permission[]): boolean {
