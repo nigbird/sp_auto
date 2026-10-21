@@ -1,4 +1,10 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
+// Inter is bundled and served from this origin, so the Content-Security-Policy needs no third-party font hosts.
+import "@fontsource/inter/400.css";
+import "@fontsource/inter/500.css";
+import "@fontsource/inter/600.css";
+import "@fontsource/inter/700.css";
 import "./globals.css";
 import { RootLayoutClient } from "@/components/root-layout-client";
 import { cn } from "@/lib/utils";
@@ -9,21 +15,17 @@ export const metadata: Metadata = {
   icons: { icon: "/niblogo.png", apple: "/niblogo.png" },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Render every page per request: the CSP nonce (src/middleware.ts) is new each
+  // time, and a page prerendered at build time would carry no nonce at all.
+  await connection();
+
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
       <body className={cn("h-full font-body antialiased")}>
         <RootLayoutClient>{children}</RootLayoutClient>
       </body>

@@ -144,23 +144,77 @@ export async function updateActivity(activityId: string, data: Partial<Omit<Acti
     // fixing and resubmitting their own declined activity, which is normal
     // self-service and shouldn't require an elevated permission.
     const isOwnerResubmittingDeclined = currentActivity.responsibleId === user.id && currentActivity.approvalStatus === 'DECLINED';
-    if (!isOwnerResubmittingDeclined && !userCan(user, 'strategic-plan:edit', 'plan-approvals:approve')) {
+    const isEditor = userCan(user, 'strategic-plan:edit', 'plan-approvals:approve');
+    if (!isOwnerResubmittingDeclined && !isEditor) {
         throw new Error("You don't have permission to edit this activity.");
     }
 
-    const { kpi, deliverables, ...rest } = data;
-    const activityData: any = { ...rest };
-    if (data.startDate) activityData.startDate = new Date(data.startDate);
-    if (data.endDate) activityData.endDate = new Date(data.endDate);
-    if (data.responsible) {
-        activityData.responsibleId = data.responsible;
-        delete activityData.responsible;
+    // Copied field by field, never spread: a server action accepts whatever JSON
+    // the caller sends. An owner fixing a returned activity may change its content
+    // only, and it always goes back for approval. Who it belongs to, where it sits
+    // in the plan, its weight, progress and approval are for plan editors.
+    const { kpi, deliverables } = data;
+    const activityData: Record<string, unknown> = {};
+    if (data.title !== undefined) {
+        const title = String(data.title).trim();
+        if (title.length < 3 || title.length > 500) throw new Error('The title must be between 3 and 500 characters.');
+        activityData.title = title;
+    }
+    if (data.description !== undefined) activityData.description = data.description == null ? null : String(data.description).slice(0, 5000);
+    for (const field of ['startDate', 'endDate'] as const) {
+        if (!data[field]) continue;
+        const date = new Date(data[field] as string | Date);
+        if (Number.isNaN(date.getTime())) throw new Error('One of the dates is not valid.');
+        activityData[field] = date;
     }
 
+    if (isEditor) {
+        if (data.responsible) {
+            if (!(await prisma.user.findUnique({ where: { id: String(data.responsible) }, select: { id: true } }))) throw new Error('The selected person no longer exists.');
+            activityData.responsibleId = String(data.responsible);
+        }
+        if (data.weight !== undefined) {
+            const weight = Number(data.weight);
+            if (!Number.isFinite(weight) || weight < 0 || weight > 100) throw new Error('Weight must be between 0 and 100.');
+            activityData.weight = weight;
+        }
+        if (data.progress !== undefined) {
+            const progress = Number(data.progress);
+            if (!Number.isFinite(progress) || progress < 0 || progress > 100) throw new Error('Progress must be between 0 and 100.');
+            activityData.progress = progress;
+        }
+        const initiativeId = (data as { initiativeId?: string }).initiativeId;
+        if (initiativeId && initiativeId !== currentActivity.initiativeId) {
+            // Only within the same plan.
+            const initiative = await prisma.initiative.findUnique({ where: { id: String(initiativeId) }, select: { objective: { select: { pillar: { select: { strategicPlanId: true } } } } } });
+            if (initiative?.objective.pillar.strategicPlanId !== currentActivity.strategicPlanId) throw new Error('The selected initiative is not part of this plan.');
+            activityData.initiativeId = String(initiativeId);
+        }
+        if (data.reportingPeriodId !== undefined) {
+            if (data.reportingPeriodId) {
+                const period = await prisma.reportingPeriod.findUnique({ where: { id: String(data.reportingPeriodId) }, select: { strategicPlanId: true } });
+                if (period?.strategicPlanId !== currentActivity.strategicPlanId) throw new Error('The selected reporting period is not part of this plan.');
+            }
+            activityData.reportingPeriodId = data.reportingPeriodId || null;
+        }
+    }
+
+    if (data.approvalStatus !== undefined) {
+        const status = data.approvalStatus;
+        if (status !== 'PENDING' && status !== 'APPROVED' && status !== 'DECLINED') throw new Error('Unknown approval status.');
+        if (status !== 'PENDING') {
+            // Approving or returning is a reviewer's decision, and never on your own activity.
+            if (!userCan(user, 'plan-approvals:approve')) throw new Error("You don't have permission to approve activities.");
+            if (currentActivity.responsibleId === user.id) throw new Error("You're responsible for this activity, so someone else has to approve it.");
+        }
+        activityData.approvalStatus = status;
+    }
+    if (!isEditor) activityData.approvalStatus = 'PENDING';
+
     // Explicitly set status if progress is changed
-    if (data.progress !== undefined) {
+    if (activityData.progress !== undefined) {
         const rules = await getStatusRules();
-        activityData.status = calculateActivityStatus({ ...currentActivity, progress: data.progress, endDate: new Date(currentActivity.endDate) }, rules);
+        activityData.status = calculateActivityStatus({ ...currentActivity, progress: activityData.progress as number, endDate: new Date(currentActivity.endDate) }, rules);
     }
 
     activityData.updatedAt = new Date();

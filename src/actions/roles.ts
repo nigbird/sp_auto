@@ -3,8 +3,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma';
-import { requireUser } from '@/lib/auth/session';
-import { requirePermission } from '@/lib/auth/permissions-server';
+import type { SessionUser } from '@/lib/auth/session';
+import { permissionsBeyond, requirePermission } from '@/lib/auth/permissions-server';
 import { ALL_PERMISSIONS } from '@/lib/auth/permissions';
 import { recordAudit } from '@/lib/auth/audit';
 
@@ -31,13 +31,24 @@ function validPermissions(permissions: unknown): string[] {
     return Array.from(new Set(permissions.filter((p): p is string => typeof p === 'string' && known.has(p))));
 }
 
-export async function createRole(name: string, permissions: string[]) {
-    await requirePermission('roles:manage');
-    permissions = validPermissions(permissions);
+/** A role editor may only hand out permissions they hold themselves. */
+function assertGrantable(user: SessionUser, permissions: string[]) {
+    if (permissionsBeyond(user, permissions).length > 0) {
+        throw new Error("You can't grant permissions that your own role doesn't have.");
+    }
+}
 
-    const trimmedName = name.trim();
+export async function createRole(name: string, permissions: string[]) {
+    const user = await requirePermission('roles:manage');
+    permissions = validPermissions(permissions);
+    assertGrantable(user, permissions);
+
+    const trimmedName = String(name ?? '').trim().replace(/\s+/g, ' ');
     if (!trimmedName) {
         throw new Error('Role name is required.');
+    }
+    if (trimmedName.length > 60 || /[<>{}\u0000-\u001f\u007f]/.test(trimmedName)) {
+        throw new Error('Use a role name of at most 60 characters, without < > { }.');
     }
 
     const existing = await prisma.role.findUnique({ where: { name: trimmedName } });
@@ -70,9 +81,11 @@ export async function updateRolePermissions(roleId: string, permissions: string[
         throw new Error("You can't remove 'Create, edit and delete roles' from your own role.");
     }
 
-    const role = await prisma.role.findUnique({ where: { id: roleId }, include: { permissions: { select: { permission: true } } } });
+    const role = await prisma.role.findUnique({ where: { id: String(roleId) }, include: { permissions: { select: { permission: true } } } });
     if (!role) throw new Error('This role no longer exists.');
     const before = role.permissions.map((p) => p.permission);
+    // Only newly added permissions count: keeping ones the role already had is fine.
+    assertGrantable(user, permissions.filter((p) => !before.includes(p)));
 
     await prisma.$transaction([
         prisma.rolePermission.deleteMany({ where: { roleId } }),

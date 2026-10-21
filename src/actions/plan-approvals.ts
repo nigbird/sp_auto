@@ -147,10 +147,12 @@ function revalidate() {
 
 /** Approves a new activity that someone without approval rights added to the plan. */
 export async function approveNewActivity(activityId: string): Promise<PlanApprovalResult> {
-  await requirePermission('plan-approvals:approve');
+  const approver = await requirePermission('plan-approvals:approve');
   const activity = await prisma.activity.findUnique({ where: { id: activityId }, select: { id: true, title: true, approvalStatus: true, responsibleId: true } });
   if (!activity) return { success: false, message: 'This activity no longer exists.' };
   if (activity.approvalStatus !== 'PENDING') return { success: false, message: "This activity isn't waiting for approval any more; it may already have been handled." };
+  // Segregation of duties: nobody approves an activity they are responsible for.
+  if (activity.responsibleId === approver.id) return { success: false, message: "You're responsible for this activity, so someone else has to approve it." };
 
   await prisma.activity.update({ where: { id: activityId }, data: { approvalStatus: 'APPROVED', declineReason: null } });
   await prisma.notification.create({

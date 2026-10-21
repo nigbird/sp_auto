@@ -10,6 +10,16 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * A "prefix-<random hex>" id for rows created in the browser before they're saved.
+ * Uses crypto.getRandomValues (not Math.random), which every browser offers even
+ * on plain-HTTP pages where crypto.randomUUID is unavailable.
+ */
+export function randomId(prefix: string): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  return `${prefix}-${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
+}
+
 export function calculateWeightedProgress(items: { weight: number; progress: number }[]): number {
   if (items.length === 0) return 0;
   const totalWeight = items.reduce((sum, item) => sum + item.weight, 0);

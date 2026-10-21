@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth/session';
-import { userCan } from '@/lib/auth/permissions-server';
+import { forbiddenResponse, userCan } from '@/lib/auth/permissions-server';
 import { buildReportTemplate } from '@/lib/plan-export/import-templates';
 
 export const dynamic = 'force-dynamic';
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const user = await requireUser();
   if (!userCan(user, 'report-approvals:approve')) {
-    return NextResponse.json({ error: "You don't have permission to import reports." }, { status: 403 });
+    return forbiddenResponse(["report-approvals:approve"], "You don't have permission to import reports.");
   }
   const buffer = buildReportTemplate();
   const fileName = 'Report import template.xlsx';

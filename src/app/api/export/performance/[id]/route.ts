@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/auth/session';
-import { userCan } from '@/lib/auth/permissions-server';
+import { forbiddenResponse, userCan } from '@/lib/auth/permissions-server';
 import { recordAudit } from '@/lib/auth/audit';
 import { buildPerformanceTree, describeFilters, filterPerformanceTree, filtersFromParams, isNarrowed } from '@/lib/performance-report';
 import { buildPerformanceWorkbook } from '@/lib/performance-export/build-performance-workbook';
@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   if (!(userCan(user, 'reports:export') && userCan(user, 'reports:view'))) {
-    return NextResponse.json({ error: "You don't have permission to export this." }, { status: 403 });
+    return forbiddenResponse(["reports:view", "reports:export"]);
   }
 
   const { id } = await params;

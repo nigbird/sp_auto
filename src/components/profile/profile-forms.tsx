@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { updateMyName, changeMyPassword } from "@/actions/profile";
-import { checkPasswordStrength, MIN_PASSWORD_LENGTH } from "@/lib/auth/password-policy";
+import { checkPasswordStrength, PASSWORD_HINT } from "@/lib/auth/password-policy";
 
 const initials = (name: string) => name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0]!.toUpperCase()).join("");
 
@@ -154,7 +154,7 @@ function PasswordCard() {
             <PasswordInput id="new-password" value={next} onChange={v => { setNext(v); setErrors(({ next: _, ...rest }) => rest); }} autoComplete="new-password" invalid={!!errors.next} />
             {errors.next
               ? <p className="text-sm font-medium text-destructive">{errors.next}</p>
-              : <p className="text-xs text-muted-foreground">At least {MIN_PASSWORD_LENGTH} characters, with a letter and a number.</p>}
+              : <p className="text-xs text-muted-foreground">{PASSWORD_HINT}</p>}
           </div>
           <div className="space-y-1">
             <Label htmlFor="confirm-password">Confirm new password</Label>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth/session';
-import { userCan } from '@/lib/auth/permissions-server';
+import { forbiddenResponse, userCan } from '@/lib/auth/permissions-server';
 import { buildPlanTemplate } from '@/lib/plan-export/import-templates';
 
 export const dynamic = 'force-dynamic';
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   const user = await requireUser();
   if (!userCan(user, 'strategic-plan:edit')) {
-    return NextResponse.json({ error: "You don't have permission to import plans." }, { status: 403 });
+    return forbiddenResponse(["strategic-plan:edit"], "You don't have permission to import plans.");
   }
   const now = new Date();
   const currentFiscalYear = now.getUTCMonth() >= 6 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;

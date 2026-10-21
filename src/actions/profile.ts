@@ -7,7 +7,8 @@ import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/auth/session';
 import { recordAudit, writeAuditLog } from '@/lib/auth/audit';
 import { checkPasswordStrength } from '@/lib/auth/password-policy';
-import { ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME } from '@/lib/auth/config';
+import { clearAuthCookies } from '@/lib/auth/cookies';
+import { ipFromHeaders } from '@/lib/auth/rate-limit';
 
 export type ProfileActionResult =
   | { success: true }
@@ -40,7 +41,7 @@ export async function updateMyName(name: string): Promise<ProfileActionResult> {
 export async function changeMyPassword(currentPassword: string, newPassword: string): Promise<ProfileActionResult> {
   const user = await requireUser();
   const h = await headers();
-  const ip = h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip') || 'unknown';
+  const ip = ipFromHeaders(h);
   const userAgent = h.get('user-agent');
 
   const recentFailures = await prisma.auditLog.count({
@@ -61,7 +62,7 @@ export async function changeMyPassword(currentPassword: string, newPassword: str
     return { success: false, message: 'Your current password is incorrect.', field: 'currentPassword' };
   }
 
-  const weakness = checkPasswordStrength(newPassword);
+  const weakness = checkPasswordStrength(newPassword, user);
   if (weakness) return { success: false, message: weakness, field: 'newPassword' };
   if (newPassword === currentPassword) return { success: false, message: 'Choose a password different from your current one.', field: 'newPassword' };
 
@@ -78,8 +79,6 @@ export async function changeMyPassword(currentPassword: string, newPassword: str
   });
 
   await writeAuditLog({ action: 'PASSWORD_CHANGE', success: true, identifier: user.email, userId: user.id, actorId: user.id, entityType: 'User', entityId: user.id, summary: 'Changed password (signed out of all sessions)', ip, userAgent });
-  const cookieStore = await cookies();
-  cookieStore.delete(ACCESS_COOKIE_NAME);
-  cookieStore.delete(REFRESH_COOKIE_NAME);
+  clearAuthCookies(await cookies());
   return { success: true };
 }

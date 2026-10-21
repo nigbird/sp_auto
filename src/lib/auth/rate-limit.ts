@@ -44,10 +44,24 @@ export function getRequestIp(request: Request): string {
   return ipFromHeaders(request.headers);
 }
 
-/** Same as getRequestIp, for server actions (which only have `headers()`). */
+function trustedProxyCount(): number {
+  const count = Number(process.env.TRUSTED_PROXY_COUNT);
+  return Number.isInteger(count) && count >= 1 ? count : 1;
+}
+
+/**
+ * Same as getRequestIp, for server actions (which only have `headers()`).
+ *
+ * X-Forwarded-For is a list each proxy appends to, so only its right-hand end
+ * is written by infrastructure we run; the left-most entry is whatever the
+ * client sent and could be changed on every request to dodge the per-IP
+ * lockout. TRUSTED_PROXY_COUNT (default 1) is how many of our own proxies sit
+ * in front of the app: the client is that many places from the right.
+ */
 export function ipFromHeaders(headers: Pick<Headers, 'get'>): string {
   const forwardedFor = headers.get('x-forwarded-for');
-  if (forwardedFor) return forwardedFor.split(',')[0]!.trim();
+  const chain = forwardedFor ? forwardedFor.split(',').map((ip) => ip.trim()).filter(Boolean) : [];
+  if (chain.length > 0) return chain[Math.max(0, chain.length - trustedProxyCount())]!;
   const realIp = headers.get('x-real-ip');
   if (realIp) return realIp.trim();
   return 'unknown';

@@ -129,7 +129,8 @@ export async function listStrategicPlans({ includeInactive = false }: { includeI
 }
 
 export async function getStrategicPlanById(id: string) {
-    await requireUser();
+    // Every screen that shows a plan's structure needs one of these (plan pages, My Plan, approvals, reports).
+    await requirePermission('strategic-plan:view', 'strategic-plan:edit', 'my-plan:view', 'plan-approvals:view', 'reports:view', 'reports:view-own', 'dashboard:view', 'dashboard:view-own');
 
     const plan = await prisma.strategicPlan.findUnique({
         where: { id },

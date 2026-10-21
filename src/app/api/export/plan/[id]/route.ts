@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/auth/session';
-import { userCan } from '@/lib/auth/permissions-server';
+import { forbiddenResponse, userCan } from '@/lib/auth/permissions-server';
 import { recordAudit } from '@/lib/auth/audit';
 import { buildPlanWorkbook } from '@/lib/plan-export/build-plan-workbook';
 import { buildPerformancePdf } from '@/lib/plan-export/build-performance-pdf';
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ? userCan(user, 'strategic-plan:view', 'reports:export')
     : userCan(user, 'reports:export') && userCan(user, 'reports:view');
   if (!allowed) {
-    return NextResponse.json({ error: "You don't have permission to export this." }, { status: 403 });
+    return forbiddenResponse(planOnly ? ["strategic-plan:view", "reports:export"] : ["reports:view", "reports:export"]);
   }
 
   const { id } = await params;

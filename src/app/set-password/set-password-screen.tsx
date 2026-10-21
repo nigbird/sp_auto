@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { checkPasswordStrength, MIN_PASSWORD_LENGTH } from "@/lib/auth/password-policy";
+import { checkPasswordStrength, PASSWORD_RULES } from "@/lib/auth/password-policy";
 import {
   AuthError,
   AuthHeading,
@@ -69,14 +69,13 @@ function SetPasswordForm({ token, purpose, email, name }: { token: string; purpo
   };
 
   const rules = [
-    { label: `At least ${MIN_PASSWORD_LENGTH} characters`, met: password.length >= MIN_PASSWORD_LENGTH },
-    { label: "A letter and a number", met: /[A-Za-z]/.test(password) && /\d/.test(password) },
+    ...PASSWORD_RULES.map((rule) => ({ label: rule.label, met: rule.test(password) })),
     { label: "Both entries match", met: password.length > 0 && password === confirm },
   ];
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const weakness = checkPasswordStrength(password);
+    const weakness = checkPasswordStrength(password, { email, name });
     if (weakness) return fail(weakness);
     if (password !== confirm) return fail("The two passwords don't match.");
 

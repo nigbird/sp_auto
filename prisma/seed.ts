@@ -1,25 +1,47 @@
 
+import { randomBytes } from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { DEFAULT_ROLE_PERMISSIONS } from '../src/lib/auth/permissions';
+import { checkPasswordStrength } from '../src/lib/auth/password-policy';
 
 
 import { UserStatus, PlanStatus, ApprovalStatus } from "@prisma/client";
 const prisma = new PrismaClient();
 
-// Dev-only default password for every seeded user. Change on first login in any
-// environment that isn't a throwaway local dev database.
-const DEV_DEFAULT_PASSWORD = "Passw0rd!123";
-const devPasswordHash = bcrypt.hashSync(DEV_DEFAULT_PASSWORD, 10);
+// Demo data: never written into a production database by accident.
+if (process.env.NODE_ENV === 'production' && process.env.SEED_ALLOW_PRODUCTION !== 'true') {
+    console.error('Refusing to seed demo users and plans into a production database. Set SEED_ALLOW_PRODUCTION=true if you really mean to.');
+    process.exit(1);
+}
+
+/**
+ * The password for the demo accounts this script creates: SEED_USER_PASSWORD
+ * from the environment, or a fresh random one printed once below. There is no
+ * password in the source code. Existing accounts keep their passwords.
+ */
+function seedPassword(): string {
+    const fromEnv = process.env.SEED_USER_PASSWORD;
+    if (fromEnv) {
+        const weakness = checkPasswordStrength(fromEnv);
+        if (weakness) throw new Error(`SEED_USER_PASSWORD is too weak: ${weakness}`);
+        return fromEnv;
+    }
+    // Random letters/digits plus fixed character classes, so it always meets the password policy.
+    return `${randomBytes(12).toString('base64url')}-Aa9`;
+}
+
+const SEED_PASSWORD = seedPassword();
+const devPasswordHash = bcrypt.hashSync(SEED_PASSWORD, 12);
 
 // Data from src/lib/data.ts (adapted for seeding)
 const users = [
-    { name: "Abebe Kebede", email: "liam@corp-plan.com", avatar: "https://picsum.photos/id/1005/100", roleName: "Manager", status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
-    { name: "Almaz Tesfaye", email: "olivia@corp-plan.com", avatar: "https://picsum.photos/id/1011/100", roleName: "User", status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
-    { name: "Dawit Bekele", email: "noah@corp-plan.com", avatar: "https://picsum.photos/id/1012/100", roleName: "User", status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
-    { name: "Hana Girma", email: "emma@corp-plan.com", avatar: "https://picsum.photos/id/1013/100", roleName: "User", status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
-    { name: "Yonas Alemu", email: "oliver@corp-plan.com", avatar: "https://picsum.photos/id/1014/100", roleName: "User", status: UserStatus.INACTIVE, passwordHash: devPasswordHash },
-    { name: "Selamawit Assefa", email: "admin@corp-plan.com", avatar: "https://picsum.photos/id/1/100", roleName: "Administrator", status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
+    { name: "Abebe Kebede", email: "liam@corp-plan.com", avatar: "", roleName: "Manager", status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
+    { name: "Almaz Tesfaye", email: "olivia@corp-plan.com", avatar: "", roleName: "User", status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
+    { name: "Dawit Bekele", email: "noah@corp-plan.com", avatar: "", roleName: "User", status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
+    { name: "Hana Girma", email: "emma@corp-plan.com", avatar: "", roleName: "User", status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
+    { name: "Yonas Alemu", email: "oliver@corp-plan.com", avatar: "", roleName: "User", status: UserStatus.INACTIVE, passwordHash: devPasswordHash },
+    { name: "Selamawit Assefa", email: "admin@corp-plan.com", avatar: "", roleName: "Administrator", status: UserStatus.ACTIVE, passwordHash: devPasswordHash },
 ];
 
 const rules = [
@@ -56,14 +78,17 @@ async function main() {
     }
     console.log(`Seeded ${builtInRoles.length} built-in roles.`);
 
+    let createdUsers = 0;
     for (const u of users) {
         const { roleName, ...rest } = u;
-        const user = await prisma.user.upsert({
-            where: { email: u.email },
-            update: { passwordHash: u.passwordHash },
-            create: { ...rest, roleId: roleByName.get(roleName)! },
-        });
+        const existing = await prisma.user.findUnique({ where: { email: u.email }, select: { id: true } });
+        if (existing) continue; // never reset the password of an account that already exists
+        const user = await prisma.user.create({ data: { ...rest, roleId: roleByName.get(roleName)! } });
+        createdUsers++;
         console.log(`Created user with id: ${user.id}`);
+    }
+    if (createdUsers > 0 && !process.env.SEED_USER_PASSWORD) {
+        console.log(`\nPassword for the ${createdUsers} new demo account(s): ${SEED_PASSWORD}\n(Shown only now. Change it after signing in, or set SEED_USER_PASSWORD to choose it.)\n`);
     }
 
     // Use a transaction to ensure all rules are created or none are.

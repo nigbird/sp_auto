@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { CONCURRENT_SESSION_LIMIT, REFRESH_TOKEN_TTL_SECONDS } from './config';
+import { CONCURRENT_SESSION_LIMIT, REFRESH_TOKEN_TTL_SECONDS, isPastMaxLifetime } from './config';
 import { generateOpaqueToken, sha256Hex, generateId } from './crypto';
 import { signAccessToken } from './jwt';
 import { getPermissionsForRole } from './permissions-server';
@@ -96,7 +96,7 @@ type RefreshTokenWithSession = NonNullable<Awaited<ReturnType<typeof findRefresh
 type SessionWithUser = RefreshTokenWithSession['session'];
 
 function isLiveSession(session: SessionWithUser | null): session is SessionWithUser {
-  return !!session && !session.revokedAt && session.user.status === 'ACTIVE';
+  return !!session && !session.revokedAt && session.user.status === 'ACTIVE' && !isPastMaxLifetime(session);
 }
 
 function isWithinRotationGrace(token: RefreshTokenWithSession): boolean {

@@ -73,12 +73,26 @@ export async function updateReportingPeriod(
 ) {
   await requirePermission('settings:manage');
 
-  const before = await prisma.reportingPeriod.findUnique({ where: { id } });
+  const before = await prisma.reportingPeriod.findUnique({ where: { id: String(id) } });
 
-  const updateData: Record<string, unknown> = { ...data };
-  if (data.startDate) updateData.startDate = new Date(data.startDate);
-  if (data.endDate) updateData.endDate = new Date(data.endDate);
-  if (data.cutOffDate) updateData.cutOffDate = new Date(data.cutOffDate);
+  // Field by field, never a spread of `data`: a crafted request could otherwise
+  // move the period to another plan or overwrite its report-request record.
+  const updateData: { name?: string; startDate?: Date; endDate?: Date; cutOffDate?: Date; status?: ReportingPeriodStatus } = {};
+  if (data?.name !== undefined) {
+    const name = String(data.name).trim();
+    if (!name || name.length > 100) throw new Error('Give the period a name of at most 100 characters.');
+    updateData.name = name;
+  }
+  for (const field of ['startDate', 'endDate', 'cutOffDate'] as const) {
+    if (!data?.[field]) continue;
+    const date = new Date(data[field]!);
+    if (Number.isNaN(date.getTime())) throw new Error('One of the dates is not valid.');
+    updateData[field] = date;
+  }
+  if (data?.status !== undefined) {
+    if (data.status !== 'OPEN' && data.status !== 'CLOSED') throw new Error('Unknown period status.');
+    updateData.status = data.status;
+  }
 
   const updatedPeriod = await prisma.reportingPeriod.update({
     where: { id },

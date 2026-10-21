@@ -6,15 +6,35 @@ import { escapeHtml, sendEmail } from '@/lib/email';
 import { getTrustedOrigin } from './config';
 import { generateOpaqueToken, sha256Hex } from './crypto';
 
-export const INVITE_TOKEN_TTL_SECONDS = 72 * 60 * 60; // 3 days
+function readInviteTtlHours(): number {
+  const hours = Number(process.env.INVITE_LINK_TTL_HOURS);
+  return Number.isFinite(hours) && hours > 0 ? hours : 24;
+}
+
+/** How long an invitation link works, from INVITE_LINK_TTL_HOURS in .env (default 24). Resending issues a fresh one. */
+export const INVITE_TOKEN_TTL_SECONDS = Math.round(readInviteTtlHours() * 60 * 60);
 export const RESET_TOKEN_TTL_SECONDS = 60 * 60; // 1 hour
 
 const TTL: Record<PasswordTokenPurpose, number> = { INVITE: INVITE_TOKEN_TTL_SECONDS, RESET: RESET_TOKEN_TTL_SECONDS };
 
-/** The public origin for links in emails: APP_ORIGIN when set, otherwise the current request's host. */
+function describeDuration(seconds: number): string {
+  const hours = seconds / 3600;
+  if (hours >= 48 && Number.isInteger(hours / 24)) return `${hours / 24} days`;
+  return hours === 1 ? '1 hour' : `${+hours.toFixed(1)} hours`;
+}
+
+/**
+ * The public origin for links in emails. In production this must be APP_ORIGIN:
+ * the request's Host header is chosen by whoever sends the request, so building
+ * a reset link from it would let anyone have a victim's reset token emailed
+ * inside a link to their own site. Development falls back to the request host.
+ */
 export async function getAppOrigin(): Promise<string> {
   const configured = getTrustedOrigin();
   if (configured) return configured.replace(/\/+$/, '');
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('APP_ORIGIN is not set. Set it to the public URL of the app (e.g. https://plan.example.com) so emailed links point to the right place.');
+  }
   const h = await headers();
   const host = h.get('x-forwarded-host') ?? h.get('host') ?? 'localhost:9003';
   const proto = h.get('x-forwarded-proto') ?? (host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https');
@@ -64,7 +84,7 @@ function layout(heading: string, paragraphs: string[], link: string, buttonLabel
 
 function inviteEmail(user: { name: string; email: string }, link: string) {
   const intro = `An account has been created for you on the ${APP_NAME} workspace. Your username is ${user.email}.`;
-  const footnote = 'This link expires in 3 days and can be used once. If it expires, ask your administrator to resend the invitation.';
+  const footnote = `This link expires in ${describeDuration(INVITE_TOKEN_TTL_SECONDS)} and can be used once. If it expires, ask your administrator to resend the invitation.`;
   return {
     to: user.email,
     subject: `Set up your ${APP_NAME} account`,

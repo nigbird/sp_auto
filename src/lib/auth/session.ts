@@ -2,7 +2,8 @@ import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import { ACCESS_COOKIE_NAME } from './config';
+import { safeAvatar } from '@/lib/user-select';
+import { ACCESS_COOKIE_NAME, isPastMaxLifetime } from './config';
 import { decryptFromCookie } from './crypto';
 import { verifyAccessToken } from './jwt';
 
@@ -51,6 +52,7 @@ async function resolveCurrentUser(): Promise<SessionUser | null> {
   if (!session || session.revokedAt || session.userId !== claims.sub) return null;
   if (session.user.status !== 'ACTIVE') return null;
   if (session.user.sessionVersion !== claims.sessionVersion) return null;
+  if (isPastMaxLifetime(session)) return null;
 
   // Best-effort activity heartbeat; not critical to the auth decision itself.
   // Throttled so a burst of requests doesn't turn every read into a write.
@@ -65,7 +67,7 @@ async function resolveCurrentUser(): Promise<SessionUser | null> {
     id: session.user.id,
     name: session.user.name,
     email: session.user.email,
-    avatar: session.user.avatar,
+    avatar: safeAvatar(session.user.avatar),
     role: session.user.role.name,
     roleId: session.user.roleId,
     status: session.user.status,

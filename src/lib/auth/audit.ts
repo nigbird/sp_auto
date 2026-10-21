@@ -70,6 +70,20 @@ export function changedFields(before: object, next: object): Record<string, { fr
 }
 
 /**
+ * Records that the signed-in user was refused a page, action or download
+ * their role doesn't allow — repeated entries point at someone probing for access.
+ */
+export async function recordDenied(required: readonly string[], kind: 'page' | 'action' | 'download'): Promise<void> {
+  const path = (await headers()).get('x-request-path');
+  await recordAudit({
+    action: 'PERMISSION_DENIED',
+    success: false,
+    summary: `Refused a ${kind} that needs ${required.join(' or ')}${path ? ` (${path})` : ''}`,
+    metadata: { required, kind, path },
+  });
+}
+
+/**
  * Records an important action taken by the signed-in user, from a server
  * action or route handler. The actor, IP and browser come from the current
  * request. Best-effort: a failure to write the entry is logged and never

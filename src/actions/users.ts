@@ -1,13 +1,19 @@
 'use server'
 
-import { publicUserSelect } from '@/lib/user-select';
+import { publicUserSelect, safeAvatar } from '@/lib/user-select';
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import type { User } from '@/lib/types';
-import { requireUser } from '@/lib/auth/session';
-import { requirePermission } from '@/lib/auth/permissions-server';
+import { requireUser, type SessionUser } from '@/lib/auth/session';
+import { getPermissionsForRole, permissionsBeyond, requirePermission, userCan } from '@/lib/auth/permissions-server';
 import { sendPasswordLink, type SentLink } from '@/lib/auth/password-tokens';
 import { changedFields, recordAudit, writeAuditLog } from '@/lib/auth/audit';
+
+const nameSchema = z.string().trim().min(2, 'Name must be at least 2 characters.').max(100, 'Name must be at most 100 characters.')
+    .regex(/^[^<>{}\u0000-\u001f\u007f]+$/, 'The name contains characters that are not allowed.');
+const emailSchema = z.string().trim().toLowerCase().max(254, 'The email address is too long.').email('Enter a valid email address.');
+const idSchema = z.string().trim().min(1).max(64);
 
 const userListSelect = {
     ...publicUserSelect,
@@ -18,12 +24,13 @@ const userListSelect = {
     passwordTokens: { where: { purpose: 'INVITE' }, orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true, expiresAt: true } },
 } as const;
 
-type UserRow = { lastLoginAt: Date | null; passwordTokens: { createdAt: Date; expiresAt: Date }[]; role: { name: string }; leadOwner: { name: string } | null };
+type UserRow = { avatar: string; lastLoginAt: Date | null; passwordTokens: { createdAt: Date; expiresAt: Date }[]; role: { name: string }; leadOwner: { name: string } | null };
 
 function toUser<T extends UserRow>({ passwordTokens, lastLoginAt, ...u }: T) {
     const invite = passwordTokens[0];
     return {
         ...u,
+        avatar: safeAvatar(u.avatar),
         role: u.role.name,
         leadOwner: u.leadOwner?.name ?? null,
         lastLoginAt,
@@ -33,10 +40,31 @@ function toUser<T extends UserRow>({ passwordTokens, lastLoginAt, ...u }: T) {
     };
 }
 
+/**
+ * Everyone, for people pickers across the app. Sign-in and invitation details
+ * are account administration, so they're only included for people who can see the Users page.
+ */
 export async function getUsers(): Promise<User[]> {
-    await requireUser();
+    const viewer = await requireUser();
     const users = await prisma.user.findMany({ select: userListSelect, orderBy: { name: 'asc' } });
-    return users.map(toUser) as unknown as User[];
+    const rows = users.map(toUser);
+    if (userCan(viewer, 'users:view', 'users:manage')) return rows as unknown as User[];
+    return rows.map(({ lastLoginAt, invitePending, inviteSentAt, inviteExpiresAt, ...u }) => u) as unknown as User[];
+}
+
+/** Invitation links are credentials: only hand one to the administrator when explicitly allowed (see deliverInvite). */
+function mayShowInviteLink(): boolean {
+    return process.env.NODE_ENV !== 'production' || process.env.ALLOW_MANUAL_INVITE_LINKS?.trim().toLowerCase() === 'true';
+}
+
+/**
+ * Refuses a role assignment that would hand out more access than the person
+ * doing it has (e.g. a user manager making someone, or a second account of
+ * their own, an Administrator).
+ */
+async function checkRoleAssignable(actor: SessionUser, roleId: string): Promise<string | null> {
+    const beyond = permissionsBeyond(actor, await getPermissionsForRole(roleId));
+    return beyond.length > 0 ? "You can't assign a role that has permissions you don't have yourself." : null;
 }
 
 export interface UserInput {
@@ -55,16 +83,16 @@ export type InviteOutcome = { emailed: boolean; link?: string };
 
 export type UserActionResult = { success: true; user: User; invite: InviteOutcome } | { success: false; message: string; field?: 'name' | 'email' | 'roleId' | 'leadOwnerId' };
 
-async function checkInput(data: UserInput, existingEmail?: string): Promise<{ success: false; message: string; field?: 'name' | 'email' | 'roleId' | 'leadOwnerId' } | null> {
-    const name = (data.name ?? '').trim();
-    const email = (data.email ?? '').trim().toLowerCase();
-    if (name.length < 2) return { success: false, message: 'Name must be at least 2 characters.', field: 'name' };
-    if (!existingEmail) {
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { success: false, message: 'Enter a valid email address.', field: 'email' };
-        if (await prisma.user.findUnique({ where: { email } })) return { success: false, message: `A user with the email ${email} already exists.`, field: 'email' };
-    }
-    if (!data.roleId || !(await prisma.role.findUnique({ where: { id: data.roleId } }))) return { success: false, message: 'Select a role.', field: 'roleId' };
-    if (data.leadOwnerId && !(await prisma.leadOwner.findUnique({ where: { id: data.leadOwnerId } }))) return { success: false, message: 'The selected lead owner no longer exists.', field: 'leadOwnerId' };
+async function checkInput(actor: SessionUser, data: UserInput): Promise<{ success: false; message: string; field?: 'name' | 'email' | 'roleId' | 'leadOwnerId' } | null> {
+    const name = nameSchema.safeParse(data?.name ?? '');
+    if (!name.success) return { success: false, message: name.error.issues[0]!.message, field: 'name' };
+    const email = emailSchema.safeParse(data?.email ?? '');
+    if (!email.success) return { success: false, message: email.error.issues[0]!.message, field: 'email' };
+    if (await prisma.user.findUnique({ where: { email: email.data } })) return { success: false, message: `A user with the email ${email.data} already exists.`, field: 'email' };
+    if (!idSchema.safeParse(data.roleId).success || !(await prisma.role.findUnique({ where: { id: data.roleId } }))) return { success: false, message: 'Select a role.', field: 'roleId' };
+    const escalation = await checkRoleAssignable(actor, data.roleId);
+    if (escalation) return { success: false, message: escalation, field: 'roleId' };
+    if (data.leadOwnerId && (!idSchema.safeParse(data.leadOwnerId).success || !(await prisma.leadOwner.findUnique({ where: { id: data.leadOwnerId } })))) return { success: false, message: 'The selected lead owner no longer exists.', field: 'leadOwnerId' };
     return null;
 }
 
@@ -74,17 +102,17 @@ async function readUser(id: string): Promise<User> {
 }
 
 export async function createUser(data: UserInput): Promise<UserActionResult> {
-    await requirePermission('users:manage');
-    const problem = await checkInput(data);
+    const actor = await requirePermission('users:manage');
+    const problem = await checkInput(actor, data);
     if (problem) return problem;
-    const email = data.email.trim().toLowerCase();
+    const email = emailSchema.parse(data.email);
     const created = await prisma.user.create({
         data: {
-            name: data.name.trim(),
+            name: nameSchema.parse(data.name).replace(/\s+/g, ' '),
             email,
             roleId: data.roleId,
             leadOwnerId: data.leadOwnerId || null,
-            avatar: `https://picsum.photos/seed/${Math.random()}/100`, // random placeholder
+            avatar: '', // shown as the person's initials
             status: 'ACTIVE',
         },
         select: { id: true, name: true, email: true, role: { select: { name: true } } },
@@ -113,7 +141,10 @@ async function deliverInvite(user: { id: string; name: string; email: string }):
         summary: sent.emailed ? `Emailed an invitation to ${user.name}` : `Created an invitation link for ${user.name} (email not sent)`,
         metadata: { by: actor.id },
     });
-    return sent.emailed ? { emailed: true } : { emailed: false, link: sent.link };
+    if (sent.emailed) return { emailed: true };
+    // A set-password link is as good as a password, so in production it only ever travels by email
+    // unless ALLOW_MANUAL_INVITE_LINKS=true lets the administrator pass it on by hand.
+    return mayShowInviteLink() ? { emailed: false, link: sent.link } : { emailed: false };
 }
 
 /**
@@ -137,11 +168,12 @@ export async function resendInvite(userId: string): Promise<{ success: true; inv
  * creates the office if it isn't on the list yet, then the user with it.
  */
 export async function registerLeadOwnerUser(data: Omit<UserInput, 'leadOwnerId'> & { leadOwnerName: string }): Promise<UserActionResult> {
-    await requirePermission('users:manage');
-    const officeName = (data.leadOwnerName ?? '').replace(/\s+/g, ' ').trim();
+    const actor = await requirePermission('users:manage');
+    const officeName = String(data?.leadOwnerName ?? '').replace(/\s+/g, ' ').trim();
     if (!officeName) return { success: false, message: 'The lead owner title is missing.', field: 'leadOwnerId' };
+    if (officeName.length > 200) return { success: false, message: 'The lead owner title is too long.', field: 'leadOwnerId' };
     // Check the person first so a rejected registration doesn't leave a new office behind.
-    const problem = await checkInput({ ...data, leadOwnerId: null });
+    const problem = await checkInput(actor, { ...data, leadOwnerId: null });
     if (problem) return problem;
     const office = await prisma.leadOwner.findFirst({ where: { name: { equals: officeName, mode: 'insensitive' } } })
         ?? await prisma.leadOwner.create({ data: { name: officeName } });
@@ -150,17 +182,48 @@ export async function registerLeadOwnerUser(data: Omit<UserInput, 'leadOwnerId'>
     return result;
 }
 
+/**
+ * Edits a user's name, role and office — nothing else. The fields are copied
+ * one by one rather than spreading `data`: a server action accepts whatever
+ * JSON the caller sends, and spreading it would let a crafted request rewrite
+ * the email (account takeover), status or password hash.
+ */
 export async function updateUser(email: string, data: { name?: string; roleId?: string; leadOwnerId?: string | null }) {
-    await requirePermission('users:manage');
-    const updateData: Record<string, unknown> = { ...data };
-    if ('leadOwnerId' in data) updateData.leadOwnerId = data.leadOwnerId || null;
-    const before = await prisma.user.findUnique({ where: { email }, select: { name: true, roleId: true, leadOwnerId: true, role: { select: { name: true } } } });
+    const actor = await requirePermission('users:manage');
+    const updateData: { name?: string; roleId?: string; leadOwnerId?: string | null } = {};
+    if (data?.name !== undefined) {
+        const name = nameSchema.safeParse(data.name);
+        if (!name.success) throw new Error(name.error.issues[0]!.message);
+        updateData.name = name.data.replace(/\s+/g, ' ');
+    }
+    if (data?.roleId !== undefined) {
+        if (!idSchema.safeParse(data.roleId).success || !(await prisma.role.findUnique({ where: { id: data.roleId } }))) throw new Error('Select a role.');
+        updateData.roleId = data.roleId;
+    }
+    if (data && 'leadOwnerId' in data) {
+        if (data.leadOwnerId && (!idSchema.safeParse(data.leadOwnerId).success || !(await prisma.leadOwner.findUnique({ where: { id: data.leadOwnerId } })))) throw new Error('The selected lead owner no longer exists.');
+        updateData.leadOwnerId = data.leadOwnerId || null;
+    }
+    const before = await prisma.user.findUnique({ where: { email: String(email) }, select: { id: true, name: true, roleId: true, leadOwnerId: true, role: { select: { name: true } } } });
+    if (!before) throw new Error('This user no longer exists.');
+    if (updateData.roleId && updateData.roleId !== before.roleId) {
+        if (before.id === actor.id) throw new Error("You can't change your own role. Ask another administrator.");
+        const escalation = await checkRoleAssignable(actor, updateData.roleId);
+        if (escalation) {
+            await recordAudit({
+                action: 'PERMISSION_DENIED', success: false, entityType: 'User', entityId: before.id, userId: before.id,
+                summary: `Refused to give ${before.name} a role with more access than the person assigning it`,
+                metadata: { roleId: updateData.roleId },
+            });
+            throw new Error(escalation);
+        }
+    }
     const updatedUser = await prisma.user.update({
-        where: { email },
+        where: { id: before.id },
         data: updateData,
         select: publicUserSelect,
     });
-    const changes = before ? changedFields(before, updateData) : {};
+    const changes = changedFields(before, updateData);
     if (Object.keys(changes).length > 0) {
         const roleChange = 'roleId' in changes ? await prisma.role.findUnique({ where: { id: String(updateData.roleId) }, select: { name: true } }) : null;
         await recordAudit({

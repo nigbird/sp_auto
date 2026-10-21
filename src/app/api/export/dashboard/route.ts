@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth/session';
-import { userCan } from '@/lib/auth/permissions-server';
+import { forbiddenResponse, userCan } from '@/lib/auth/permissions-server';
 import { recordAudit } from '@/lib/auth/audit';
 import { isDashboardView, loadDashboard } from '@/lib/dashboard-data';
 import { renderDashboardCharts } from '@/lib/dashboard-export/dashboard-charts';
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   const user = await requireUser();
   const allowed = userCan(user, 'dashboard:view') && userCan(user, 'reports:export');
   if (!allowed) {
-    return NextResponse.json({ error: "You don't have permission to export the dashboard." }, { status: 403 });
+    return forbiddenResponse(["dashboard:view", "reports:export"], "You don't have permission to export the dashboard.");
   }
 
   const params = request.nextUrl.searchParams;

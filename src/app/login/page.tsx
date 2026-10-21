@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { User } from "lucide-react";
@@ -31,6 +31,22 @@ export default function LoginPage() {
   );
 }
 
+/**
+ * Where to go after signing in: the `next` parameter, but only if it is a path
+ * on this site. Anything else ("https://evil.example", "//evil.example",
+ * "/\evil.example") would turn the sign-in page into an open redirect.
+ */
+function safeNextPath(raw: string | null): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return "/";
+  try {
+    const url = new URL(raw, window.location.origin);
+    if (url.origin !== window.location.origin || url.pathname.startsWith("/login")) return "/";
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return "/";
+  }
+}
+
 function LoginForm() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState(searchParams.get("email") ?? "");
@@ -40,6 +56,22 @@ function LoginForm() {
   const [errorKey, setErrorKey] = useState(0);
   const router = useRouter();
   const passwordSet = searchParams.get("password");
+  const nextParam = searchParams.get("next");
+
+  // The session cookies are SameSite=Strict, so following a link from an email
+  // or chat arrives without them and is sent here. This same-site request does
+  // carry them: if the session is still good, carry on to the page that was asked for.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth/refresh", { method: "POST", credentials: "include" })
+      .then((response) => {
+        if (response.ok && !cancelled) router.replace(safeNextPath(nextParam));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [router, nextParam]);
 
   const fail = (message: string) => {
     setError(message);
@@ -68,8 +100,7 @@ function LoginForm() {
         return;
       }
 
-      const next = searchParams.get("next") || "/";
-      router.push(next);
+      router.push(safeNextPath(nextParam));
       router.refresh();
     } catch {
       fail("Could not reach the server. Please try again.");

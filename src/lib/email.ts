@@ -34,7 +34,7 @@ function tlsOptions() {
   const caFile = process.env.SMTP_TLS_CA_FILE?.trim();
   const rejectUnauthorized = process.env.SMTP_TLS_REJECT_UNAUTHORIZED?.trim().toLowerCase() !== 'false';
   if (!rejectUnauthorized) console.warn('[email] SMTP_TLS_REJECT_UNAUTHORIZED=false — the mail server certificate is not being checked.');
-  return { rejectUnauthorized, ...(caFile ? { ca: readFileSync(caFile) } : {}) };
+  return { rejectUnauthorized, minVersion: 'TLSv1.2' as const, ...(caFile ? { ca: readFileSync(caFile) } : {}) };
 }
 
 function getTransporter(): Transporter {
@@ -42,10 +42,17 @@ function getTransporter(): Transporter {
     const port = Number(process.env.SMTP_PORT || 587);
     const user = smtpUser();
     if (!user) console.warn('[email] SMTP_EMAIL_USER is not set — connecting without a login, which most servers (Gmail included) refuse.');
+    const secure = process.env.SMTP_SECURE ? process.env.SMTP_SECURE.trim() === 'true' : port === 465;
+    // Without implicit TLS (port 465), insist on STARTTLS: the login and the
+    // set-password links must never cross the network in clear text. Only an
+    // internal relay that can't do TLS at all should set SMTP_REQUIRE_TLS=false.
+    const requireTLS = !secure && process.env.SMTP_REQUIRE_TLS?.trim().toLowerCase() !== 'false';
+    if (!secure && !requireTLS) console.warn('[email] SMTP_REQUIRE_TLS=false — mail may be sent without encryption.');
     transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST?.trim(),
       port,
-      secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE.trim() === 'true' : port === 465,
+      secure,
+      requireTLS,
       auth: user ? { user, pass: smtpPassword() } : undefined,
       tls: tlsOptions(),
     });
@@ -63,7 +70,9 @@ export interface Email {
 /** Sends the message; returns false (never throws) if it could not be delivered. */
 export async function sendEmail(email: Email): Promise<boolean> {
   if (!isEmailConfigured()) {
-    console.info(`[email] Sending is off (EMAIL_ENABLED=false or no SMTP_HOST) — not sending. To: ${email.to} | ${email.subject}\n${email.text}`);
+    // The body can hold a set-password link, so it is only echoed to the console in development.
+    const body = process.env.NODE_ENV === 'production' ? '' : `\n${email.text}`;
+    console.info(`[email] Sending is off (EMAIL_ENABLED=false or no SMTP_HOST) — not sending "${email.subject}".${body}`);
     return false;
   }
   try {
@@ -74,7 +83,7 @@ export async function sendEmail(email: Email): Promise<boolean> {
     });
     return true;
   } catch (error) {
-    console.error(`[email] Failed to send "${email.subject}" to ${email.to}`, error);
+    console.error(`[email] Failed to send "${email.subject}"`, error instanceof Error ? error.message : error);
     return false;
   }
 }

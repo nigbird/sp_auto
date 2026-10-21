@@ -18,7 +18,7 @@ import { updateStrategicPlan } from "@/actions/strategic-plan";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import type { StrategicPlan } from "@/lib/types";
 import { format } from "date-fns";
-import { calculateInitiativeWeight, cn } from "@/lib/utils";
+import { calculateInitiativeWeight, cn, randomId } from "@/lib/utils";
 import { planFormSchema, formatPlanIssue, type PlanFormValues, type PlanIssue } from "@/lib/plan-schema";
 import { applyIssuesToForm, collectPlanIssues, focusIssue, IssueSummary, ListIssue, PlanFormIssuesProvider, useAutoOpenAccordion } from "./plan-form-issues";
 import { type PlanPerson } from "./activity-lead-owner-field";
@@ -29,9 +29,6 @@ type FormValues = PlanFormValues;
 type PlanForm = UseFormReturn<FormValues>;
 type Person = PlanPerson;
 
-function generateId(prefix: string) {
-    return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-}
 
 const getToday = () => format(new Date(), 'yyyy-MM-dd');
 const getOneMonthFromToday = () => {
@@ -42,16 +39,16 @@ const getOneMonthFromToday = () => {
 
 function newActivity(users: Person[]) {
     const person = users[0];
-    return { id: generateId('A'), title: '', weight: 0, description: '', deliverable: '', startDate: getToday(), endDate: getOneMonthFromToday(), collaborators: [] as string[], leadOwner: person?.leadOwner ?? '', responsible: person?.id ?? '' };
+    return { id: randomId('A'), title: '', weight: 0, description: '', deliverable: '', startDate: getToday(), endDate: getOneMonthFromToday(), collaborators: [] as string[], leadOwner: person?.leadOwner ?? '', responsible: person?.id ?? '' };
 }
 function newInitiative(users: Person[]) {
-    return { id: generateId('I'), title: '', description: '', owners: users[0]?.id ? [users[0].id] : [], collaborators: [], activities: [newActivity(users)] };
+    return { id: randomId('I'), title: '', description: '', owners: users[0]?.id ? [users[0].id] : [], collaborators: [], activities: [newActivity(users)] };
 }
 function newObjective(users: Person[]) {
-    return { id: generateId('O'), statement: '', initiatives: [newInitiative(users)] };
+    return { id: randomId('O'), statement: '', initiatives: [newInitiative(users)] };
 }
 function newPillar(users: Person[]) {
-    return { id: generateId('P'), title: '', description: '', objectives: [newObjective(users)] };
+    return { id: randomId('P'), title: '', description: '', objectives: [newObjective(users)] };
 }
 
 const toDateInput = (value: unknown) => typeof value === 'string' ? value.split('T')[0] : value instanceof Date ? format(value, 'yyyy-MM-dd') : '';

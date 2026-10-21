@@ -25,6 +25,7 @@ const OUTCOME: Record<ReportRowOutcome, { label: string; variant: "default" | "s
   "no-breakdown": { label: "No breakdown", variant: "outline" },
   invalid: { label: "Invalid value", variant: "destructive" },
   unmatched: { label: "Not matched", variant: "outline" },
+  "own-activity": { label: "Your own activity", variant: "outline" },
 };
 
 /**
@@ -86,7 +87,7 @@ export function ReportImportDialog({ planId, selectedPeriodId }: { planId: strin
 
   const counts = (preview?.rows ?? []).reduce<Record<ReportRowOutcome, number>>(
     (acc, r) => ({ ...acc, [r.outcome]: acc[r.outcome] + 1 }),
-    { import: 0, "already-reported": 0, "below-previous": 0, "no-breakdown": 0, invalid: 0, unmatched: 0 }
+    { import: 0, "already-reported": 0, "below-previous": 0, "no-breakdown": 0, invalid: 0, unmatched: 0, "own-activity": 0 }
   );
   const through = preview?.throughMonth ? monthLabel(preview.throughMonth) : null;
   const fittingPeriods = preview?.periods.filter(p => p.fits) ?? [];

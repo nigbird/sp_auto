@@ -19,7 +19,7 @@ import { unstable_rethrow } from "next/navigation";
 import { createStrategicPlan } from "@/actions/strategic-plan";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { format } from "date-fns";
-import { calculateInitiativeWeight } from "@/lib/utils";
+import { calculateInitiativeWeight, randomId } from "@/lib/utils";
 import { planFormSchema, sectionOfPath, formatPlanIssue, type PlanFormValues, type PlanIssue, type PlanSection } from "@/lib/plan-schema";
 import { applyIssuesToForm, collectPlanIssues, focusIssue, IssueSummary, ListIssue, PlanFormIssuesProvider, useAutoOpenAccordion } from "./plan-form-issues";
 import { type PlanPerson } from "./activity-lead-owner-field";
@@ -44,9 +44,6 @@ function stepIndexOfIssue(issue: PlanIssue): number {
     return TABS.findIndex(t => t.section === section);
 }
 
-function generateId(prefix: string) {
-    return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-}
 
 const getToday = () => format(new Date(), 'yyyy-MM-dd');
 const getOneMonthFromToday = () => {
@@ -57,16 +54,16 @@ const getOneMonthFromToday = () => {
 
 function newActivity(users: Person[], title = "", weight = 0) {
     const person = users[0];
-    return { id: generateId('A'), title, weight, description: '', deliverable: '', startDate: getToday(), endDate: getOneMonthFromToday(), collaborators: [] as string[], leadOwner: person?.leadOwner ?? '', responsible: person?.id ?? '' };
+    return { id: randomId('A'), title, weight, description: '', deliverable: '', startDate: getToday(), endDate: getOneMonthFromToday(), collaborators: [] as string[], leadOwner: person?.leadOwner ?? '', responsible: person?.id ?? '' };
 }
 function newInitiative(users: Person[], title = "") {
-    return { id: generateId('I'), title, description: "", owners: users[0]?.id ? [users[0].id] : [], collaborators: [], activities: [newActivity(users)] };
+    return { id: randomId('I'), title, description: "", owners: users[0]?.id ? [users[0].id] : [], collaborators: [], activities: [newActivity(users)] };
 }
 function newObjective(users: Person[], statement = "") {
-    return { id: generateId('O'), statement, initiatives: [newInitiative(users)] };
+    return { id: randomId('O'), statement, initiatives: [newInitiative(users)] };
 }
 function newPillar(users: Person[], title = "") {
-    return { id: generateId('P'), title, description: "", objectives: [newObjective(users)] };
+    return { id: randomId('P'), title, description: "", objectives: [newObjective(users)] };
 }
 
 type CreatePlanClientProps = {

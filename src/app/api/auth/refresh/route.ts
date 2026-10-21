@@ -4,8 +4,13 @@ import { rotateRefreshToken } from '@/lib/auth/issue';
 import { clearAuthCookies, setAuthCookies } from '@/lib/auth/cookies';
 import { writeAuditLog } from '@/lib/auth/audit';
 import { getRequestIp } from '@/lib/auth/rate-limit';
+import { originIsTrusted } from '@/lib/auth/origin';
 
 export async function POST(request: NextRequest) {
+  if (!originIsTrusted(request)) {
+    return NextResponse.json({ error: 'Invalid request origin' }, { status: 403 });
+  }
+
   const ip = getRequestIp(request);
   const userAgent = request.headers.get('user-agent') ?? undefined;
   const rawRefreshToken = request.cookies.get(REFRESH_COOKIE_NAME)?.value;

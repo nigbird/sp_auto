@@ -78,6 +78,12 @@ export default function UsersPage() {
       toast({ title: `Invitation ${verb}`, description: `${user.name} has been emailed a link to set their password.` });
     } else if (invite.link) {
       setManualInvite({ name: user.name, email: user.email, link: invite.link });
+    } else {
+      toast({
+        title: "Invitation email not sent",
+        description: `The account for ${user.name} is ready, but the email could not be sent. Check the server's email settings, then use "Resend invite".`,
+        variant: "destructive",
+      });
     }
   };
 
@@ -139,7 +145,7 @@ export default function UsersPage() {
       name: values.name,
       email: values.email,
       roleId: values.roleId,
-      leadOwnerId: values.leadOwnerId || null,
+      leadOwnerId: values.leadOwnerId || null,
     });
     if (!result.success) return result; // shown on the form so it can be corrected
     setUsers(await getUsers());
@@ -160,7 +166,7 @@ export default function UsersPage() {
       await updateUser(selectedUser.email, {
         name: values.name,
         roleId: values.roleId,
-        leadOwnerId: values.leadOwnerId || null,
+        leadOwnerId: values.leadOwnerId || null,
       });
     } catch (error) {
       return { message: describeError(error, "Could not save the changes. Please try again.") };
@@ -203,7 +209,7 @@ export default function UsersPage() {
               <TableRow className="hover:bg-transparent">
                 <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">User</TableHead>
                 <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Role</TableHead>
-                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Lead Owner</TableHead>
+                <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Lead Owner</TableHead>
                 <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Status</TableHead>
                 <TableHead className="h-10 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">Created At</TableHead>
                 <TableHead><span className="sr-only">Actions</span></TableHead>
@@ -238,7 +244,7 @@ export default function UsersPage() {
                         </div>
                     </TableCell>
                   <TableCell className="text-sm text-foreground/90">{user.role}</TableCell>
-                  <TableCell className="max-w-[220px] text-sm text-foreground/90">{user.leadOwner ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                  <TableCell className="max-w-[220px] text-sm text-foreground/90">{user.leadOwner ?? <span className="text-muted-foreground">—</span>}</TableCell>
                    <TableCell>
                     <Badge variant="outline" className={cn("whitespace-nowrap font-medium", user.status === 'ACTIVE' ? "border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-700" : "border-border/60 bg-muted/60 text-muted-foreground")}>
                       {statusLabel(user.status)}

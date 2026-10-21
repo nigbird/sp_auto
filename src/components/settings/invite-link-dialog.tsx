@@ -44,7 +44,7 @@ export function InviteLinkDialog({
           <DialogTitle>Invitation email not sent</DialogTitle>
           <DialogDescription>
             The account for <strong>{invite?.name}</strong> is ready, but the email to {invite?.email} could not be sent.
-            Share this link with them directly so they can set their password. It works once and expires in 3 days.
+            Share this link with them directly so they can set their password. It works once and expires after a limited time.
           </DialogDescription>
         </DialogHeader>
         <div className="flex gap-2">

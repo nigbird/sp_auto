@@ -25,13 +25,13 @@ export async function POST(request: NextRequest) {
   }
   const { token, password } = parsed.data;
 
-  const weakness = checkPasswordStrength(password);
-  if (weakness) return NextResponse.json({ error: weakness }, { status: 400 });
-
   const found = await lookupPasswordToken(token);
   if (!found.ok) {
     return NextResponse.json({ error: LINK_ERRORS[found.reason], code: found.reason }, { status: 410 });
   }
+
+  const weakness = checkPasswordStrength(password, { email: found.email, name: found.name });
+  if (weakness) return NextResponse.json({ error: weakness }, { status: 400 });
 
   const saved = await consumePasswordToken(found.tokenId, found.userId, password);
   if (!saved) {

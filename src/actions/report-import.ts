@@ -22,7 +22,7 @@ import type { ImportPeriodSettings } from '@/lib/plan-import/write-plan';
  * submitted or approved for that period are never overwritten.
  */
 
-export type ReportRowOutcome = 'import' | 'unmatched' | 'no-breakdown' | 'invalid' | 'already-reported' | 'below-previous';
+export type ReportRowOutcome = 'import' | 'unmatched' | 'no-breakdown' | 'invalid' | 'already-reported' | 'below-previous' | 'own-activity';
 
 export interface ReportImportRow {
   row: number;
@@ -93,8 +93,12 @@ async function loadPlan(planId: string) {
 }
 type LoadedPlan = NonNullable<Awaited<ReturnType<typeof loadPlan>>>;
 
-/** What happens to each sheet row if the report goes to a period ending on `periodEnd` (`periodId` when it already exists). */
-function evaluate(plan: LoadedPlan, parsed: ParsedReport, periodEnd: Date | null, periodId: string | null) {
+/**
+ * What happens to each sheet row if the report goes to a period ending on `periodEnd` (`periodId` when it already exists).
+ * Imported reports are saved as approved, so rows for the importer's own activities are left out:
+ * like a single report, they need someone else to approve them.
+ */
+function evaluate(plan: LoadedPlan, parsed: ParsedReport, periodEnd: Date | null, periodId: string | null, importerId: string) {
   return matchReportRows(parsed.rows, plan.activities).map(({ sheet, activity, ownerChanged }) => {
     const targetType = (activity?.targetType ?? null) as TargetType | null;
     const report = toImportReport(sheet, activity ? actualInTargetUnits(sheet, targetType) : sheet.actualRaw);
@@ -103,6 +107,7 @@ function evaluate(plan: LoadedPlan, parsed: ParsedReport, periodEnd: Date | null
     const result = (outcome: ReportRowOutcome, note: string | null = null) => ({ ...base, actual, outcome, note, activity, report });
 
     if (!activity) return result('unmatched', 'No activity in this plan has this title and lead owner.');
+    if (activity.responsibleId === importerId) return result('own-activity', "You're responsible for this activity, so its report has to be submitted and approved by someone else.");
     if (report.actualToDate! < 0) return result('invalid', "The actual can't be negative.");
     if (targetType === 'PERCENT' && report.actualToDate! > 100) return result('invalid', "A percentage actual can't be more than 100%.");
     if (activity.planSubmissionStatus !== 'APPROVED' || activity.monthlyTargets.length === 0 || !(activity.annualTarget && activity.annualTarget > 0)) {
@@ -170,7 +175,7 @@ export async function previewReportImport(formData: FormData): Promise<ReportPre
   const suggestedPeriod = suggestPeriod(plan, parsed);
   const periodEnd = chosen?.endDate ?? (suggestedPeriod ? new Date(suggestedPeriod.endDate) : null);
 
-  const rows = evaluate(plan, parsed, periodEnd, chosen?.id ?? null).map(({ activity: _a, report: _r, ...row }) => row);
+  const rows = evaluate(plan, parsed, periodEnd, chosen?.id ?? null, user.id).map(({ activity: _a, report: _r, ...row }) => row);
   return {
     success: true,
     preview: {
@@ -230,7 +235,7 @@ export async function importPlanReport(formData: FormData): Promise<ReportImport
     return { success: false, message: 'Pick a reporting period for the report, or create one.' };
   }
 
-  const toImport = evaluate(plan, parsed, periodEnd, periodId).filter(r => r.outcome === 'import');
+  const toImport = evaluate(plan, parsed, periodEnd, periodId, importer.id).filter(r => r.outcome === 'import');
   if (toImport.length === 0) return { success: false, message: 'Nothing to import — no row matched an activity that can take this report.' };
 
   const now = new Date();

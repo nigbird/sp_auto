@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma';
 import { calculateActivityStatus, type StatusRule } from '@/lib/utils';
 import { computeAchievementPercent } from '@/lib/period-achievement';
 import { isPeriodClosedForSubmissions } from '@/lib/reporting-period';
-import { requirePermission } from '@/lib/auth/permissions-server';
+import { requirePermission, userCan } from '@/lib/auth/permissions-server';
 import { recordAudit } from '@/lib/auth/audit';
 import { requireUser } from '@/lib/auth/session';
 import { ensurePeriodEntriesForActivity } from '@/lib/period-entries';
@@ -15,8 +15,13 @@ async function getStatusRules(): Promise<StatusRule[]> {
     return prisma.rule.findMany({ select: { status: true, min: true, max: true } });
 }
 
+/** Report approvers see any activity's entries; everyone else only their own activities'. */
 export async function getActivityPeriodEntries(activityId: string) {
-    await requirePermission('report-approvals:view', 'my-reports:view');
+    const user = await requirePermission('report-approvals:view', 'my-reports:view');
+    if (!userCan(user, 'report-approvals:view')) {
+        const activity = await prisma.activity.findUnique({ where: { id: String(activityId) }, select: { responsibleId: true } });
+        if (activity?.responsibleId !== user.id) return [];
+    }
     return prisma.activityPeriodEntry.findMany({
         where: { activityId },
         include: { reportingPeriod: true },
@@ -71,6 +76,7 @@ export async function submitPeriodUpdate(
 
     const activity = await prisma.activity.findUnique({ where: { id: activityId } });
     if (!activity) throw new Error("Activity not found");
+    if (activity.responsibleId !== user.id) throw new Error("Only the person responsible for this activity can report its progress.");
 
     const entry = await getCurrentSubmittableEntry(activityId);
 
@@ -168,6 +174,8 @@ export async function approvePeriodEntry(activityId: string) {
 
     const activity = await prisma.activity.findUnique({ where: { id: activityId } });
     if (!activity) return;
+    // Segregation of duties: nobody approves an update to their own activity.
+    if (activity.responsibleId === approver.id) throw new Error("You're responsible for this activity, so someone else has to approve it.");
 
     const entry = await prisma.activityPeriodEntry.findFirst({
         where: { activityId, pendingActualProgress: { not: null } },
