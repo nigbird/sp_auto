@@ -113,7 +113,7 @@ export function ActivityDelayTable({ rows, planId, periodId, view }: { rows: Act
             value={filter.search}
             onChange={e => update({ search: e.target.value })}
             placeholder="Search activity, initiative or stream"
-            className="h-9 w-64 rounded-xl border bg-background pl-9 pr-3 text-sm outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
+            className="h-9 w-64 rounded-xl border bg-background pl-9 pr-3 text-sm outline-hidden transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
           />
         </div>
         <Select value={filter.stream || ALL_STREAMS} onValueChange={v => update({ stream: v === ALL_STREAMS ? "" : v })}>

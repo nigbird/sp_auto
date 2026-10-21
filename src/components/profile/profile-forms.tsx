@@ -90,7 +90,7 @@ function ProfileCard({ name: initialName, details }: { name: string; details: { 
           {details.map(d => (
             <div key={d.label}>
               <dt className="text-xs text-muted-foreground">{d.label}</dt>
-              <dd className="text-sm font-medium break-words">{d.value}</dd>
+              <dd className="text-sm font-medium wrap-break-word">{d.value}</dd>
             </div>
           ))}
         </dl>

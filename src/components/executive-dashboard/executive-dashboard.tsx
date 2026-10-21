@@ -153,7 +153,7 @@ function TabNav({ active, planId, periodId, view }: { active: DashboardTab; plan
               aria-current={on ? "page" : undefined}
               className={cn(
                 "inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition",
-                on ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:bg-card/60 hover:text-foreground"
+                on ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:bg-card/60 hover:text-foreground"
               )}
             >
               <Icon className={cn("h-4 w-4", on && "text-primary")} />
@@ -180,7 +180,7 @@ function CoverageBanner({ data, tab }: { data: Extract<DashboardData, { state: "
           Full-year progress already uses each activity&apos;s latest approved report.
         </span>
       </p>
-      <Link href={`/?${search.toString()}`} scroll={false} className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-card px-3 py-1.5 text-xs font-medium text-foreground shadow-sm transition hover:bg-card/80">
+      <Link href={`/?${search.toString()}`} scroll={false} className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-card px-3 py-1.5 text-xs font-medium text-foreground shadow-xs transition hover:bg-card/80">
         See cumulative to date <ArrowRight className="h-3 w-3" />
       </Link>
     </div>
@@ -452,7 +452,7 @@ function AttentionTable({ initiatives, planId, periodId, view, className }: { in
 
 function StoryCard({ lines }: { lines: string[] }) {
   return (
-    <section className={cn(CARD, "bg-gradient-to-br from-primary/[0.07] via-card to-card p-5 sm:p-6")}>
+    <section className={cn(CARD, "bg-linear-to-br from-primary/[0.07] via-card to-card p-5 sm:p-6")}>
       <div className="flex items-center gap-2">
         <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/15 text-primary"><Sparkles className="h-4 w-4" /></span>
         <h2 className="text-[15px] font-semibold tracking-tight">Story in brief</h2>

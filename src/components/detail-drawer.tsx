@@ -26,8 +26,8 @@ export function ClickableRow({ selected, onOpen, label, children }: { selected?:
       onClick={onOpen}
       onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
       className={cn(
-        "group cursor-pointer border-t border-border/50 align-middle transition-colors outline-none hover:bg-muted/40 focus-visible:bg-muted/40",
-        selected && "bg-primary/[0.05] hover:bg-primary/[0.05]"
+        "group cursor-pointer border-t border-border/50 align-middle transition-colors outline-hidden hover:bg-muted/40 focus-visible:bg-muted/40",
+        selected && "bg-primary/5 hover:bg-primary/5"
       )}
     >
       {children}

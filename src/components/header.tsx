@@ -167,7 +167,7 @@ export function Header({ pageTitle, headerActions }: { pageTitle: ReactNode, hea
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-xs px-4 md:px-6">
         <SidebarTrigger className="md:hidden" />
       
       <div className="flex items-center gap-4">

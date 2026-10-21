@@ -105,7 +105,7 @@ function Stat({ icon, label, value, note, tone, first, onClick }: {
       onClick={onClick}
       disabled={value === 0}
       className={cn(
-        "min-w-[11rem] flex-1 basis-1/2 px-5 py-4 text-left transition-colors enabled:hover:bg-muted/40 disabled:cursor-default",
+        "min-w-44 flex-1 basis-1/2 px-5 py-4 text-left transition-colors enabled:hover:bg-muted/40 disabled:cursor-default",
         !first && "border-l border-border/50"
       )}
     >

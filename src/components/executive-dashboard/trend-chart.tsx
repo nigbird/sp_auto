@@ -38,7 +38,7 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
               onClick={() => setSeries(s.id)}
               className={cn(
                 "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                series === s.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                series === s.id ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
               )}
             >
               {s.label}

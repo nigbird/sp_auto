@@ -61,8 +61,8 @@ export function ReportProgress({ summary, overdue }: { summary?: ReportSummary; 
 
 const STATE: Record<ReportRequestState, { label: string; className: string }> = {
   waiting: { label: "Not sent", className: "border-border/60 bg-muted/60 text-muted-foreground" },
-  requested: { label: "Requested", className: "border-blue-500/25 bg-blue-500/[0.06] text-blue-700" },
-  submitted: { label: "Submitted", className: "border-blue-500/25 bg-blue-500/[0.06] text-blue-700" },
+  requested: { label: "Requested", className: "border-blue-500/25 bg-blue-500/6 text-blue-700" },
+  submitted: { label: "Submitted", className: "border-blue-500/25 bg-blue-500/6 text-blue-700" },
   approved: { label: "Approved", className: "border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-700" },
 };
 

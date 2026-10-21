@@ -86,7 +86,7 @@ export function PlanListTable({ plans, currentPlanId }: { plans: PlanListRow[]; 
                   key={plan.id}
                   className={cn(
                     "group transition-colors",
-                    isCurrent ? "bg-primary/[0.04]" : "hover:bg-muted/40"
+                    isCurrent ? "bg-primary/4" : "hover:bg-muted/40"
                   )}
                   style={isCurrent ? { boxShadow: "inset 3px 0 0 0 hsl(var(--primary))" } : undefined}
                 >

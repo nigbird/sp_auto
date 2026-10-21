@@ -41,7 +41,7 @@ export function ObjectiveItem({ objective, objectiveIndex, onEdit, onDelete, pil
         <div className="space-y-2 rounded-md border bg-background/70 p-3">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    <button onClick={() => setIsOpen(!isOpen)} className="focus:outline-none">
+                    <button onClick={() => setIsOpen(!isOpen)} className="focus:outline-hidden">
                        {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
                     </button>
                     <h4 className="font-semibold">{title}</h4>

@@ -26,7 +26,7 @@ export interface BreakdownOwner {
 
 const STATE: Record<RequestState, { label: string; className: string }> = {
   waiting: { label: "Not sent", className: "border-border/60 bg-muted/60 text-muted-foreground" },
-  sent: { label: "Sent", className: "border-blue-500/25 bg-blue-500/[0.06] text-blue-700" },
+  sent: { label: "Sent", className: "border-blue-500/25 bg-blue-500/6 text-blue-700" },
   accepted: { label: "Accepted", className: "border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-700" },
 };
 

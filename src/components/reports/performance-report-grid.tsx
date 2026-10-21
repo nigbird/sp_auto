@@ -128,7 +128,7 @@ export function PerformanceReportGrid({ pillars: allPillars, exportBase }: { pil
               onClick={() => setView(v.id)}
               className={cn(
                 "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                view === v.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                view === v.id ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
               )}
             >
               {v.label}
@@ -187,7 +187,7 @@ export function PerformanceReportGrid({ pillars: allPillars, exportBase }: { pil
 
 function Stat({ label, value, sub, accent, first }: { label: string; value: string; sub?: string; accent?: boolean; first?: boolean }) {
   return (
-    <div className={cn("min-w-[9rem] flex-1 basis-1/2 px-4 py-3.5 sm:basis-0", !first && "border-l border-border/50")}>
+    <div className={cn("min-w-36 flex-1 basis-1/2 px-4 py-3.5 sm:basis-0", !first && "border-l border-border/50")}>
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className={cn("mt-2 text-2xl font-bold leading-none tracking-tight", accent ? "text-primary" : "text-foreground")}>{value}</p>
       {sub && <p className={cn("mt-1.5 text-xs font-medium", statusClass(sub))}>{sub}</p>}
@@ -204,9 +204,9 @@ const CELL = "border-b border-l border-border/50 px-4";
 /** Where an activity's report stands, as a pill like the plan page's breakdown status. */
 const STATE_PILL: Record<string, string> = {
   APPROVED: "border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-700",
-  REQUESTED: "border-amber-500/30 bg-amber-500/[0.06] text-amber-700",
-  SUBMITTED: "border-blue-500/25 bg-blue-500/[0.06] text-blue-700",
-  RETURNED: "border-red-400/30 bg-red-500/[0.06] text-red-700",
+  REQUESTED: "border-amber-500/30 bg-amber-500/6 text-amber-700",
+  SUBMITTED: "border-blue-500/25 bg-blue-500/6 text-blue-700",
+  RETURNED: "border-red-400/30 bg-red-500/6 text-red-700",
 };
 
 function widthClass(c: ReportColumn, view: View) {
@@ -241,11 +241,11 @@ function ScrollFrame({ children, resetKey }: { children: ReactNode; resetKey: st
         {children}
       </div>
       <div className={cn(
-        "pointer-events-none absolute inset-y-px right-px w-10 rounded-r-xl bg-gradient-to-l from-background to-transparent transition-opacity",
+        "pointer-events-none absolute inset-y-px right-px w-10 rounded-r-xl bg-linear-to-l from-background to-transparent transition-opacity",
         more.right ? "opacity-100" : "opacity-0"
       )} />
       {more.right && !more.left && (
-        <span className="pointer-events-none absolute bottom-3 right-4 rounded-full bg-foreground/80 px-2.5 py-1 text-[11px] font-medium text-background shadow">
+        <span className="pointer-events-none absolute bottom-3 right-4 rounded-full bg-foreground/80 px-2.5 py-1 text-[11px] font-medium text-background shadow-sm">
           Scroll for more →
         </span>
       )}
@@ -323,7 +323,7 @@ function ActivityRow({ activity, columns }: { activity: GridActivity; columns: I
           <td key={column.label} className={cn(
             CELL, "py-2.5 align-top text-foreground/90",
             (column.kind === 'num' || column.kind === 'date') && "whitespace-nowrap text-right tabular-nums",
-            column.kind === 'text' && "whitespace-pre-wrap break-words",
+            column.kind === 'text' && "whitespace-pre-wrap wrap-break-word",
             column.kind === 'status' && statusClass(value)
           )}>
             {empty ? <span className="text-muted-foreground/40" aria-label="No value">—</span> : value}

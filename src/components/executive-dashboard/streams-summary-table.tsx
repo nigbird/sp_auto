@@ -79,7 +79,7 @@ export function StreamsSummaryTable({ streams }: { streams: StreamSummary[] }) {
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search stream or director"
-            className="h-9 w-64 rounded-xl border bg-background pl-9 pr-3 text-sm outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
+            className="h-9 w-64 rounded-xl border bg-background pl-9 pr-3 text-sm outline-hidden transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
           />
         </div>
         <div className="ml-auto">

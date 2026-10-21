@@ -106,12 +106,11 @@ Remove any default site (e.g. the IIS welcome page, SEC-055) so only the app ans
 
 **Logging**: the audit log records sign-ins and failures, lockouts, session refresh/revocation, password events, refused pages/actions/downloads (`PERMISSION_DENIED`), user and role changes, approvals, imports, exports and configuration changes, with actor, IP, browser and time. Typed passwords are never logged (non-email sign-in identifiers are stored hashed).
 
-**Dependencies**: Next.js 15.5.28, jsPDF 4, jspdf-autotable 5, SheetJS 0.20.3 (from the SheetJS CDN; the npm `xlsx` package is unmaintained and vulnerable), nodemailer 10. The unused genkit/Firebase packages were removed. Run `npm audit` before each release.
+**Dependencies**: `npm audit` reports 0 vulnerabilities. Next.js 15.5.28, jsPDF 4, jspdf-autotable 5, SheetJS 0.20.3 (from the SheetJS CDN; the npm `xlsx` package is unmaintained and vulnerable), nodemailer 10, Tailwind CSS 4 (v3 depended on `braces`, which has an unfixed advisory). The unused genkit/Firebase packages were removed. Run `npm audit` before each release.
 
 ## Accepted residual items
 
 - **`style-src 'unsafe-inline'`** (SEC-078): the UI libraries (Radix, Recharts) position and colour elements with `style=""` attributes, which nonces cannot cover. Scripts are fully nonce-restricted, so this does not allow script injection.
-- **`braces` advisory in `npm audit`**: reached only through Tailwind CSS's build-time file watcher, which reads the project's own source globs, never user input. No patched version exists yet; it is not part of the running server.
 - **Rate limiting beyond sign-in** (SEC-027/045): sign-in and password-reset are limited in the app; general request rate limits belong in the reverse proxy (see above).
 - Existing users whose avatar points at an external placeholder site now show their initials instead.
 

@@ -22,10 +22,10 @@ type BreakdownState = "approved" | "pending" | "returned" | "requested" | "decli
 
 const BREAKDOWN: Record<BreakdownState, { label: string; className: string }> = {
   approved: { label: "Approved", className: "border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-700" },
-  pending: { label: "Pending approval", className: "border-blue-500/25 bg-blue-500/[0.06] text-blue-700" },
-  returned: { label: "Returned", className: "border-red-400/30 bg-red-500/[0.06] text-red-700" },
-  requested: { label: "Requested", className: "border-amber-500/30 bg-amber-500/[0.06] text-amber-700" },
-  declined: { label: "Request declined", className: "border-red-400/30 bg-red-500/[0.06] text-red-700" },
+  pending: { label: "Pending approval", className: "border-blue-500/25 bg-blue-500/6 text-blue-700" },
+  returned: { label: "Returned", className: "border-red-400/30 bg-red-500/6 text-red-700" },
+  requested: { label: "Requested", className: "border-amber-500/30 bg-amber-500/6 text-amber-700" },
+  declined: { label: "Request declined", className: "border-red-400/30 bg-red-500/6 text-red-700" },
   notRequested: { label: "Not requested", className: "border-border/60 bg-muted/60 text-muted-foreground" },
 };
 

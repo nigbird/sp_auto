@@ -161,7 +161,7 @@ export default function RolesPage() {
                     <TableRow key={role.id} className="border-border/50 hover:bg-muted/30">
                       <TableCell className="py-3.5 font-medium text-foreground">{role.name}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={role.isSystem ? "border-border/60 bg-muted/60 font-medium text-muted-foreground" : "border-primary/30 bg-primary/[0.06] font-medium text-primary"}>
+                        <Badge variant="outline" className={role.isSystem ? "border-border/60 bg-muted/60 font-medium text-muted-foreground" : "border-primary/30 bg-primary/6 font-medium text-primary"}>
                           {role.isSystem ? "Built-in" : "Custom"}
                         </Badge>
                       </TableCell>

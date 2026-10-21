@@ -95,7 +95,7 @@ export function InitiativesTable({ initiatives }: { initiatives: InitiativeSumma
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search initiative or owner"
-            className="h-9 w-64 rounded-xl border bg-background pl-9 pr-3 text-sm outline-none transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
+            className="h-9 w-64 rounded-xl border bg-background pl-9 pr-3 text-sm outline-hidden transition focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
           />
         </div>
         <DateRangeFilter value={range} onChange={setRange} label="Any dates" hint="Shows initiatives whose activities run at any point in this range." className="h-9 rounded-xl" />
@@ -105,7 +105,7 @@ export function InitiativesTable({ initiatives }: { initiatives: InitiativeSumma
               key={p}
               type="button"
               onClick={() => setPillar(p)}
-              className={cn("inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition", pillar === p ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground")}
+              className={cn("inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition", pillar === p ? "bg-background shadow-xs" : "text-muted-foreground hover:text-foreground")}
             >
               {p !== "all" && <span className="h-2 w-2 rounded-[2px]" style={{ background: pillarColor(p) }} />}
               {p === "all" ? "All pillars" : p}

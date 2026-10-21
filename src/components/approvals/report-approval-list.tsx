@@ -43,7 +43,7 @@ function reportRow(entry: PeriodReportEntry) {
 
 function PlanBadge({ behind }: { behind: boolean }) {
   return (
-    <Badge variant="outline" className={cn("whitespace-nowrap font-medium", behind ? "border-amber-500/30 bg-amber-500/[0.06] text-amber-700" : "border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-700")}>
+    <Badge variant="outline" className={cn("whitespace-nowrap font-medium", behind ? "border-amber-500/30 bg-amber-500/6 text-amber-700" : "border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-700")}>
       {behind ? 'Behind plan' : 'On plan'}
     </Badge>
   );
@@ -215,7 +215,7 @@ export function ReportApprovalList({ reports: initial }: { reports: PeriodReport
                     <td className="hidden truncate px-4 py-3 text-muted-foreground md:table-cell">{entry.reportingPeriod.name}</td>
                     <td className="hidden px-4 py-3 text-right tabular-nums text-foreground/90 md:table-cell">{formatTargetValue(row.planToDate, t)}</td>
                     <td className="hidden px-4 py-3 text-right tabular-nums text-foreground/90 md:table-cell">{entry.actualToDate != null ? formatTargetValue(entry.actualToDate, t) : '—'}</td>
-                    <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">{entry.submittedAt ? format(new Date(entry.submittedAt), 'PP') : '—'}{wasSubmittedLate(entry.submittedAt, entry.reportingPeriod) && <Badge variant="outline" className="ml-1.5 border-amber-500/30 bg-amber-500/[0.06] text-[10px] font-medium text-amber-700">Late</Badge>}</td>
+                    <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">{entry.submittedAt ? format(new Date(entry.submittedAt), 'PP') : '—'}{wasSubmittedLate(entry.submittedAt, entry.reportingPeriod) && <Badge variant="outline" className="ml-1.5 border-amber-500/30 bg-amber-500/6 text-[10px] font-medium text-amber-700">Late</Badge>}</td>
                     <td className="px-4 py-3 text-right"><PlanBadge behind={row.isBehindPlan} /></td>
                   </ClickableRow>
                 );

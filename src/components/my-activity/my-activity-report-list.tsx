@@ -63,19 +63,19 @@ export interface PeriodReportEntry {
 export function ReportStatusBadge({ status }: { status: PeriodReportEntry['reportStatus'] }) {
   switch (status) {
     case 'APPROVED': return <Badge variant="outline" className="gap-1 whitespace-nowrap border-emerald-500/30 bg-emerald-500/[0.07] font-medium text-emerald-700"><Check className="h-3 w-3" />Approved</Badge>;
-    case 'SUBMITTED': return <Badge variant="outline" className="gap-1 whitespace-nowrap border-blue-500/25 bg-blue-500/[0.06] font-medium text-blue-700"><ShieldQuestion className="h-3 w-3" />Waiting for approval</Badge>;
-    case 'RETURNED': return <Badge variant="outline" className="gap-1 whitespace-nowrap border-red-400/30 bg-red-500/[0.06] font-medium text-red-700"><ShieldX className="h-3 w-3" />Returned — needs changes</Badge>;
-    default: return <Badge variant="outline" className="gap-1 whitespace-nowrap border-amber-500/30 bg-amber-500/[0.06] font-medium text-amber-700"><PencilLine className="h-3 w-3" />To fill in</Badge>;
+    case 'SUBMITTED': return <Badge variant="outline" className="gap-1 whitespace-nowrap border-blue-500/25 bg-blue-500/6 font-medium text-blue-700"><ShieldQuestion className="h-3 w-3" />Waiting for approval</Badge>;
+    case 'RETURNED': return <Badge variant="outline" className="gap-1 whitespace-nowrap border-red-400/30 bg-red-500/6 font-medium text-red-700"><ShieldX className="h-3 w-3" />Returned — needs changes</Badge>;
+    default: return <Badge variant="outline" className="gap-1 whitespace-nowrap border-amber-500/30 bg-amber-500/6 font-medium text-amber-700"><PencilLine className="h-3 w-3" />To fill in</Badge>;
   }
 }
 
 /** "Overdue" while a report is still unsubmitted past the cut-off; "Submitted late" once it was sent after it. */
 function LatenessBadge({ entry }: { entry: PeriodReportEntry }) {
   if (isReportOverdue(entry)) {
-    return <Badge variant="outline" className="gap-1 whitespace-nowrap border-red-400/30 bg-red-500/[0.06] font-medium text-red-700"><AlertTriangle className="h-3 w-3" />Overdue</Badge>;
+    return <Badge variant="outline" className="gap-1 whitespace-nowrap border-red-400/30 bg-red-500/6 font-medium text-red-700"><AlertTriangle className="h-3 w-3" />Overdue</Badge>;
   }
   if ((entry.reportStatus === 'SUBMITTED' || entry.reportStatus === 'APPROVED') && wasSubmittedLate(entry.submittedAt, entry.reportingPeriod)) {
-    return <Badge variant="outline" className="whitespace-nowrap border-amber-500/30 bg-amber-500/[0.06] font-medium text-amber-700">Submitted late</Badge>;
+    return <Badge variant="outline" className="whitespace-nowrap border-amber-500/30 bg-amber-500/6 font-medium text-amber-700">Submitted late</Badge>;
   }
   return null;
 }
@@ -310,7 +310,7 @@ function ReportDetail({ entry, onChanged }: { entry: PeriodReportEntry; onChange
   if (canEditSubmitted && editingSubmitted) {
     return (
       <div className="space-y-4">
-        <Alert className="border-blue-500/25 bg-blue-500/[0.06] text-blue-800 [&>svg]:text-blue-600">
+        <Alert className="border-blue-500/25 bg-blue-500/6 text-blue-800 [&>svg]:text-blue-600">
           <Info className="h-4 w-4" /><AlertDescription>You&apos;re correcting a report that&apos;s waiting for approval. It stays with the approver, who is told it changed.</AlertDescription>
         </Alert>
         <ReportForm key={`${entry.id}-edit`} entry={entry} onSubmitted={async () => { setEditingSubmitted(false); await onChanged(); }} onCancel={() => setEditingSubmitted(false)} />
@@ -321,12 +321,12 @@ function ReportDetail({ entry, onChanged }: { entry: PeriodReportEntry; onChange
   return (
     <div className="space-y-4">
       {entry.reportStatus === 'RETURNED' && entry.declineReason && (
-        <Alert className="border-red-400/30 bg-red-500/[0.06] text-red-800 [&>svg]:text-red-600">
+        <Alert className="border-red-400/30 bg-red-500/6 text-red-800 [&>svg]:text-red-600">
           <AlertCircle className="h-4 w-4" /><AlertDescription><span className="font-semibold">Returned by approver:</span> {entry.declineReason}</AlertDescription>
         </Alert>
       )}
       {editable && isReportOverdue(entry) && (
-        <Alert className="border-amber-500/30 bg-amber-500/[0.06] text-amber-800 [&>svg]:text-amber-600">
+        <Alert className="border-amber-500/30 bg-amber-500/6 text-amber-800 [&>svg]:text-amber-600">
           <AlertTriangle className="h-4 w-4" /><AlertDescription>The cut-off was {format(new Date(entry.reportingPeriod.cutOffDate), 'PP')}. You can still submit — the report will be marked as late.</AlertDescription>
         </Alert>
       )}
@@ -482,7 +482,7 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
                 onClick={() => setFilter(f.id)}
                 className={cn(
                   "bg-card px-4 py-3.5 text-left transition-colors",
-                  filter === f.id ? "bg-primary/[0.05]" : "hover:bg-muted/40"
+                  filter === f.id ? "bg-primary/5" : "hover:bg-muted/40"
                 )}
               >
                 <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -523,7 +523,7 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
               <TooltipProvider delayDuration={150}>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button type="button" className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:text-foreground">
+                    <button type="button" className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground outline-hidden transition-colors hover:text-foreground focus-visible:text-foreground">
                       {period.name}
                       <Info className="h-3 w-3 text-muted-foreground/60" />
                     </button>
@@ -548,7 +548,7 @@ export function MyActivityReportList({ initialEntries }: { initialEntries?: Peri
                     <TableHeadCell className="hidden w-24 text-right md:table-cell">Plan</TableHeadCell>
                     <TableHeadCell className="hidden w-24 text-right md:table-cell">Actual</TableHeadCell>
                     <TableHeadCell className="hidden w-24 text-right sm:table-cell">Achiev't</TableHeadCell>
-                    <TableHeadCell className="w-[13rem] text-right">Status</TableHeadCell>
+                    <TableHeadCell className="w-52 text-right">Status</TableHeadCell>
                     <th className="w-8" />
                   </tr>
                 </thead>

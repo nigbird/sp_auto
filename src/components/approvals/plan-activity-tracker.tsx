@@ -23,13 +23,13 @@ import { approveNewActivity, returnNewActivity, type PlanApprovalActivity, type 
 import { EmptyState } from "@/components/empty-state";
 
 export const STAGE_META: Record<PlanStage, { label: string; className: string }> = {
-  activityPending: { label: "New activity · awaiting approval", className: "border-blue-500/25 text-blue-700 bg-blue-500/[0.06]" },
-  breakdownPending: { label: "Breakdown awaiting approval", className: "border-blue-500/25 text-blue-700 bg-blue-500/[0.06]" },
-  activityReturned: { label: "Activity returned", className: "border-red-400/30 text-red-700 bg-red-500/[0.06]" },
-  breakdownReturned: { label: "Breakdown returned", className: "border-red-400/30 text-red-700 bg-red-500/[0.06]" },
-  ownerDeclined: { label: "Owner declined request", className: "border-red-400/30 text-red-700 bg-red-500/[0.06]" },
-  requested: { label: "Waiting for owner", className: "border-amber-500/30 text-amber-700 bg-amber-500/[0.06]" },
-  drafting: { label: "Owner preparing breakdown", className: "border-amber-500/30 text-amber-700 bg-amber-500/[0.06]" },
+  activityPending: { label: "New activity · awaiting approval", className: "border-blue-500/25 text-blue-700 bg-blue-500/6" },
+  breakdownPending: { label: "Breakdown awaiting approval", className: "border-blue-500/25 text-blue-700 bg-blue-500/6" },
+  activityReturned: { label: "Activity returned", className: "border-red-400/30 text-red-700 bg-red-500/6" },
+  breakdownReturned: { label: "Breakdown returned", className: "border-red-400/30 text-red-700 bg-red-500/6" },
+  ownerDeclined: { label: "Owner declined request", className: "border-red-400/30 text-red-700 bg-red-500/6" },
+  requested: { label: "Waiting for owner", className: "border-amber-500/30 text-amber-700 bg-amber-500/6" },
+  drafting: { label: "Owner preparing breakdown", className: "border-amber-500/30 text-amber-700 bg-amber-500/6" },
   notSent: { label: "Request not sent", className: "border-border text-muted-foreground bg-muted/50" },
   approved: { label: "Approved", className: "border-emerald-500/30 text-emerald-700 bg-emerald-500/[0.07]" },
 };
@@ -108,7 +108,7 @@ export function PlanActivityTracker({ activities, initialStage, initialStageGrou
 
       {groupFilter && (
         <div className="flex items-center gap-1.5">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/[0.06] py-1 pl-3 pr-1.5 text-xs font-medium text-primary">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/6 py-1 pl-3 pr-1.5 text-xs font-medium text-primary">
             Filter: {initialStageGroupLabel ?? "Custom stage group"}
             <button type="button" onClick={() => setGroupFilter(null)} aria-label="Clear this filter" className="rounded-full p-0.5 hover:bg-primary/10">
               <X className="h-3 w-3" />
@@ -138,7 +138,7 @@ export function PlanActivityTracker({ activities, initialStage, initialStageGrou
                   <button
                     type="button"
                     onClick={e => { e.stopPropagation(); setOpenId(a.id); }}
-                    className="text-left text-[15px] font-semibold leading-snug hover:underline focus-visible:underline focus-visible:outline-none"
+                    className="text-left text-[15px] font-semibold leading-snug hover:underline focus-visible:underline focus-visible:outline-hidden"
                   >
                     {a.title}
                   </button>

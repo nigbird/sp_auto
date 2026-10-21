@@ -25,7 +25,7 @@ export function PageTabs({ tabs }: { tabs: PageTab[] }) {
           href={tab.href}
           className={cn(
             "inline-flex items-center justify-center whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all",
-            tab === active && "bg-card text-foreground shadow-sm"
+            tab === active && "bg-card text-foreground shadow-xs"
           )}
         >
           {tab.label}

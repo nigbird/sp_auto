@@ -39,7 +39,7 @@ export function DashboardFilters({ plans, planId, periods, periodId, view = "per
       {pending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-label="Loading" />}
 
       {periods.length > 0 && (
-        <div role="radiogroup" aria-label="Results" className="inline-flex h-10 items-center rounded-xl border border-border/70 bg-card p-1 shadow-sm">
+        <div role="radiogroup" aria-label="Results" className="inline-flex h-10 items-center rounded-xl border border-border/70 bg-card p-1 shadow-xs">
           {([
             { id: "period", label: "This period", hint: "Only reports submitted for the selected period" },
             { id: "cumulative", label: "Cumulative to date", hint: "Each activity's latest approved report from any period up to the selected one" },
@@ -64,7 +64,7 @@ export function DashboardFilters({ plans, planId, periods, periodId, view = "per
 
       {plans.length > 1 && (
         <Select value={planId} onValueChange={id => go({ plan: id })}>
-          <SelectTrigger className="h-10 w-[210px] rounded-xl border-border/70 bg-card shadow-sm" aria-label="Strategic plan">
+          <SelectTrigger className="h-10 w-[210px] rounded-xl border-border/70 bg-card shadow-xs" aria-label="Strategic plan">
             <SelectValue placeholder="Strategic plan" />
           </SelectTrigger>
           <SelectContent>
@@ -79,7 +79,7 @@ export function DashboardFilters({ plans, planId, periods, periodId, view = "per
 
       {periods.length > 0 && (
         <Select value={periodId} onValueChange={id => go({ plan: planId, period: id })}>
-          <SelectTrigger className="h-10 w-[230px] gap-2 rounded-xl border-border/70 bg-card shadow-sm" aria-label="Reporting period">
+          <SelectTrigger className="h-10 w-[230px] gap-2 rounded-xl border-border/70 bg-card shadow-xs" aria-label="Reporting period">
             <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
             <SelectValue placeholder="Reporting period" />
           </SelectTrigger>
@@ -102,7 +102,7 @@ export function DashboardFilters({ plans, planId, periods, periodId, view = "per
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground shadow-xs transition hover:bg-primary/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               <Upload className="h-4 w-4" /> Export <ChevronDown className="h-3.5 w-3.5 opacity-80" />
             </button>

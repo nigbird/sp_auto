@@ -403,9 +403,9 @@ export function MyActivityOverview({ activities, reports, initiativeTitles, onOp
             aria-selected={filter === f.id}
             onClick={() => setFilter(f.id)}
             className={cn(
-              "relative min-w-[9rem] flex-1 basis-1/2 px-4 py-3.5 text-left transition-colors sm:basis-0",
+              "relative min-w-36 flex-1 basis-1/2 px-4 py-3.5 text-left transition-colors sm:basis-0",
               i > 0 && "border-l border-border/50",
-              filter === f.id ? "bg-primary/[0.05]" : "hover:bg-muted/40"
+              filter === f.id ? "bg-primary/5" : "hover:bg-muted/40"
             )}
           >
             {filter === f.id && <span className="absolute inset-x-0 top-0 h-0.5 bg-primary" />}

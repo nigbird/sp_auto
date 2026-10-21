@@ -499,7 +499,7 @@ export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPla
                     <FormControl>
                       <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
-                    <FormLabel className="text-xs text-muted-foreground !mt-0">
+                    <FormLabel className="text-xs text-muted-foreground mt-0!">
                       Has a target (uncheck for no-target items, reported separately)
                     </FormLabel>
                   </FormItem>

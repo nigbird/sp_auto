@@ -171,7 +171,7 @@ export default function LeadOwnersPage() {
                   </TableCell>
                   <TableCell>
                     {row.users.length === 0
-                      ? <Badge variant="outline" className="border-amber-500/30 bg-amber-500/[0.06] font-medium text-amber-700">No one yet</Badge>
+                      ? <Badge variant="outline" className="border-amber-500/30 bg-amber-500/6 font-medium text-amber-700">No one yet</Badge>
                       : <div className="flex flex-wrap gap-1">{row.users.map(u => <Badge key={u.id} variant="outline" className="border-border/60 bg-muted/60 font-medium text-muted-foreground">{u.name}</Badge>)}</div>}
                   </TableCell>
                   <TableCell className="text-center">

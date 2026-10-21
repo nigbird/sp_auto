@@ -83,7 +83,7 @@ export function MultiSelect({ options, selected, onChange, className, maxVisible
                 <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
             </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[16rem] p-0" align="start">
+      <PopoverContent className="w-(--radix-popover-trigger-width) min-w-[16rem] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search..." />
           <CommandList>

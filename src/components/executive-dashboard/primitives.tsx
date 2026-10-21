@@ -176,7 +176,7 @@ export function initials(name: string): string {
  */
 export function Tip({ content, children, className }: { content: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <div className={cn("group/tip relative outline-none", className)} tabIndex={0}>
+    <div className={cn("group/tip relative outline-hidden", className)} tabIndex={0}>
       {children}
       <div
         role="tooltip"

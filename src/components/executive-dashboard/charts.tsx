@@ -57,7 +57,7 @@ function Segmented<T extends string>({ value, options, onChange, label }: { valu
           role="tab"
           aria-selected={value === o.id}
           onClick={() => onChange(o.id)}
-          className={cn("rounded-full px-3 py-1 text-xs font-medium transition-colors", value === o.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+          className={cn("rounded-full px-3 py-1 text-xs font-medium transition-colors", value === o.id ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground")}
         >
           {o.label}
         </button>
@@ -117,7 +117,7 @@ export function Donut({ slices, centerValue, centerLabel, emptyText = "Nothing t
             </PieChart>
           </ResponsiveContainer>
         ) : (
-          <div className="flex h-full items-center justify-center rounded-full border-[18px] border-muted" />
+          <div className="flex h-full items-center justify-center rounded-full border-18 border-muted" />
         )}
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
           <span className="text-2xl font-bold tracking-tight">{centerValue}</span>
