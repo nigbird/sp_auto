@@ -74,7 +74,7 @@ Remove any default site (e.g. the IIS welcome page, SEC-055) so only the app ans
 ## What the application does
 
 **Authentication & sessions**
-- Passwords: bcrypt (cost 12). Policy: 10+ characters, upper- and lowercase, digit, symbol; rejects common passwords, easy sequences and the user's own name/email (`src/lib/auth/password-policy.ts`).
+- Passwords: bcrypt (cost 12). Policy: 8+ characters, upper- and lowercase, digit, symbol; rejects common passwords, easy sequences and the user's own name/email (`src/lib/auth/password-policy.ts`).
 - Accounts are created by invitation: the user sets their own password through a single-use, hashed, time-limited link. No default or temporary passwords exist. The seed script has no password in source.
 - Sign-in: generic error for unknown user / wrong password, constant-time comparison against a dummy hash, lockout after 5 failures per account or 20 per IP in 15 minutes, all attempts audited.
 - Sessions: encrypted (AES-GCM) signed JWT in an `HttpOnly; Secure; SameSite=Strict; __Host-` cookie, 5-minute life; refresh tokens are opaque, stored hashed, rotated on every use with reuse detection (a replayed token revokes the whole session). Every request re-checks the session, user status and session version in the database. One active session per user; idle timeout 30 min; absolute limit 12 h; logout, password change/reset and deactivation revoke sessions server-side. Nothing is stored in `localStorage`.

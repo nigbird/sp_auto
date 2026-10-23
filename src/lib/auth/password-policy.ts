@@ -1,5 +1,5 @@
 // Client-safe: shared by the set-password and change-password forms and the server code that enforces it.
-export const MIN_PASSWORD_LENGTH = 10;
+export const MIN_PASSWORD_LENGTH = 8;
 export const MAX_PASSWORD_LENGTH = 128;
 
 /** Each requirement, in the order the forms list them. */
