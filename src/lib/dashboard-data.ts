@@ -72,11 +72,26 @@ export async function loadDashboard(planId?: string, periodId?: string, view: Da
   // The full dashboard needs dashboard:view; with only dashboard:view-own it covers the user's own activities.
   const scope = userCan(user, 'dashboard:view') ? 'all' : userCan(user, 'dashboard:view-own') ? 'own' : null;
   if (!scope) throw new Error("You don't have permission to view the dashboard.");
-  const ownOnly = scope === 'own' ? { responsibleId: user.id } : {};
-  const context: Context = { userName: user.name, today: new Date().toISOString(), scope };
+  return computeDashboardData({ planId, periodId, view, scope, userId: user.id, userName: user.name });
+}
+
+/**
+ * The whole-plan dashboard for one plan and period, for other reports that
+ * show the dashboard's figures (the report summary). No permission check:
+ * callers check their own. Unlike the dashboard, inactive plans are included.
+ */
+export async function loadPlanDashboard(planId: string, periodId: string): Promise<DashboardData> {
+  return computeDashboardData({ planId, periodId, view: 'period', scope: 'all', userId: '', userName: '', anyPlan: true });
+}
+
+async function computeDashboardData({ planId, periodId, view, scope, userId, userName, anyPlan = false }: {
+  planId?: string; periodId?: string; view: DashboardView; scope: 'all' | 'own'; userId: string; userName: string; anyPlan?: boolean;
+}): Promise<DashboardData> {
+  const ownOnly = scope === 'own' ? { responsibleId: userId } : {};
+  const context: Context = { userName, today: new Date().toISOString(), scope };
 
   const plans: DashboardPlanOption[] = await prisma.strategicPlan.findMany({
-    where: { isActive: true },
+    where: anyPlan && planId ? { id: planId } : { isActive: true },
     select: { id: true, name: true, version: true, status: true },
     orderBy: { updatedAt: 'desc' },
   });

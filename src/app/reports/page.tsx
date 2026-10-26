@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { FileText } from "lucide-react";
 import { userCan } from "@/lib/auth/permissions-server";
 import { guardPage } from "@/lib/auth/page-guard";
 import { listStrategicPlans, getStrategicPlanById } from "@/actions/strategic-plan";
@@ -6,6 +8,7 @@ import { PerformanceReportTable, type PerformanceEntry, type PerformancePeriod }
 import { PlanSelect } from "@/components/reports/plan-select";
 import { ExportMenu } from "@/components/export-menu";
 import { ReportImportDialog } from "@/components/reports/report-import-dialog";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 
@@ -42,6 +45,13 @@ export default async function PerformanceReportsPage({ searchParams }: { searchP
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {plan && !ownOnly && (
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/reports/summary?plan=${plan.id}${selectedPeriod ? `&period=${selectedPeriod.id}` : ""}`}>
+                <FileText className="mr-2 h-4 w-4" /> Report summary
+              </Link>
+            </Button>
+          )}
           {plan && !ownOnly && userCan(user, "report-approvals:approve") && <ReportImportDialog planId={plan.id} selectedPeriodId={selectedPeriod?.id ?? null} />}
           {plan && !ownOnly && userCan(user, "reports:export") && (
             <ExportMenu options={[

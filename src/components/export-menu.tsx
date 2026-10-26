@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 export interface ExportOption {
   label: string;
   description?: string;
-  kind: "excel" | "pdf";
+  kind: "excel" | "pdf" | "word";
   /** Runs in the browser; may be async. */
   onSelect?: () => void | Promise<void>;
   /** Or a server download URL. */
@@ -17,7 +17,7 @@ export interface ExportOption {
   disabled?: boolean;
 }
 
-/** An "Export" button with a menu of Excel/PDF downloads; failures show a toast instead of failing silently. */
+/** An "Export" button with a menu of Excel/PDF/Word downloads; failures show a toast instead of failing silently. */
 export function ExportMenu({ options, label = "Export", size = "sm" }: { options: ExportOption[]; label?: string; size?: "sm" | "default" }) {
   const [busy, setBusy] = React.useState(false);
   const { toast } = useToast();
@@ -51,7 +51,7 @@ export function ExportMenu({ options, label = "Export", size = "sm" }: { options
         <DropdownMenuSeparator />
         {options.map(option => (
           <DropdownMenuItem key={option.label} disabled={option.disabled} onSelect={() => run(option)} className="items-start gap-2">
-            {option.kind === "excel" ? <FileSpreadsheet className="mt-0.5 h-4 w-4 text-green-600" /> : <FileText className="mt-0.5 h-4 w-4 text-red-600" />}
+            {option.kind === "excel" ? <FileSpreadsheet className="mt-0.5 h-4 w-4 text-green-600" /> : <FileText className={`mt-0.5 h-4 w-4 ${option.kind === "word" ? "text-blue-600" : "text-red-600"}`} />}
             <div>
               <div className="font-medium">{option.label}</div>
               {option.description && <div className="text-xs text-muted-foreground">{option.description}</div>}

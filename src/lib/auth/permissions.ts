@@ -57,6 +57,7 @@ export const PERMISSION_GROUPS = [
     permissions: [
       { id: 'reports:view', label: 'View the full performance report' },
       { id: 'reports:view-own', label: 'View my performance report (only my activities)' },
+      { id: 'reports:summary', label: 'Generate and edit the report summary' },
       { id: 'reports:export', label: 'Export reports' },
     ],
   },

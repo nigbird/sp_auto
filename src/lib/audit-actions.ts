@@ -75,6 +75,9 @@ export const AUDIT_ACTIONS = {
   REPORT_APPROVED: { label: 'Approved a report', category: 'Reporting' },
   REPORT_RETURNED: { label: 'Returned a report', category: 'Reporting' },
   REPORTS_IMPORTED: { label: 'Imported reports', category: 'Reporting' },
+  REPORT_SUMMARY_GENERATED: { label: 'Generated a report summary', category: 'Reporting' },
+  REPORT_SUMMARY_EDITED: { label: 'Edited a report summary', category: 'Reporting' },
+  REPORT_SUMMARY_CORRECTIONS_UPDATED: { label: 'Changed summary wording corrections', category: 'Reporting' },
   EVIDENCE_UPLOADED: { label: 'Uploaded evidence', category: 'Reporting' },
   EVIDENCE_DELETED: { label: 'Removed evidence', category: 'Reporting' },
   PROGRESS_UPDATE_SUBMITTED: { label: 'Submitted a progress update', category: 'Reporting' },
@@ -103,6 +106,7 @@ export const AUDIT_ACTIONS = {
   PLAN_EXPORTED: { label: 'Exported a plan', category: 'Exports' },
   DASHBOARD_EXPORTED: { label: 'Exported the dashboard', category: 'Exports' },
   PERFORMANCE_REPORT_EXPORTED: { label: 'Exported a performance report', category: 'Exports' },
+  REPORT_SUMMARY_EXPORTED: { label: 'Exported a report summary', category: 'Exports' },
   ACTIVITIES_EXPORTED: { label: 'Exported activities', category: 'Exports' },
   AUDIT_LOG_EXPORTED: { label: 'Exported the audit log', category: 'Exports' },
 } as const satisfies Record<string, { label: string; category: AuditCategory }>;

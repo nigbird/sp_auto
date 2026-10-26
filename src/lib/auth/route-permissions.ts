@@ -22,6 +22,7 @@ const ROUTE_RULES: { path: string; subtree: boolean; need: Permission[][] }[] = 
   { path: '/plan', subtree: false, need: [['my-plan:view']] },
   { path: '/reports/approvals', subtree: true, need: [['report-approvals:view']] },
   { path: '/reports/submit', subtree: true, need: [['my-reports:view']] },
+  { path: '/reports/summary', subtree: true, need: [['reports:view']] },
   { path: '/reports', subtree: false, need: [['reports:view', 'reports:view-own']] },
 ];
 
