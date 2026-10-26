@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ArrowDown, ArrowUp, Check, Loader2, Pencil, Plus, RotateCcw, Search, Sparkles, SpellCheck, Table2, Trash2, X } from "lucide-react";
-import { generateReportSummary, resetSummarySection, saveSummarySection, setSectionTables, updateSummaryCorrections } from "@/actions/report-summary";
+import { deleteReportSummary, generateReportSummary, resetSummarySection, saveSummarySection, setSectionTables, updateSummaryCorrections } from "@/actions/report-summary";
 import { parseBody, type SummaryCorrection } from "@/lib/report-summary";
 import type { SummaryTable, TableOption } from "@/lib/summary-tables";
 import { describeError } from "@/lib/action-error";
@@ -42,6 +42,8 @@ export function ReportSummaryEditor({ planId, data }: { planId: string; data: Su
   const [generating, setGenerating] = React.useState(false);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [correctionsOpen, setCorrectionsOpen] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
   const { selected, summary, canEdit } = data;
 
   if (!selected) {
@@ -67,6 +69,21 @@ export function ReportSummaryEditor({ planId, data }: { planId: string; data: Su
 
   const onGenerateClick = () => (editedCount > 0 ? setConfirmOpen(true) : generate(false));
 
+  const remove = async () => {
+    setDeleting(true);
+    try {
+      const result = await deleteReportSummary(selected.id);
+      if (!result.success) { toast({ title: "Couldn't delete the summary", description: result.message, variant: "destructive" }); return; }
+      setDeleteOpen(false);
+      toast({ title: "Summary deleted", description: `You can generate a new one for ${selected.name} at any time.` });
+      router.refresh();
+    } catch (error) {
+      toast({ title: "Couldn't delete the summary", description: describeError(error), variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -91,6 +108,11 @@ export function ReportSummaryEditor({ planId, data }: { planId: string; data: Su
               { kind: "word", label: `${selected.name} summary (Word)`, description: "Editable .docx with cover page, contents and every section as edited here.", href: `/api/export/summary/${selected.id}?format=docx` },
               { kind: "pdf", label: `${selected.name} summary (PDF)`, description: "The same summary, ready to share.", href: `/api/export/summary/${selected.id}?format=pdf` },
             ]} />
+          )}
+          {canEdit && summary && (
+            <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteOpen(true)} disabled={generating || deleting}>
+              <Trash2 className="mr-2 h-4 w-4" /> Delete
+            </Button>
           )}
         </div>
       </div>
@@ -133,6 +155,23 @@ export function ReportSummaryEditor({ planId, data }: { planId: string; data: Su
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <Button variant="outline" onClick={() => generate(true)}>Replace edited sections too</Button>
             <AlertDialogAction onClick={() => generate(false)}>Keep my edits</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteOpen} onOpenChange={open => { if (!deleting) setDeleteOpen(open); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete the {selected.name} summary?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes all {summary?.sections.length ?? 0} sections{editedCount > 0 ? `, including edits in ${editedCount} section${editedCount === 1 ? "" : "s"},` : ""} and the tables chosen for them. It can&apos;t be undone. The approved reports aren&apos;t affected, and you can generate a new summary afterwards.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <Button variant="destructive" onClick={remove} disabled={deleting}>
+              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Delete summary
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

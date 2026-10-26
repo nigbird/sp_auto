@@ -33,21 +33,21 @@ const kpiSchema = z.object({
   unit: z.string().optional(),
   hasTarget: z.boolean().default(true),
   direction: z.enum(["HIGHER_IS_BETTER", "LOWER_IS_BETTER"]).default("HIGHER_IS_BETTER"),
-  target: z.coerce.number().optional(),
-  actual: z.coerce.number().optional(),
+  target: z.coerce.number<number>().optional(),
+  actual: z.coerce.number<number>().optional(),
 })
 
 const activitySchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters." }),
-  description: z.string().optional(),
-  responsible: z.string({ required_error: "Please select a responsible person." }),
-  startDate: z.date({ required_error: "A start date is required." }),
-  endDate: z.date({ required_error: "An end date is required." }),
+  description: z.string().optional(),
+  responsible: z.string({ error: "Please select a responsible person." }),
+  startDate: z.date({ error: "A start date is required." }),
+  endDate: z.date({ error: "An end date is required." }),
   status: z.string().optional(),
-  weight: z.coerce.number().min(0).max(100),
-  initiativeId: z.string({ required_error: "Please select an initiative." }).min(1, "Please select an initiative."),
-  pillarId: z.string({ required_error: "Please select a pillar." }).min(1, "Please select a pillar."),
-  objectiveId: z.string({ required_error: "Please select an objective." }).min(1, "Please select an objective."),
+  weight: z.coerce.number<number>().min(0).max(100),
+  initiativeId: z.string({ error: "Please select an initiative." }).min(1, "Please select an initiative."),
+  pillarId: z.string({ error: "Please select a pillar." }).min(1, "Please select a pillar."),
+  objectiveId: z.string({ error: "Please select an objective." }).min(1, "Please select an objective."),
   reportingPeriodId: z.string().optional(),
   kpi: kpiSchema.optional(),
   deliverablesText: z.string().optional(),
@@ -82,11 +82,11 @@ function findHierarchyForInitiative(strategicPlan: StrategicPlan | null | undefi
 export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPlan, periods }: ActivityFormProps) {
   const existingKpi = activity?.kpis?.[0];
   const { pillarId: initialPillarId, objectiveId: initialObjectiveId } = findHierarchyForInitiative(strategicPlan, activity?.initiativeId);
-  const form = useForm<z.infer<typeof activitySchema>>({
+  const form = useForm<z.input<typeof activitySchema>, unknown, z.output<typeof activitySchema>>({
     resolver: zodResolver(activitySchema),
     defaultValues: {
       title: activity?.title ?? "",
-      description: activity?.description ?? "",
+      description: activity?.description ?? "",
       responsible: (activity?.responsible as any)?.id ?? "",
       startDate: activity?.startDate ? new Date(activity.startDate) : undefined,
       endDate: activity?.endDate ? new Date(activity.endDate) : undefined,

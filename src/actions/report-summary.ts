@@ -188,6 +188,24 @@ export async function resetSummarySection(sectionId: string): Promise<SummaryAct
     return { success: true, updatedAt: saved.updatedAt.toISOString() };
 }
 
+/** Deletes a period's summary with all its sections, edits and chosen tables. */
+export async function deleteReportSummary(periodId: string): Promise<SummaryActionResult> {
+    await requirePermission('reports:summary');
+    const summary = await prisma.reportSummary.findUnique({
+        where: { reportingPeriodId: periodId },
+        select: { id: true, reportingPeriod: { select: { name: true } }, _count: { select: { sections: true } } },
+    });
+    if (!summary) return { success: true };
+    await prisma.reportSummary.delete({ where: { id: summary.id } });
+    await recordAudit({
+        action: 'REPORT_SUMMARY_DELETED', entityType: 'ReportingPeriod', entityId: periodId,
+        summary: `Deleted the ${summary.reportingPeriod.name} report summary (${summary._count.sections} sections)`,
+        metadata: { sections: summary._count.sections },
+    });
+    revalidateSummary();
+    return { success: true };
+}
+
 /** Replaces the wording corrections applied when summaries are generated. */
 export async function updateSummaryCorrections(input: SummaryCorrection[]): Promise<SummaryActionResult> {
     await requirePermission('reports:summary');

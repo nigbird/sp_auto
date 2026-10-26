@@ -13,7 +13,7 @@ export const planActivitySchema = z.object({
   id: z.string().optional(),
   title: z.string().trim().min(1, "Activity title is required"),
   weight: z.coerce
-    .number({ invalid_type_error: "Weight must be a number" })
+    .number<number>({ error: "Weight must be a number" })
     .min(0, "Weight can't be negative")
     .max(100, "Weight can't be more than 100%"),
   startDate: z.string().min(1, "Start date is required").refine(isValidDate, "Start date is not a valid date"),
@@ -55,8 +55,8 @@ export const planPillarSchema = z.object({
 
 export const planFormSchema = z.object({
   name: z.string().trim().min(1, "Plan name is required"),
-  startYear: z.coerce.number({ invalid_type_error: "Start year must be a number" }).int("Start year must be a whole number").min(2000, "Start year must be 2000 or later").max(2100, "Start year must be 2100 or earlier"),
-  endYear: z.coerce.number({ invalid_type_error: "End year must be a number" }).int("End year must be a whole number").min(2000, "End year must be 2000 or later").max(2100, "End year must be 2100 or earlier"),
+  startYear: z.coerce.number<number>({ error: "Start year must be a number" }).int("Start year must be a whole number").min(2000, "Start year must be 2000 or later").max(2100, "Start year must be 2100 or earlier"),
+  endYear: z.coerce.number<number>({ error: "End year must be a number" }).int("End year must be a whole number").min(2000, "End year must be 2000 or later").max(2100, "End year must be 2100 or earlier"),
   version: z.string().trim().min(1, "Version is required"),
   pillars: z.array(planPillarSchema).min(1, "Add at least one pillar"),
 }).refine(data => data.endYear >= data.startYear, {

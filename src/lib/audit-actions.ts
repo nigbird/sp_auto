@@ -77,6 +77,7 @@ export const AUDIT_ACTIONS = {
   REPORTS_IMPORTED: { label: 'Imported reports', category: 'Reporting' },
   REPORT_SUMMARY_GENERATED: { label: 'Generated a report summary', category: 'Reporting' },
   REPORT_SUMMARY_EDITED: { label: 'Edited a report summary', category: 'Reporting' },
+  REPORT_SUMMARY_DELETED: { label: 'Deleted a report summary', category: 'Reporting' },
   REPORT_SUMMARY_CORRECTIONS_UPDATED: { label: 'Changed summary wording corrections', category: 'Reporting' },
   EVIDENCE_UPLOADED: { label: 'Uploaded evidence', category: 'Reporting' },
   EVIDENCE_DELETED: { label: 'Removed evidence', category: 'Reporting' },

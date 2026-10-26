@@ -43,7 +43,7 @@ const NONE = "__none__";
 const formSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters."),
   email: z.string().trim().email("Enter a valid email address."),
-  roleId: z.string({ required_error: "You need to select a role." }).min(1, "You need to select a role."),
+  roleId: z.string({ error: "You need to select a role." }).min(1, "You need to select a role."),
   leadOwnerId: z.string().optional(),
 });
 
