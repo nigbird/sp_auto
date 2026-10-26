@@ -20,6 +20,8 @@ model AppConfig {
   // Dashboard rating thresholds in percent: { outstanding, veryGood, good, fair }.
   // Null = the Excel legend (90 / 80 / 70 / 50).
   ratingBands           Json?
+  // Report summary wording fixes applied to owners' text: [{ find, replace }].
+  summaryCorrections    Json?
 
   updatedAt DateTime @updatedAt
 }
@@ -77,6 +79,7 @@ model ReportingPeriod {
   activities      Activity[]
   notifications   Notification[]
   periodEntries   ActivityPeriodEntry[]
+  summary         ReportSummary?
 
   // The report request sent to activity owners for this period.
   reportRequestMessage  String?
@@ -87,6 +90,43 @@ model ReportingPeriod {
   updatedAt DateTime @updatedAt
 
   @@unique([strategicPlanId, name])
+}
+
+// The narrative report summary for one reporting period: generated from
+// approved reports, then edited by product owners before export.
+model ReportSummary {
+  id                String          @id @default(cuid())
+  reportingPeriod   ReportingPeriod @relation(fields: [reportingPeriodId], references: [id], onDelete: Cascade)
+  reportingPeriodId String          @unique
+  generatedAt       DateTime        @default(now())
+  generatedById     String?
+  sections          ReportSummarySection[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ReportSummarySection {
+  id            String        @id @default(cuid())
+  summary       ReportSummary @relation(fields: [summaryId], references: [id], onDelete: Cascade)
+  summaryId     String
+  // Stable id of what the section covers: "overview", "pillar:<id>", "objective:<id>", ...
+  key           String
+  position      Int
+  level         Int           @default(1)
+  heading       String
+  body          String
+  // The text as last generated; the section counts as edited while body differs.
+  generatedBody String
+  // Tables shown under the text, by key ("workstreams", "objective-execution:<id>", ...); filled from live data.
+  tables        String[]      @default([])
+  editedAt      DateTime?
+  editedById    String?
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([summaryId, key])
+  @@index([summaryId, position])
 }
 
 model Pillar {
