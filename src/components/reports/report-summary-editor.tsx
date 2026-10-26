@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { ArrowDown, ArrowUp, Loader2, Pencil, Plus, RotateCcw, Sparkles, SpellCheck, Table2, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Loader2, Pencil, Plus, RotateCcw, Search, Sparkles, SpellCheck, Table2, Trash2, X } from "lucide-react";
 import { generateReportSummary, resetSummarySection, saveSummarySection, setSectionTables, updateSummaryCorrections } from "@/actions/report-summary";
 import { parseBody, type SummaryCorrection } from "@/lib/report-summary";
 import type { SummaryTable, TableOption } from "@/lib/summary-tables";
@@ -18,7 +18,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export interface SummarySection { id: string; key: string; level: number; heading: string; body: string; tables: string[]; edited: boolean; editedAt: string | null; updatedAt: string }
@@ -161,6 +160,7 @@ function SectionCard({ section, canEdit, tables, catalog }: { section: SummarySe
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(section.body);
   const [busy, setBusy] = React.useState(false);
+  const [pickerOpen, setPickerOpen] = React.useState(false);
 
   React.useEffect(() => { if (!editing) setDraft(section.body); }, [section.body, editing]);
 
@@ -249,23 +249,20 @@ function SectionCard({ section, canEdit, tables, catalog }: { section: SummarySe
       })}
 
       {canEdit && !editing && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="mt-3" disabled={busy || section.tables.length >= 10}>
-              <Table2 className="mr-1.5 h-3.5 w-3.5" /> Add table
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="max-h-[60vh] w-96 overflow-y-auto">
-            <DropdownMenuLabel>Tables from the dashboard and report</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {catalog.filter(o => !section.tables.includes(o.key)).map(o => (
-              <DropdownMenuItem key={o.key} className="flex-col items-start gap-0.5" onSelect={() => run(() => setSectionTables(section.id, [...section.tables, o.key], section.updatedAt), "Table added")}>
-                <span className="font-medium">{o.label}</span>
-                <span className="text-xs text-muted-foreground">{o.description}</span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button variant="outline" size="sm" className="mt-3" disabled={busy || section.tables.length >= 10} onClick={() => setPickerOpen(true)}>
+          <Table2 className="mr-1.5 h-3.5 w-3.5" /> Add table
+        </Button>
+      )}
+
+      {canEdit && (
+        <TablePickerDialog
+          open={pickerOpen}
+          onOpenChange={setPickerOpen}
+          sectionHeading={section.heading}
+          catalog={catalog}
+          added={section.tables}
+          onAdd={key => { setPickerOpen(false); run(() => setSectionTables(section.id, [...section.tables, key], section.updatedAt), "Table added"); }}
+        />
       )}
     </section>
   );
@@ -294,6 +291,71 @@ function SummaryTableView({ table }: { table: SummaryTable }) {
   );
 }
 
+function TablePickerDialog({ open, onOpenChange, sectionHeading, catalog, added, onAdd }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  sectionHeading: string;
+  catalog: TableOption[];
+  added: string[];
+  onAdd: (key: string) => void;
+}) {
+  const [query, setQuery] = React.useState("");
+  React.useEffect(() => { if (open) setQuery(""); }, [open]);
+
+  const q = query.trim().toLowerCase();
+  const matches = catalog.filter(o => !q || o.label.toLowerCase().includes(q) || o.description.toLowerCase().includes(q));
+  const groups = [
+    { title: "Report tables", options: matches.filter(o => !o.key.startsWith("objective-execution:")) },
+    { title: "Execution status by objective", options: matches.filter(o => o.key.startsWith("objective-execution:")) },
+  ].filter(g => g.options.length > 0);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[85vh] flex-col gap-4 sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Add a table</DialogTitle>
+          <DialogDescription>
+            Shown under “{sectionHeading}”. Tables are filled from the dashboard and the approved reports each time the summary is opened or exported.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search tables" className="pl-9" aria-label="Search tables" />
+        </div>
+        <div className="-mx-1 min-h-0 flex-1 space-y-5 overflow-y-auto px-1 pb-1">
+          {groups.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">No tables match “{query.trim()}”.</p>}
+          {groups.map(g => (
+            <div key={g.title} className="space-y-2">
+              <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{g.title}</h3>
+              {g.options.map(o => {
+                const isAdded = added.includes(o.key);
+                return (
+                  <button
+                    key={o.key}
+                    type="button"
+                    disabled={isAdded}
+                    onClick={() => onAdd(o.key)}
+                    className="flex w-full items-start gap-3 rounded-lg border border-border/60 p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-60 disabled:hover:border-border/60 disabled:hover:bg-transparent"
+                  >
+                    <Table2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium text-foreground">{o.label}</span>
+                      <span className="block text-xs text-muted-foreground">{o.description}</span>
+                    </span>
+                    {isAdded
+                      ? <Badge variant="secondary" className="shrink-0"><Check className="mr-1 h-3 w-3" /> Added</Badge>
+                      : <span className="shrink-0 text-xs font-medium text-primary">Add</span>}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function CorrectionsDialog({ open, onOpenChange, initial }: { open: boolean; onOpenChange: (open: boolean) => void; initial: SummaryCorrection[] }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -303,6 +365,7 @@ function CorrectionsDialog({ open, onOpenChange, initial }: { open: boolean; onO
   React.useEffect(() => { if (open) setRows(initial.length ? initial : [{ find: "", replace: "" }]); }, [open, initial]);
 
   const update = (n: number, patch: Partial<SummaryCorrection>) => setRows(rs => rs.map((r, m) => (m === n ? { ...r, ...patch } : r)));
+  const filled = rows.filter(r => r.find.trim()).length;
 
   const save = async () => {
     setBusy(true);
@@ -321,28 +384,42 @@ function CorrectionsDialog({ open, onOpenChange, initial }: { open: boolean; onO
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="flex max-h-[85vh] flex-col gap-4 sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Wording corrections</DialogTitle>
           <DialogDescription>
-            Recurring typos or terms to fix in owners&apos; comments when the summary is generated, e.g. “pain pints” → “pain points”. Matches whole words, ignoring case. Applies to every plan.
+            Recurring typos or terms to fix in owners&apos; comments when the summary is generated. Whole words only, ignoring case. Applies to every plan.
           </DialogDescription>
         </DialogHeader>
-        <div className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
-          {rows.map((r, n) => (
-            <div key={n} className="flex items-center gap-2">
-              <Input value={r.find} onChange={e => update(n, { find: e.target.value })} placeholder="Find" maxLength={100} aria-label={`Correction ${n + 1}: find`} />
-              <span className="text-muted-foreground">→</span>
-              <Input value={r.replace} onChange={e => update(n, { replace: e.target.value })} placeholder="Replace with" maxLength={200} aria-label={`Correction ${n + 1}: replace with`} />
-              <Button variant="ghost" size="icon" onClick={() => setRows(rs => rs.filter((_, m) => m !== n))} aria-label={`Remove correction ${n + 1}`}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-          <Button variant="outline" size="sm" onClick={() => setRows(rs => [...rs, { find: "", replace: "" }])}>
-            <Plus className="mr-1.5 h-4 w-4" /> Add correction
-          </Button>
+
+        <div className="flex min-h-0 flex-col rounded-lg border border-border/60">
+          <div className="grid grid-cols-[1fr_1.5rem_1fr_2.25rem] items-center gap-2 border-b border-border/60 bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
+            <span>Find</span>
+            <span />
+            <span>Replace with</span>
+            <span />
+          </div>
+          <div className="max-h-[45vh] space-y-2 overflow-y-auto p-3">
+            {rows.length === 0 && <p className="py-4 text-center text-sm text-muted-foreground">No corrections yet. Add one for each typo that keeps coming back.</p>}
+            {rows.map((r, n) => (
+              <div key={n} className="grid grid-cols-[1fr_1.5rem_1fr_2.25rem] items-center gap-2">
+                <Input value={r.find} onChange={e => update(n, { find: e.target.value })} placeholder="e.g. pain pints" maxLength={100} aria-label={`Correction ${n + 1}: find`} />
+                <span className="text-center text-muted-foreground" aria-hidden>→</span>
+                <Input value={r.replace} onChange={e => update(n, { replace: e.target.value })} placeholder="e.g. pain points" maxLength={200} aria-label={`Correction ${n + 1}: replace with`} />
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => setRows(rs => rs.filter((_, m) => m !== n))} aria-label={`Remove correction ${n + 1}`}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between border-t border-border/60 px-3 py-2">
+            <Button variant="ghost" size="sm" onClick={() => setRows(rs => [...rs, { find: "", replace: "" }])}>
+              <Plus className="mr-1.5 h-4 w-4" /> Add correction
+            </Button>
+            <span className="text-xs text-muted-foreground">{filled} correction{filled === 1 ? "" : "s"}</span>
+          </div>
         </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button>
           <Button onClick={save} disabled={busy}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save</Button>
