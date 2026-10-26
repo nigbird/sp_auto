@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { MultiSelect, type MultiSelectOption } from "@/components/ui/multi-select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Stepper } from "@/components/ui/stepper";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
@@ -57,7 +56,7 @@ function newActivity(users: Person[], title = "", weight = 0) {
     return { id: randomId('A'), title, weight, description: '', deliverable: '', startDate: getToday(), endDate: getOneMonthFromToday(), collaborators: [] as string[], leadOwner: person?.leadOwner ?? '', responsible: person?.id ?? '' };
 }
 function newInitiative(users: Person[], title = "") {
-    return { id: randomId('I'), title, description: "", owners: users[0]?.id ? [users[0].id] : [], collaborators: [], activities: [newActivity(users)] };
+    return { id: randomId('I'), title, description: "", owners: [], collaborators: [], activities: [newActivity(users)] };
 }
 function newObjective(users: Person[], statement = "") {
     return { id: randomId('O'), statement, initiatives: [newInitiative(users)] };
@@ -355,7 +354,7 @@ export function CreatePlanClient({ users }: CreatePlanClientProps) {
                                     <StepHeader title="Step 4: Define Initiatives" description="An Initiative is a specific project or program designed to achieve an Objective." />
                                     <PillarSections form={form} render={(pIndex) => (
                                         <ObjectiveSections form={form} pIndex={pIndex} render={(oIndex) => (
-                                            <InitiativeList pIndex={pIndex} oIndex={oIndex} form={form} users={users} peopleOptions={userOptions} />
+                                            <InitiativeList pIndex={pIndex} oIndex={oIndex} form={form} users={users} />
                                         )} />
                                     )} />
                                 </TabsContent>
@@ -523,7 +522,7 @@ function ObjectiveList({ pIndex, form, users }: { pIndex: number; form: PlanForm
     )
 }
 
-function InitiativeList({ pIndex, oIndex, form, peopleOptions, users }: { pIndex: number; oIndex: number; form: PlanForm; peopleOptions: MultiSelectOption[]; users: Person[] }) {
+function InitiativeList({ pIndex, oIndex, form, users }: { pIndex: number; oIndex: number; form: PlanForm; users: Person[] }) {
     const { control } = form;
     const base = `pillars.${pIndex}.objectives.${oIndex}.initiatives` as const;
     const { fields: initiativeFields, append: appendInitiative, remove: removeInitiative } = useFieldArray({ control, name: base });
@@ -561,34 +560,7 @@ function InitiativeList({ pIndex, oIndex, form, peopleOptions, users }: { pIndex
                                 </FormItem>
                             )}
                         />
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <FormField
-                                control={control}
-                                name={`${base}.${iIndex}.owners`}
-                                render={({ field }) => (
-                                    <FormItem data-field-path={field.name} tabIndex={-1}>
-                                        <Label>Lead/Owner</Label>
-                                        <FormControl>
-                                            <MultiSelect options={peopleOptions} selected={field.value ?? []} onChange={field.onChange} placeholder="Select..." />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={control}
-                                name={`${base}.${iIndex}.collaborators`}
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <Label>Collaborators</Label>
-                                        <FormControl>
-                                            <MultiSelect options={peopleOptions} selected={field.value ?? []} onChange={field.onChange} placeholder="Select..." />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
+                        <p className="text-xs text-muted-foreground">Lead owners and collaborating units are set on each activity in the next step. The initiative's owners are the people responsible for its activities.</p>
                     </CardContent>
                 </Card>
             ))}
@@ -633,7 +605,7 @@ function ReviewSection({ values, users }: { values: FormValues; users: Person[] 
                             {objective.initiatives.map((initiative, iIndex) => (
                                 <div key={initiative.id ?? iIndex} className="p-2 border rounded-md space-y-2 bg-muted/20 ml-4">
                                     <h6 className="font-medium">{initiative.title} (Weight: {calculateInitiativeWeight(initiative.activities).toFixed(1)}% of plan)</h6>
-                                    <p className="text-xs text-muted-foreground">Lead/Owner: {initiative.owners.map(nameOf).join(', ') || '—'}</p>
+                                    <p className="text-xs text-muted-foreground">Owners: {Array.from(new Set(initiative.activities.map(a => a.responsible).filter(Boolean))).map(nameOf).join(', ') || '—'}</p>
                                     <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
                                         {initiative.activities.map((activity, aIndex) => (
                                             <li key={activity.id ?? aIndex}>

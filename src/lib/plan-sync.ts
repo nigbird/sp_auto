@@ -27,8 +27,8 @@ function initiativeData(i: PlanInitiative) {
     return {
         title: i.title.trim(),
         description: i.description ?? '',
-        ownerId: i.owners[0],
-        coOwners: i.owners.slice(1),
+        ownerId: (i.owners ?? [])[0],
+        coOwners: (i.owners ?? []).slice(1),
         collaborators: i.collaborators ?? [],
     };
 }

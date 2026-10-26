@@ -33,7 +33,9 @@ export const planInitiativeSchema = z.object({
   id: z.string().optional(),
   title: z.string().trim().min(1, "Initiative title is required"),
   description: z.string().optional(),
-  owners: z.array(z.string()).min(1, "Select at least one lead/owner"),
+  // Filled in on save from the activities' responsible people; lead owners and
+  // collaborating units are set per activity.
+  owners: z.array(z.string()).optional(),
   collaborators: z.array(z.string()).optional(),
   activities: z.array(planActivitySchema).min(1, "Add at least one activity to this initiative"),
 });

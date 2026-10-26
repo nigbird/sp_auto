@@ -57,6 +57,22 @@ function splitDescription(a: Activity) {
   return { collaborators: units || null, description: legacy ? null : (a.description ?? "").trim() || null };
 }
 
+/** The collaborating offices as a list (including ones kept in the description by older imports). */
+const collaboratorsOf = (a: Activity) => a.collaborators?.length
+  ? a.collaborators
+  : (splitDescription(a).collaborators ?? "").split(/[,;]/).map(s => s.trim()).filter(Boolean);
+
+/** The first collaborating office, then "+N more"; the full list is in the tooltip. */
+function CollaboratorList({ names }: { names: string[] }) {
+  if (names.length === 0) return <p className="text-muted-foreground/50">—</p>;
+  return (
+    <div className="min-w-0" title={names.join(", ")}>
+      <p className="truncate text-foreground/90">{names[0]}</p>
+      {names.length > 1 && <p className="truncate text-xs text-muted-foreground">+{names.length - 1} more</p>}
+    </div>
+  );
+}
+
 const span = (a: Activity) => {
   const s = new Date(a.startDate), e = new Date(a.endDate);
   return s.getFullYear() === e.getFullYear()
@@ -89,14 +105,14 @@ export function PlanStructureView({ pillars, userNames }: { pillars: Pillar[]; u
   const [range, setRange] = React.useState<DateRangeValue>({});
   const [collapsed, setCollapsed] = React.useState<Set<string>>(new Set());
 
-  const owners = React.useMemo(() => [...new Set(located.map(l => office(l.activity)))].filter(o => o !== "—").sort(), [located]);
+  const owners = React.useMemo(() => [...new Set(located.flatMap(l => [office(l.activity), ...collaboratorsOf(l.activity)]))].filter(o => o !== "—").sort(), [located]);
 
   const narrowed = query.trim() !== "" || pillarId !== ALL || owner !== ALL || breakdown !== ALL || isRangeSet(range);
   const reset = () => { setQuery(""); setPillarId(ALL); setOwner(ALL); setBreakdown(ALL); setRange({}); };
 
   const matching = React.useMemo(() => located.filter(({ activity: a, pillar, objective, initiative }) =>
     (pillarId === ALL || pillar.id === pillarId) &&
-    (owner === ALL || office(a) === owner) &&
+    (owner === ALL || office(a) === owner || collaboratorsOf(a).includes(owner)) &&
     (breakdown === ALL || breakdownState(a) === breakdown) &&
     overlapsDateRange(a.startDate, a.endDate, range) &&
     matchesSearch(query, a.title, a.deliverable, a.leadOwner, ...(a.collaborators ?? []), responsibleName(a), a.description, initiative.title, objective.statement, pillar.title)
@@ -176,7 +192,8 @@ export function PlanStructureView({ pillars, userNames }: { pillars: Pillar[]; u
           <thead>
             <tr>
               <TableHeadCell>Activity</TableHeadCell>
-              <TableHeadCell className="hidden w-60 lg:table-cell">Lead / Owner</TableHeadCell>
+              <TableHeadCell className="hidden w-56 lg:table-cell">Lead / Owner</TableHeadCell>
+              <TableHeadCell className="hidden w-52 lg:table-cell">Collaborating units</TableHeadCell>
               <TableHeadCell className="hidden w-44 md:table-cell">Period</TableHeadCell>
               <TableHeadCell className="w-20 text-right">Weight</TableHeadCell>
               <TableHeadCell className="w-40 text-right">Breakdown</TableHeadCell>
@@ -185,7 +202,7 @@ export function PlanStructureView({ pillars, userNames }: { pillars: Pillar[]; u
           </thead>
           <tbody>
             {matching.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">{narrowed ? "No activities match the search or filters." : "This plan has no activities yet."}</td></tr>
+              <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">{narrowed ? "No activities match the search or filters." : "This plan has no activities yet."}</td></tr>
             )}
             {pillars.map(pillar => {
               const pillarHits = matching.filter(l => l.pillar.id === pillar.id).length;
@@ -221,6 +238,9 @@ export function PlanStructureView({ pillars, userNames }: { pillars: Pillar[]; u
                                   <td className="hidden max-w-0 px-4 py-2.5 lg:table-cell">
                                     <p className="truncate text-foreground/90" title={office(a)}>{office(a)}</p>
                                     <p className="truncate text-xs text-muted-foreground">{responsibleName(a) ?? "Unassigned"}</p>
+                                  </td>
+                                  <td className="hidden max-w-0 px-4 py-2.5 lg:table-cell">
+                                    <CollaboratorList names={collaboratorsOf(a)} />
                                   </td>
                                   <td className="hidden whitespace-nowrap px-4 py-2.5 text-muted-foreground md:table-cell">{span(a)}</td>
                                   <td className="px-4 py-2.5 text-right tabular-nums text-foreground/90">{a.weight}%</td>
@@ -275,7 +295,7 @@ function GroupRow({ depth, open, onToggle, disabled, title, subtitle, weight, co
       depth === 1 && "bg-muted/35",
       depth === 2 && "bg-muted/10"
     )}>
-      <td colSpan={3} className="max-w-0 py-2 pr-4">
+      <td colSpan={4} className="max-w-0 py-2 pr-4">
         <button
           type="button"
           onClick={onToggle}

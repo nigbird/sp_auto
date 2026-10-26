@@ -86,13 +86,9 @@ async function validatePlanSubmission(formData: FormData): Promise<{ ok: true; d
             issues.push({ path: `${path}.responsible`, message: 'The selected responsible person no longer exists. Pick someone else.' });
         }
     });
-    forEachInitiative(data.pillars, (i, path) => {
-        if (i.owners.some(id => !userIds.has(id))) {
-            issues.push({ path: `${path}.owners`, message: 'One of the selected owners no longer exists. Remove them and pick again.' });
-        }
-        if (new Set(i.owners).size !== i.owners.length) {
-            issues.push({ path: `${path}.owners`, message: 'The same person is selected as owner more than once.' });
-        }
+    // An initiative's owners are the people responsible for its activities, in order.
+    forEachInitiative(data.pillars, (i) => {
+        i.owners = Array.from(new Set(i.activities.map(a => a.responsible).filter(id => userIds.has(id))));
     });
 
     if (issues.length > 0) {

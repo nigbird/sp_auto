@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { MultiSelect, type MultiSelectOption } from "@/components/ui/multi-select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useState, useMemo, useEffect } from "react";
 import { unstable_rethrow } from "next/navigation";
@@ -42,7 +41,7 @@ function newActivity(users: Person[]) {
     return { id: randomId('A'), title: '', weight: 0, description: '', deliverable: '', startDate: getToday(), endDate: getOneMonthFromToday(), collaborators: [] as string[], leadOwner: person?.leadOwner ?? '', responsible: person?.id ?? '' };
 }
 function newInitiative(users: Person[]) {
-    return { id: randomId('I'), title: '', description: '', owners: users[0]?.id ? [users[0].id] : [], collaborators: [], activities: [newActivity(users)] };
+    return { id: randomId('I'), title: '', description: '', owners: [], collaborators: [], activities: [newActivity(users)] };
 }
 function newObjective(users: Person[]) {
     return { id: randomId('O'), statement: '', initiatives: [newInitiative(users)] };
@@ -317,7 +316,7 @@ export function EditPlanClient({ users, plan }: EditPlanClientProps) {
                         <EditVisibilityProvider value={visibility}>
                         <Accordion type="multiple" className="w-full space-y-4" {...pillarAccordion}>
                             {pillarFields.map((pillar, pIndex) => (
-                                <PillarAccordion key={pillar.id} pIndex={pIndex} form={form} removePillar={() => removePillar(pIndex)} users={users} peopleOptions={userOptions} userOptions={userOptions} />
+                                <PillarAccordion key={pillar.id} pIndex={pIndex} form={form} removePillar={() => removePillar(pIndex)} users={users} userOptions={userOptions} />
                             ))}
                         </Accordion>
                         </EditVisibilityProvider>
@@ -333,7 +332,7 @@ export function EditPlanClient({ users, plan }: EditPlanClientProps) {
     );
 }
 
-type SectionProps = { form: PlanForm; users: Person[]; peopleOptions: MultiSelectOption[]; userOptions: { value: string; label: string }[] };
+type SectionProps = { form: PlanForm; users: Person[]; userOptions: { value: string; label: string }[] };
 
 type FormPillar = FormValues["pillars"][number];
 type FormObjective = FormPillar["objectives"][number];
@@ -373,7 +372,7 @@ function SectionHeader({ label, title, weight, tone, onRemove, removeLabel, asTr
     );
 }
 
-function PillarAccordion({ pIndex, form, removePillar, users, peopleOptions, userOptions }: SectionProps & { pIndex: number; removePillar: () => void }) {
+function PillarAccordion({ pIndex, form, removePillar, users, userOptions }: SectionProps & { pIndex: number; removePillar: () => void }) {
     const { control, watch } = form;
     const { fields: objectiveFields, append: appendObjective, remove: removeObjective } = useFieldArray({ control, name: `pillars.${pIndex}.objectives` });
     const pillar = watch(`pillars.${pIndex}`);
@@ -392,7 +391,7 @@ function PillarAccordion({ pIndex, form, removePillar, users, peopleOptions, use
 
                 <Accordion type="multiple" className="space-y-3" {...objectiveAccordion}>
                     {objectiveFields.map((objective, oIndex) => (
-                        <ObjectiveAccordion key={objective.id} pIndex={pIndex} oIndex={oIndex} form={form} removeObjective={() => removeObjective(oIndex)} users={users} peopleOptions={peopleOptions} userOptions={userOptions} />
+                        <ObjectiveAccordion key={objective.id} pIndex={pIndex} oIndex={oIndex} form={form} removeObjective={() => removeObjective(oIndex)} users={users} userOptions={userOptions} />
                     ))}
                 </Accordion>
                 <ListIssue path={`pillars.${pIndex}.objectives`} />
@@ -404,7 +403,7 @@ function PillarAccordion({ pIndex, form, removePillar, users, peopleOptions, use
     )
 }
 
-function ObjectiveAccordion({ pIndex, oIndex, form, removeObjective, users, peopleOptions, userOptions }: SectionProps & { pIndex: number; oIndex: number; removeObjective: () => void }) {
+function ObjectiveAccordion({ pIndex, oIndex, form, removeObjective, users, userOptions }: SectionProps & { pIndex: number; oIndex: number; removeObjective: () => void }) {
     const { control, watch } = form;
     const base = `pillars.${pIndex}.objectives.${oIndex}` as const;
     const { fields: initiativeFields, append: appendInitiative, remove: removeInitiative } = useFieldArray({ control, name: `${base}.initiatives` });
@@ -420,7 +419,7 @@ function ObjectiveAccordion({ pIndex, oIndex, form, removeObjective, users, peop
 
                 <div className="space-y-3">
                     {initiativeFields.map((initiative, iIndex) => (
-                        <InitiativeCard key={initiative.id} pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} form={form} removeInitiative={() => removeInitiative(iIndex)} users={users} peopleOptions={peopleOptions} userOptions={userOptions} />
+                        <InitiativeCard key={initiative.id} pIndex={pIndex} oIndex={oIndex} iIndex={iIndex} form={form} removeInitiative={() => removeInitiative(iIndex)} users={users} userOptions={userOptions} />
                     ))}
                 </div>
                 <ListIssue path={`${base}.initiatives`} />
@@ -432,7 +431,7 @@ function ObjectiveAccordion({ pIndex, oIndex, form, removeObjective, users, peop
     );
 }
 
-function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users, peopleOptions, userOptions }: SectionProps & { pIndex: number; oIndex: number; iIndex: number; removeInitiative: () => void }) {
+function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users, userOptions }: SectionProps & { pIndex: number; oIndex: number; iIndex: number; removeInitiative: () => void }) {
     const { control, watch } = form;
     const base = `pillars.${pIndex}.objectives.${oIndex}.initiatives.${iIndex}` as const;
     const initiative = watch(base);
@@ -447,8 +446,6 @@ function InitiativeCard({ pIndex, oIndex, iIndex, form, removeInitiative, users,
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <FormField control={control} name={`${base}.title`} render={({ field }) => <FormItem><Label>Title</Label><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>} />
                     <FormField control={control} name={`${base}.description`} render={({ field }) => <FormItem><Label>Description</Label><FormControl><Textarea {...field} value={field.value ?? ""} rows={1} className="min-h-10" /></FormControl><FormMessage /></FormItem>} />
-                    <FormField control={control} name={`${base}.owners`} render={({ field }) => <FormItem data-field-path={field.name} tabIndex={-1}><Label>Lead/Owner</Label><FormControl><MultiSelect options={peopleOptions} selected={field.value ?? []} onChange={field.onChange} maxVisible={3} /></FormControl><FormMessage /></FormItem>} />
-                    <FormField control={control} name={`${base}.collaborators`} render={({ field }) => <FormItem><Label>Collaborators</Label><FormControl><MultiSelect options={peopleOptions} selected={field.value ?? []} onChange={field.onChange} maxVisible={3} /></FormControl><FormMessage /></FormItem>} />
                 </div>
                 <div className="space-y-2 pt-2">
                     <p className="text-sm font-medium">Activities</p>
