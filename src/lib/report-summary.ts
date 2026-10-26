@@ -18,6 +18,7 @@
 import { formatRatio, rollUp, type ReportRow } from './report-calculations';
 import { buildPerformanceTree, type ReportActivity, type ReportEntryValues, type TreePillar } from './performance-report';
 import { attentionItems, delayedActivities, type InsightActivity } from './performance-insights';
+import type { ActivityDelayRow } from './dashboard-metrics';
 
 // ---------------------------------------------------------------------------
 // Wording corrections
@@ -322,8 +323,12 @@ export function summaryTree(plan: SummaryPlanInput, entries: ReportEntryValues[]
   return buildPerformanceTree(plan.pillars, entries, period.endDate);
 }
 
-/** Writes every section of the summary from the period's reports. */
-export function generateSummary(plan: SummaryPlanInput, entries: ReportEntryValues[], period: SummaryPeriodInput, corrections: SummaryCorrection[] = []): GeneratedSection[] {
+/**
+ * Writes every section of the summary from the period's reports. `delayRows`
+ * (the dashboard's activity delay rows for the period) makes "planned but not
+ * executed" count the same activities as its table.
+ */
+export function generateSummary(plan: SummaryPlanInput, entries: ReportEntryValues[], period: SummaryPeriodInput, corrections: SummaryCorrection[] = [], delayRows?: ActivityDelayRow[]): GeneratedSection[] {
   const tree = summaryTree(plan, entries, period);
   const end = new Date(period.endDate);
   const withInitiative = (pillars: typeof tree) => pillars.flatMap(p => p.objectives.flatMap(o => o.initiatives.flatMap(i => i.activities.map(a => ({ ...a, initiativeId: i.id })))));
@@ -374,17 +379,31 @@ export function generateSummary(plan: SummaryPlanInput, entries: ReportEntryValu
     endDate: a.endDate, reportStatus: a.state, row: a.row, completionDate: a.entry.completionDate,
     reasonForVariation: a.entry.reasonForVariation, wayForward: a.entry.wayForward, escalationIssues: a.entry.escalationIssues,
   })))));
-  const overdue = delayedActivities(insight, end).filter(d => d.kind === 'Overdue');
+  // With the dashboard's delay rows, count exactly what its activity delay table shows
+  // (an activity due on the period end is overdue there); otherwise use the report's own rule.
+  const overdue = delayRows
+    ? delayRows
+        .filter(r => r.delivery === 'overdue' && !r.duplicate)
+        .map(r => ({ activity: r.activity, office: r.stream, daysDelayed: r.daysDelayed ?? 0, status: r.status as string }))
+        .sort((x, y) => y.daysDelayed - x.daysDelayed)
+    : delayedActivities(insight, end).filter(d => d.kind === 'Overdue')
+        .map(d => ({ activity: d.activity, office: d.office, daysDelayed: d.daysDelayed, status: '' }));
   let notExecuted = overdue.length === 0
     ? `Every activity due by ${longDate(end)} has been completed.`
-    : `${plural(overdue.length, 'activity', 'activities')} planned for completion by ${longDate(end)} ${overdue.length === 1 ? 'has' : 'have'} not been completed, as listed below.`;
+    : `${plural(overdue.length, 'activity', 'activities')} planned for completion by ${longDate(end)} ${overdue.length === 1 ? 'has' : 'have'} not been completed.`;
   if (overdue.length > 0) {
+    const statusCounts = new Map<string, number>();
+    for (const d of overdue) if (d.status) statusCounts.set(d.status, (statusCounts.get(d.status) ?? 0) + 1);
+    if (statusCounts.size > 0) {
+      const parts = Array.from(statusCounts).sort(([, x], [, y]) => y - x).map(([s, n]) => `${n} ${n === 1 ? 'is' : 'are'} ${s.toLowerCase()}`);
+      notExecuted += ` Of these, ${parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`}.`;
+    }
     const byOffice = new Map<string, number>();
     for (const d of overdue) byOffice.set(d.office, (byOffice.get(d.office) ?? 0) + 1);
     const ranked = Array.from(byOffice).sort(([xo, x], [yo, y]) => y - x || xo.localeCompare(yo));
     notExecuted += ` By work stream: ${ranked.map(([office, n]) => `${office} (${n})`).join(', ')}.`;
     const worst = overdue[0];
-    notExecuted += ` The longest delay is ${plural(worst.daysDelayed, 'day')}, for “${worst.activity.trim().replace(/[.;:]+$/, '')}” (${worst.office}).`;
+    if (worst.daysDelayed > 0) notExecuted += ` The longest delay is ${plural(worst.daysDelayed, 'day')}, for “${worst.activity.trim().replace(/[.;:]+$/, '')}” (${worst.office}).`;
   }
   sections.push({ key: 'not-executed', level: 1, heading: 'Strategic initiatives / activities planned but not executed', body: notExecuted });
 

@@ -8,7 +8,8 @@
  */
 
 import { formatRatio, formatWeight } from './report-calculations';
-import { DELAY_BUCKET_LABEL, INITIATIVE_STATUS_LABEL, INITIATIVE_STATUS_ORDER, ratingFor, type DashboardMetrics, type DelayBucket } from './dashboard-metrics';
+import { DELAY_BUCKET_LABEL, DELIVERY_STATE_LABEL, INITIATIVE_STATUS_LABEL, INITIATIVE_STATUS_ORDER, ratingFor, type DashboardMetrics, type DelayBucket } from './dashboard-metrics';
+import { delayFilterFromParams, delayFilterToParams, describeDelayFilter, filterDelayRows, formatDays, groupDelayRows, type DelayTableFilter } from './activity-delay-table';
 import type { TrendPoint } from './dashboard-data';
 import { attentionItems, delayedActivities, type InsightActivity } from './performance-insights';
 import type { ReportActivity, TreePillar } from './performance-report';
@@ -27,7 +28,13 @@ export interface SummaryTable {
   note?: string;
 }
 
-export interface TableOption { key: string; label: string; description: string }
+export interface TableOption {
+  key: string;
+  label: string;
+  description: string;
+  /** Takes a filter when added; the section stores the key with its filter ("activity-delays?status=…"). */
+  filterable?: boolean;
+}
 
 /** What tables are built from: the summary's report tree and the dashboard's figures for the same period. */
 export interface TableContext {
@@ -53,6 +60,7 @@ const FIXED: TableOption[] = [
   { key: 'plan-execution', label: 'Summary of strategic plan execution status', description: 'Weighted plan, actual and achievement for every pillar and objective, with rating.' },
   { key: 'stream-performance', label: 'Work stream performance evaluation', description: "Each work stream's achievement, result out of 30 and rating, as on the dashboard." },
   { key: 'initiative-status', label: 'Initiatives by status', description: 'How many initiatives per pillar met the period target, are on track, behind or not started.' },
+  { key: 'activity-delays', label: 'Activity delays (filtered)', description: "The dashboard's activity delay table, filtered by activity status, delivery or work stream — e.g. only In Good Progress and Not In Good Progress.", filterable: true },
   { key: 'delayed', label: 'Activities planned but not executed', description: 'Activities past their due date without an approved completion, with days delayed.' },
   { key: 'delay-ageing', label: 'Delay ageing', description: 'Initiatives and activities by how late they are (on time, up to 30 days, 31–60, …).' },
   { key: 'challenges', label: 'Challenges, way forward and escalations', description: 'Reasons for variation, way forward and issues for management attention from approved reports.' },
@@ -60,6 +68,23 @@ const FIXED: TableOption[] = [
 ];
 
 const OBJECTIVE_PREFIX = 'objective-execution:';
+const DELAYS_KEY = 'activity-delays';
+
+/** The filter stored in an "activity-delays?…" key. */
+export function delayFilterOfKey(key: string): DelayTableFilter {
+  return delayFilterFromParams(new URLSearchParams(key.includes('?') ? key.slice(key.indexOf('?') + 1) : ''));
+}
+
+/** The table key for an activity-delay table with this filter. */
+export function delayTableKey(filter: DelayTableFilter): string {
+  const params = delayFilterToParams(filter).toString();
+  return params ? `${DELAYS_KEY}?${params}` : DELAYS_KEY;
+}
+
+export const isDelayTableKey = (key: string) => key === DELAYS_KEY || key.startsWith(`${DELAYS_KEY}?`);
+
+/** The default for "planned but not executed": activities in progress but not finished. */
+export const IN_PROGRESS_DELAYS_KEY = delayTableKey({ statuses: ['In Good Progress', 'Not In Good Progress'], deliveries: [], stream: '', search: '' });
 
 /** Every table that can be added, for this summary's plan and period. */
 export function tableCatalog(tree: TreePillar<ReportActivity>[]): TableOption[] {
@@ -77,16 +102,24 @@ export function tableCatalog(tree: TreePillar<ReportActivity>[]): TableOption[] 
 export function defaultTables(sectionKey: string): string[] {
   if (sectionKey === 'overview') return ['plan-execution'];
   if (sectionKey === 'workstreams') return ['workstreams', 'stream-performance'];
-  if (sectionKey === 'not-executed') return ['delayed'];
+  if (sectionKey === 'not-executed') return [IN_PROGRESS_DELAYS_KEY];
   if (sectionKey.startsWith('objective:')) return [`${OBJECTIVE_PREFIX}${sectionKey.slice('objective:'.length)}`];
   return [];
 }
 
-/** Keeps only well-formed, distinct keys, at most ten. */
+/** Keeps only well-formed, distinct keys, at most ten; activity-delay filters are re-encoded so only known values are stored. */
 export function sanitizeTableKeys(keys: unknown): string[] | null {
   if (!Array.isArray(keys) || keys.length > MAX_TABLES_PER_SECTION) return null;
-  const ok = keys.every(k => typeof k === 'string' && (FIXED.some(f => f.key === k) || /^objective-execution:[\w-]{1,64}$/.test(k)));
-  return ok ? Array.from(new Set(keys as string[])) : null;
+  const out: string[] = [];
+  for (const k of keys) {
+    if (typeof k !== 'string' || k.length > 600) return null;
+    if (isDelayTableKey(k)) {
+      const f = delayFilterOfKey(k);
+      out.push(delayTableKey({ ...f, stream: f.stream.slice(0, 200), search: f.search.slice(0, 100) }));
+    } else if (FIXED.some(f => f.key === k) || /^objective-execution:[\w-]{1,64}$/.test(k)) out.push(k);
+    else return null;
+  }
+  return Array.from(new Set(out));
 }
 
 // ---------------------------------------------------------------------------
@@ -186,6 +219,33 @@ function delayed(ctx: TableContext): SummaryTable {
   };
 }
 
+/** The dashboard's activity delay table as filtered: one line per activity, stream and initiative shown once per group. */
+function activityDelays(m: DashboardMetrics, key: string): SummaryTable {
+  const filter = delayFilterOfKey(key);
+  const rows = filterDelayRows(m.activityDelayRows, filter);
+  const lines: string[][] = [];
+  for (const s of groupDelayRows(rows)) {
+    s.initiatives.forEach((i, ni) => i.rows.forEach((r, nr) => lines.push([
+      ni === 0 && nr === 0 ? s.stream : '',
+      nr === 0 ? `${i.code} ${strip(i.title)}`.trim() : '',
+      strip(r.activity),
+      r.deliverable ? strip(r.deliverable) : '',
+      day(r.dueDate),
+      day(r.completionDate),
+      formatDays(r.daysDelayed),
+      r.status,
+      DELIVERY_STATE_LABEL[r.delivery],
+    ])));
+  }
+  return {
+    title: 'Activity delays',
+    head: ['Work stream', 'Initiative', 'Major activity', 'Deliverable', 'Due date', 'Completed', '# of days delayed', 'Activity status', 'Delivery'],
+    rows: lines.length ? lines : [['No activities match this filter.', '', '', '', '', '', '', '', '']],
+    widths: [13, 15, 19, 13, 8, 8, 7, 10, 7], center: [4, 5, 6],
+    note: `${describeDelayFilter(filter)} · ${rows.length} activit${rows.length === 1 ? 'y' : 'ies'}. Days delayed = completion date (or period end if open) − due date; negative = days still to go.`,
+  };
+}
+
 function delayAgeing(m: DashboardMetrics): SummaryTable {
   const buckets: DelayBucket[] = ['onTime', 'd1_30', 'd31_60', 'd61_90', 'd90plus', 'notElapsed'];
   return {
@@ -250,6 +310,7 @@ export function buildTables(ctx: TableContext, keys: string[]): Record<string, S
     else if (key === 'plan-execution') table = m && planExecution(m);
     else if (key === 'stream-performance') table = m && streamPerformance(m);
     else if (key === 'initiative-status') table = m && initiativeStatus(m);
+    else if (isDelayTableKey(key)) table = m && activityDelays(m, key);
     else if (key === 'delayed') table = delayed(ctx);
     else if (key === 'delay-ageing') table = m && delayAgeing(m);
     else if (key === 'challenges') table = challenges(ctx);

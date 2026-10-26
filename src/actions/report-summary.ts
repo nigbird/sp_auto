@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { requirePermission, userCan } from '@/lib/auth/permissions-server';
 import { recordAudit } from '@/lib/auth/audit';
 import { generateSummary, MAX_CORRECTIONS, parseCorrections, type SummaryCorrection } from '@/lib/report-summary';
-import { loadSummaryCorrections, loadSummarySource, loadSummaryTables } from '@/lib/report-summary-data';
+import { loadSummaryCorrections, loadSummarySource, loadSummaryTables, loadTableContext } from '@/lib/report-summary-data';
 import { defaultTables, sanitizeTableKeys } from '@/lib/summary-tables';
 
 /** Returned rather than thrown so the message survives Next.js' production error masking. */
@@ -31,7 +31,7 @@ export async function getReportSummaryPage(strategicPlanId: string, periodId?: s
     const selected = (periodId && periods.find(p => p.id === periodId)) || withRequests[withRequests.length - 1] || null;
     const source = selected ? await loadSummarySource(selected.id) : null;
     const canEdit = userCan(user, 'reports:summary');
-    const tables = source ? await loadSummaryTables(source) : { tables: {}, catalog: [] };
+    const tables = source ? await loadSummaryTables(source) : { tables: {}, catalog: [], delayStreams: [] };
     return JSON.parse(JSON.stringify({
         periods,
         selected,
@@ -48,6 +48,7 @@ export async function getReportSummaryPage(strategicPlanId: string, periodId?: s
             : null,
         tables: tables.tables,
         tableCatalog: tables.catalog,
+        delayStreams: tables.delayStreams,
         corrections: canEdit ? await loadSummaryCorrections() : [],
         canEdit,
         canExport: userCan(user, 'reports:export'),
@@ -65,7 +66,9 @@ export async function generateReportSummary(periodId: string, options: { overwri
     if (!source) return fail('That reporting period no longer exists.');
     if (source.entries.length === 0) return fail(`No reports have been requested for ${source.period.name} yet, so there is nothing to summarise.`);
 
-    const generated = generateSummary(source.plan, source.entries, source.period, await loadSummaryCorrections());
+    const corrections = await loadSummaryCorrections();
+    const tableContext = await loadTableContext(source, corrections);
+    const generated = generateSummary(source.plan, source.entries, source.period, corrections, tableContext.metrics?.activityDelayRows);
     let kept = 0;
     await prisma.$transaction(async tx => {
         const summary = await tx.reportSummary.upsert({
