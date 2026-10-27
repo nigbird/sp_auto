@@ -120,6 +120,10 @@ model ReportSummarySection {
   generatedBody String
   // Tables shown under the text, by key ("workstreams", "objective-execution:<id>", ...); filled from live data.
   tables        String[]      @default([])
+  // The heading was renamed by hand; regenerating keeps it.
+  headingEdited Boolean       @default(false)
+  // A generated section someone deleted: kept (hidden) so regenerating doesn't bring it back.
+  hidden        Boolean       @default(false)
   editedAt      DateTime?
   editedById    String?
 
