@@ -67,10 +67,9 @@ export async function loadTableContext(source: SummarySource, corrections?: Summ
   };
 }
 
-/** The tables used by the saved sections, every table that could be added, and the work streams the delay filter offers. */
-export async function loadSummaryTables(source: SummarySource): Promise<{ tables: Record<string, SummaryTable>; catalog: TableOption[]; delayStreams: string[] }> {
+/** The tables used by the visible sections, and every table that could be added with how it can be filtered. */
+export async function loadSummaryTables(source: SummarySource): Promise<{ tables: Record<string, SummaryTable>; catalog: TableOption[] }> {
   const ctx = await loadTableContext(source);
-  const keys = (source.summary?.sections ?? []).flatMap(s => s.tables);
-  const delayStreams = Array.from(new Set((ctx.metrics?.activityDelayRows ?? []).map(r => r.stream))).sort((a, b) => a.localeCompare(b));
-  return { tables: buildTables(ctx, keys), catalog: tableCatalog(ctx.tree), delayStreams };
+  const keys = (source.summary?.sections ?? []).filter(s => !s.hidden).flatMap(s => s.tables);
+  return { tables: buildTables(ctx, keys), catalog: tableCatalog(ctx) };
 }

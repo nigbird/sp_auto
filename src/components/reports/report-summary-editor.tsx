@@ -3,15 +3,13 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { ArrowDown, ArrowUp, Check, Filter, Loader2, Pencil, Plus, RotateCcw, Search, Sparkles, SpellCheck, Table2, Trash2, X } from "lucide-react";
-import { deleteReportSummary, generateReportSummary, resetSummarySection, saveSummarySection, setSectionTables, updateSummaryCorrections } from "@/actions/report-summary";
+import { ArrowDown, ArrowUp, Check, Filter, Loader2, MoreHorizontal, Pencil, Plus, RotateCcw, Search, Sparkles, SpellCheck, Table2, Trash2, Type, X } from "lucide-react";
+import {
+  addSummarySection, deleteReportSummary, deleteSummarySection, generateReportSummary, renameSummarySection, resetSummarySection,
+  restoreSummarySection, saveSummarySection, setSectionTables, updateSummaryCorrections,
+} from "@/actions/report-summary";
 import { parseBody, type SummaryCorrection } from "@/lib/report-summary";
-import { delayFilterOfKey, delayTableKey, isDelayTableKey, type SummaryTable, type TableOption } from "@/lib/summary-tables";
-import { ACTIVITY_STATUS_ORDER, DELIVERY_STATE_LABEL } from "@/lib/dashboard-metrics";
-import { DELIVERY_ORDER, EMPTY_DELAY_FILTER, type DelayTableFilter } from "@/lib/activity-delay-table";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { parseTableKey, tableKeyOf, type FilterField, type FilterValues, type SummaryTable, type TableOption } from "@/lib/summary-tables";
 import { describeError } from "@/lib/action-error";
 import { useToast } from "@/hooks/use-toast";
 import { ExportMenu } from "@/components/export-menu";
@@ -19,38 +17,85 @@ import { EmptyState } from "@/components/empty-state";
 import { PeriodSelect, type PeriodSelectOption } from "./period-select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-export interface SummarySection { id: string; key: string; level: number; heading: string; body: string; tables: string[]; edited: boolean; editedAt: string | null; updatedAt: string }
+export interface SummarySection {
+  id: string;
+  key: string;
+  level: number;
+  heading: string;
+  body: string;
+  tables: string[];
+  /** Added by someone rather than generated. */
+  custom: boolean;
+  headingEdited: boolean;
+  edited: boolean;
+  editedAt: string | null;
+  updatedAt: string;
+}
 
 export interface SummaryPageData {
   periods: (PeriodSelectOption & { startDate: string; endDate: string })[];
   selected: (PeriodSelectOption & { startDate: string; endDate: string }) | null;
   hasReports: boolean;
-  summary: { id: string; generatedAt: string; sections: SummarySection[] } | null;
+  summary: { id: string; generatedAt: string; sections: SummarySection[]; removed: { id: string; heading: string }[] } | null;
   /** Built from live data for the tables the sections use. */
   tables: Record<string, SummaryTable>;
   tableCatalog: TableOption[];
-  /** Work streams the activity delay filter can narrow to. */
-  delayStreams: string[];
   corrections: SummaryCorrection[];
   canEdit: boolean;
   canExport: boolean;
 }
 
-/** The report summary for one period: generate it, edit each section, and export it to Word or PDF. */
+type ActionResult = { success: boolean; message?: string };
+
+/** Runs a server action with a busy flag and a toast, then refreshes the page. */
+function useAction() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [busy, setBusy] = React.useState(false);
+  const run = React.useCallback(async (action: () => Promise<ActionResult>, done: string, onDone?: () => void) => {
+    setBusy(true);
+    try {
+      const result = await action();
+      if (!result.success) { toast({ title: "Not saved", description: result.message, variant: "destructive" }); return false; }
+      toast({ title: done });
+      onDone?.();
+      router.refresh();
+      return true;
+    } catch (error) {
+      toast({ title: "Not saved", description: describeError(error), variant: "destructive" });
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }, [router, toast]);
+  return { busy, run };
+}
+
+type SectionDialogState = { mode: "add"; afterId: string | null } | { mode: "rename"; section: SummarySection };
+
+/** The report summary for one period: generate it, edit and arrange its sections and tables, and export it to Word or PDF. */
 export function ReportSummaryEditor({ planId, data }: { planId: string; data: SummaryPageData }) {
   const router = useRouter();
   const { toast } = useToast();
+  const { busy, run } = useAction();
   const [generating, setGenerating] = React.useState(false);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [correctionsOpen, setCorrectionsOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
+  const [sectionDialog, setSectionDialog] = React.useState<SectionDialogState | null>(null);
+  const [removing, setRemoving] = React.useState<SummarySection | null>(null);
   const { selected, summary, canEdit } = data;
 
   if (!selected) {
@@ -74,9 +119,9 @@ export function ReportSummaryEditor({ planId, data }: { planId: string; data: Su
     }
   };
 
-  const onGenerateClick = () => (editedCount > 0 ? setConfirmOpen(true) : generate(false));
+  const onGenerateClick = () => (editedCount > 0 || (summary?.removed.length ?? 0) > 0 ? setConfirmOpen(true) : generate(false));
 
-  const remove = async () => {
+  const removeSummary = async () => {
     setDeleting(true);
     try {
       const result = await deleteReportSummary(selected.id);
@@ -140,13 +185,45 @@ export function ReportSummaryEditor({ planId, data }: { planId: string; data: Su
           <p className="text-xs text-muted-foreground">
             Generated {format(new Date(summary.generatedAt), "PPp")} from approved reports.
             {editedCount > 0 && ` ${editedCount} section${editedCount === 1 ? " has" : "s have"} been edited.`}
-            {canEdit && " Regenerating keeps edited sections unless you choose to replace them."}
+            {canEdit && " Regenerating keeps your edits, renamed titles, removed sections and the sections you added, unless you choose to replace them."}
           </p>
           <div className="space-y-3">
             {summary.sections.map(section => (
-              <SectionCard key={section.id} section={section} canEdit={canEdit} tables={data.tables} catalog={data.tableCatalog} delayStreams={data.delayStreams} />
+              <SectionCard
+                key={section.id}
+                section={section}
+                canEdit={canEdit}
+                tables={data.tables}
+                catalog={data.tableCatalog}
+                onRename={() => setSectionDialog({ mode: "rename", section })}
+                onAddBelow={() => setSectionDialog({ mode: "add", afterId: section.id })}
+                onDelete={() => setRemoving(section)}
+              />
             ))}
           </div>
+
+          {canEdit && (
+            <Button variant="outline" className="w-full border-dashed" onClick={() => setSectionDialog({ mode: "add", afterId: null })}>
+              <Plus className="mr-2 h-4 w-4" /> Add section
+            </Button>
+          )}
+
+          {canEdit && summary.removed.length > 0 && (
+            <div className="rounded-xl border border-dashed border-border/70 p-4">
+              <h3 className="text-sm font-medium text-foreground">Removed sections ({summary.removed.length})</h3>
+              <p className="mb-2 text-xs text-muted-foreground">Left out of the summary and its exports. Regenerating won&apos;t bring them back; restore them here.</p>
+              <ul className="space-y-1">
+                {summary.removed.map(r => (
+                  <li key={r.id} className="flex items-center justify-between gap-2 rounded-md px-2 py-1 text-sm hover:bg-muted/50">
+                    <span className="min-w-0 truncate text-muted-foreground">{r.heading}</span>
+                    <Button variant="ghost" size="sm" className="h-7 shrink-0" disabled={busy} onClick={() => run(() => restoreSummarySection(r.id), "Section restored")}>
+                      <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Restore
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </>
       )}
 
@@ -155,13 +232,13 @@ export function ReportSummaryEditor({ planId, data }: { planId: string; data: Su
           <AlertDialogHeader>
             <AlertDialogTitle>Regenerate the summary?</AlertDialogTitle>
             <AlertDialogDescription>
-              {editedCount} section{editedCount === 1 ? " has" : "s have"} been edited. You can keep those edits and refresh only the other sections, or replace everything with newly generated text.
+              You can keep your changes (edited text, renamed titles, removed sections and chosen tables) and refresh only the rest, or replace everything with a fresh draft. Sections you added yourself are kept either way.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <Button variant="outline" onClick={() => generate(true)}>Replace edited sections too</Button>
-            <AlertDialogAction onClick={() => generate(false)}>Keep my edits</AlertDialogAction>
+            <Button variant="outline" onClick={() => generate(true)}>Replace everything</Button>
+            <AlertDialogAction onClick={() => generate(false)}>Keep my changes</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -176,13 +253,33 @@ export function ReportSummaryEditor({ planId, data }: { planId: string; data: Su
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <Button variant="destructive" onClick={remove} disabled={deleting}>
+            <Button variant="destructive" onClick={removeSummary} disabled={deleting}>
               {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Delete summary
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={removing !== null} onOpenChange={open => { if (!open && !busy) setRemoving(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{removing?.custom ? "Delete" : "Remove"} “{removing?.heading}”?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {removing?.custom
+                ? "This section and its text and tables are deleted. It can't be undone."
+                : "The section is left out of the summary and its exports, and regenerating won't bring it back. You can restore it from “Removed sections” at the bottom of the page."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+            <Button variant="destructive" disabled={busy} onClick={() => removing && run(() => deleteSummarySection(removing.id), removing.custom ? "Section deleted" : "Section removed", () => setRemoving(null))}>
+              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {removing?.custom ? "Delete section" : "Remove section"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {canEdit && <SectionDialog state={sectionDialog} periodId={selected.id} onClose={() => setSectionDialog(null)} />}
       {canEdit && <CorrectionsDialog open={correctionsOpen} onOpenChange={setCorrectionsOpen} initial={data.corrections} />}
     </div>
   );
@@ -190,7 +287,7 @@ export function ReportSummaryEditor({ planId, data }: { planId: string; data: Su
 
 function SectionBody({ body }: { body: string }) {
   const blocks = parseBody(body);
-  if (blocks.length === 0) return <p className="text-sm italic text-muted-foreground">This section is empty.</p>;
+  if (blocks.length === 0) return <p className="text-sm italic text-muted-foreground">This section has no text yet.</p>;
   return (
     <div className="space-y-2 text-sm leading-relaxed text-foreground">
       {blocks.map((b, n) => b.type === "paragraph"
@@ -200,61 +297,74 @@ function SectionBody({ body }: { body: string }) {
   );
 }
 
-function SectionCard({ section, canEdit, tables, catalog, delayStreams }: { section: SummarySection; canEdit: boolean; tables: Record<string, SummaryTable>; catalog: TableOption[]; delayStreams: string[] }) {
-  const router = useRouter();
-  const { toast } = useToast();
+/** The catalog entry for a table key (its name without the filter). */
+const optionFor = (catalog: TableOption[], key: string) => catalog.find(o => o.key === parseTableKey(key).base);
+
+function SectionCard({ section, canEdit, tables, catalog, onRename, onAddBelow, onDelete }: {
+  section: SummarySection;
+  canEdit: boolean;
+  tables: Record<string, SummaryTable>;
+  catalog: TableOption[];
+  onRename: () => void;
+  onAddBelow: () => void;
+  onDelete: () => void;
+}) {
+  const { busy, run } = useAction();
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(section.body);
-  const [busy, setBusy] = React.useState(false);
   const [pickerOpen, setPickerOpen] = React.useState(false);
-  /** The activity delay filter being chosen: for a new table (index null), or for the table at `index`. */
-  const [filterTarget, setFilterTarget] = React.useState<{ index: number | null; initial: DelayTableFilter } | null>(null);
-
-  const applyFilter = (filter: DelayTableFilter) => {
-    if (!filterTarget) return;
-    const key = delayTableKey(filter);
-    const next = filterTarget.index == null
-      ? [...section.tables, key]
-      : section.tables.map((k, n) => (n === filterTarget.index ? key : k));
-    const added = filterTarget.index == null;
-    setFilterTarget(null);
-    run(() => setSectionTables(section.id, next, section.updatedAt), added ? "Table added" : "Filter updated");
-  };
+  /** The table whose filter is being chosen: a new one (index null) or the one at `index`. */
+  const [filterTarget, setFilterTarget] = React.useState<{ option: TableOption; index: number | null; initial: FilterValues } | null>(null);
 
   React.useEffect(() => { if (!editing) setDraft(section.body); }, [section.body, editing]);
 
-  const run = async (action: () => Promise<{ success: boolean; message?: string }>, done: string) => {
-    setBusy(true);
-    try {
-      const result = await action();
-      if (!result.success) { toast({ title: "Not saved", description: result.message, variant: "destructive" }); return; }
-      toast({ title: done });
-      setEditing(false);
-      router.refresh();
-    } catch (error) {
-      toast({ title: "Not saved", description: describeError(error), variant: "destructive" });
-    } finally {
-      setBusy(false);
-    }
+  const saveTables = (next: string[], done: string) => run(() => setSectionTables(section.id, next, section.updatedAt), done);
+
+  const applyFilter = (values: FilterValues) => {
+    if (!filterTarget) return;
+    const key = tableKeyOf(filterTarget.option.key, values);
+    const next = filterTarget.index == null
+      ? [...section.tables, key]
+      : section.tables.map((k, n) => (n === filterTarget.index ? key : k));
+    const adding = filterTarget.index == null;
+    setFilterTarget(null);
+    saveTables(next, adding ? "Table added" : "Filter updated");
   };
 
   return (
     <section className={`rounded-xl border border-border/60 bg-card p-4 ${section.level === 2 ? "sm:ml-6" : ""}`}>
       <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h2 className={section.level === 1 ? "text-base font-semibold text-foreground" : "text-sm font-semibold text-foreground"}>{section.heading}</h2>
+          {section.custom && <Badge variant="outline">Added section</Badge>}
           {section.edited && <Badge variant="secondary">Edited{section.editedAt ? ` ${format(new Date(section.editedAt), "PP")}` : ""}</Badge>}
         </div>
         {canEdit && !editing && (
-          <div className="flex gap-1">
+          <div className="flex items-center gap-1">
             {section.edited && (
               <Button variant="ghost" size="sm" disabled={busy} onClick={() => run(() => resetSummarySection(section.id), "Section reset to the generated text")}>
                 <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Reset
               </Button>
             )}
             <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
-              <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
+              <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit text
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`More actions for ${section.heading}`}>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem onSelect={onRename}><Type className="mr-2 h-4 w-4" /> Rename title</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setPickerOpen(true)} disabled={section.tables.length >= 10}><Table2 className="mr-2 h-4 w-4" /> Add table</DropdownMenuItem>
+                <DropdownMenuItem onSelect={onAddBelow}><Plus className="mr-2 h-4 w-4" /> Add section below</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={onDelete} className="text-destructive focus:text-destructive">
+                  <Trash2 className="mr-2 h-4 w-4" /> {section.custom ? "Delete section" : "Remove section"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </div>
@@ -271,7 +381,7 @@ function SectionCard({ section, canEdit, tables, catalog, delayStreams }: { sect
           />
           <p className="text-xs text-muted-foreground">Leave a blank line between paragraphs. Start a line with “- ” to make it a bullet point.</p>
           <div className="flex gap-2">
-            <Button size="sm" disabled={busy} onClick={() => run(() => saveSummarySection(section.id, draft, section.updatedAt), "Section saved")}>
+            <Button size="sm" disabled={busy} onClick={() => run(() => saveSummarySection(section.id, draft, section.updatedAt), "Section saved", () => setEditing(false))}>
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save
             </Button>
             <Button size="sm" variant="outline" disabled={busy} onClick={() => { setDraft(section.body); setEditing(false); }}>Cancel</Button>
@@ -283,7 +393,9 @@ function SectionCard({ section, canEdit, tables, catalog, delayStreams }: { sect
 
       {section.tables.map((key, n) => {
         const table = tables[key];
-        const option = catalog.find(o => o.key === key);
+        const option = optionFor(catalog, key);
+        const filterable = !!option?.filters?.length;
+        const filtered = Object.keys(parseTableKey(key).values).length > 0;
         const move = (to: number) => {
           const next = [...section.tables];
           next.splice(n, 1);
@@ -293,17 +405,20 @@ function SectionCard({ section, canEdit, tables, catalog, delayStreams }: { sect
         return (
           <div key={key} className="mt-4">
             <div className="mb-1.5 flex items-center justify-between gap-2">
-              <h3 className="text-sm font-medium text-foreground">{table?.title ?? option?.label ?? "Table"}</h3>
+              <div className="flex min-w-0 items-center gap-2">
+                <h3 className="text-sm font-medium text-foreground">{table?.title ?? option?.label ?? "Table"}</h3>
+                {filtered && <Badge variant="secondary" className="shrink-0"><Filter className="mr-1 h-3 w-3" /> Filtered</Badge>}
+              </div>
               {canEdit && (
                 <div className="flex shrink-0 gap-0.5">
-                  {isDelayTableKey(key) && (
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" disabled={busy} onClick={() => setFilterTarget({ index: n, initial: delayFilterOfKey(key) })}>
+                  {filterable && (
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" disabled={busy} onClick={() => setFilterTarget({ option: option!, index: n, initial: parseTableKey(key).values })}>
                       <Filter className="mr-1 h-3.5 w-3.5" /> Filter
                     </Button>
                   )}
-                  <Button variant="ghost" size="icon" className="h-7 w-7" disabled={busy || n === 0} onClick={() => run(() => setSectionTables(section.id, move(n - 1), section.updatedAt), "Table moved")} aria-label="Move table up"><ArrowUp className="h-3.5 w-3.5" /></Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" disabled={busy || n === section.tables.length - 1} onClick={() => run(() => setSectionTables(section.id, move(n + 1), section.updatedAt), "Table moved")} aria-label="Move table down"><ArrowDown className="h-3.5 w-3.5" /></Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" disabled={busy} onClick={() => run(() => setSectionTables(section.id, section.tables.filter(k => k !== key), section.updatedAt), "Table removed")} aria-label="Remove table"><X className="h-3.5 w-3.5" /></Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" disabled={busy || n === 0} onClick={() => saveTables(move(n - 1), "Table moved")} aria-label="Move table up"><ArrowUp className="h-3.5 w-3.5" /></Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" disabled={busy || n === section.tables.length - 1} onClick={() => saveTables(move(n + 1), "Table moved")} aria-label="Move table down"><ArrowDown className="h-3.5 w-3.5" /></Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" disabled={busy} onClick={() => saveTables(section.tables.filter(k => k !== key), "Table removed")} aria-label="Remove table"><X className="h-3.5 w-3.5" /></Button>
                 </div>
               )}
             </div>
@@ -325,18 +440,20 @@ function SectionCard({ section, canEdit, tables, catalog, delayStreams }: { sect
           sectionHeading={section.heading}
           catalog={catalog}
           added={section.tables}
-          onAdd={key => { setPickerOpen(false); run(() => setSectionTables(section.id, [...section.tables, key], section.updatedAt), "Table added"); }}
-          onConfigure={() => { setPickerOpen(false); setFilterTarget({ index: null, initial: { ...EMPTY_DELAY_FILTER, statuses: ["In Good Progress", "Not In Good Progress"] } }); }}
+          onAdd={key => { setPickerOpen(false); saveTables([...section.tables, key], "Table added"); }}
+          onAddFiltered={option => {
+            setPickerOpen(false);
+            // Activity delays usually goes in filtered to the activities still in progress.
+            const initial: FilterValues = option.key === "activity-delays" ? { status: ["In Good Progress", "Not In Good Progress"] } : {};
+            setFilterTarget({ option, index: null, initial });
+          }}
         />
       )}
 
       {canEdit && (
-        <DelayFilterDialog
-          open={filterTarget !== null}
-          onOpenChange={open => { if (!open) setFilterTarget(null); }}
-          adding={filterTarget?.index == null}
-          initial={filterTarget?.initial ?? EMPTY_DELAY_FILTER}
-          streams={delayStreams}
+        <TableFilterDialog
+          target={filterTarget}
+          onClose={() => setFilterTarget(null)}
           onApply={applyFilter}
         />
       )}
@@ -367,15 +484,80 @@ function SummaryTableView({ table }: { table: SummaryTable }) {
   );
 }
 
-function TablePickerDialog({ open, onOpenChange, sectionHeading, catalog, added, onAdd, onConfigure }: {
+/** Adds a section of your own, or renames a section and sets its heading level. */
+function SectionDialog({ state, periodId, onClose }: { state: SectionDialogState | null; periodId: string; onClose: () => void }) {
+  const { busy, run } = useAction();
+  const [heading, setHeading] = React.useState("");
+  const [level, setLevel] = React.useState("1");
+  const [body, setBody] = React.useState("");
+
+  React.useEffect(() => {
+    if (!state) return;
+    setHeading(state.mode === "rename" ? state.section.heading : "");
+    setLevel(String(state.mode === "rename" ? state.section.level : 1));
+    setBody("");
+  }, [state]);
+
+  const adding = state?.mode === "add";
+  const save = () => {
+    if (!state) return;
+    if (state.mode === "rename") {
+      run(() => renameSummarySection(state.section.id, heading, Number(level), state.section.updatedAt), "Title saved", onClose);
+    } else {
+      run(() => addSummarySection(periodId, { heading, level: Number(level), body, afterSectionId: state.afterId }), "Section added", onClose);
+    }
+  };
+
+  return (
+    <Dialog open={state !== null} onOpenChange={open => { if (!open && !busy) onClose(); }}>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>{adding ? "Add a section" : "Rename section"}</DialogTitle>
+          <DialogDescription>
+            {adding
+              ? "Your own section, for anything the generated summary doesn't cover. Regenerating never changes or removes it. You can add tables to it afterwards."
+              : "The new title is kept when the summary is regenerated."}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="section-heading">Title</Label>
+            <Input id="section-heading" value={heading} onChange={e => setHeading(e.target.value)} maxLength={300} placeholder="e.g. Key achievements of the quarter" autoFocus />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Shown as</Label>
+            <RadioGroup value={level} onValueChange={setLevel} className="flex gap-4">
+              <Label className="flex cursor-pointer items-center gap-2 font-normal"><RadioGroupItem value="1" /> Main heading</Label>
+              <Label className="flex cursor-pointer items-center gap-2 font-normal"><RadioGroupItem value="2" /> Sub-heading</Label>
+            </RadioGroup>
+          </div>
+          {adding && (
+            <div className="space-y-1.5">
+              <Label htmlFor="section-body">Text <span className="font-normal text-muted-foreground">(optional)</span></Label>
+              <Textarea id="section-body" value={body} onChange={e => setBody(e.target.value)} rows={6} maxLength={20000} className="text-sm leading-relaxed" />
+              <p className="text-xs text-muted-foreground">Leave a blank line between paragraphs. Start a line with “- ” to make it a bullet point.</p>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button onClick={save} disabled={busy || !heading.trim()}>
+            {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {adding ? "Add section" : "Save title"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function TablePickerDialog({ open, onOpenChange, sectionHeading, catalog, added, onAdd, onAddFiltered }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sectionHeading: string;
   catalog: TableOption[];
   added: string[];
   onAdd: (key: string) => void;
-  /** For a filterable table: choose its filter before adding. */
-  onConfigure: (key: string) => void;
+  onAddFiltered: (option: TableOption) => void;
 }) {
   const [query, setQuery] = React.useState("");
   React.useEffect(() => { if (open) setQuery(""); }, [open]);
@@ -393,7 +575,7 @@ function TablePickerDialog({ open, onOpenChange, sectionHeading, catalog, added,
         <DialogHeader>
           <DialogTitle>Add a table</DialogTitle>
           <DialogDescription>
-            Shown under “{sectionHeading}”. Tables are filled from the dashboard and the approved reports each time the summary is opened or exported.
+            Shown under “{sectionHeading}”. Tables are filled from the dashboard and the approved reports each time the summary is opened or exported. Tables marked with a filter can show just part of their rows.
           </DialogDescription>
         </DialogHeader>
         <div className="relative">
@@ -406,25 +588,30 @@ function TablePickerDialog({ open, onOpenChange, sectionHeading, catalog, added,
             <div key={g.title} className="space-y-2">
               <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{g.title}</h3>
               {g.options.map(o => {
-                // A filterable table can be added more than once, with different filters.
-                const isAdded = !o.filterable && added.includes(o.key);
+                const filterable = !!o.filters?.length;
+                // The unfiltered table can be added once; filtered versions as often as needed.
+                const isAdded = added.includes(o.key);
                 return (
-                  <button
-                    key={o.key}
-                    type="button"
-                    disabled={isAdded}
-                    onClick={() => (o.filterable ? onConfigure(o.key) : onAdd(o.key))}
-                    className="flex w-full items-start gap-3 rounded-lg border border-border/60 p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-60 disabled:hover:border-border/60 disabled:hover:bg-transparent"
-                  >
+                  <div key={o.key} className="flex items-start gap-3 rounded-lg border border-border/60 p-3">
                     <Table2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium text-foreground">{o.label}</span>
-                      <span className="block text-xs text-muted-foreground">{o.description}</span>
-                    </span>
-                    {isAdded
-                      ? <Badge variant="secondary" className="shrink-0"><Check className="mr-1 h-3 w-3" /> Added</Badge>
-                      : <span className="shrink-0 text-xs font-medium text-primary">{o.filterable ? "Choose filter…" : "Add"}</span>}
-                  </button>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium text-foreground">{o.label}</span>
+                        {filterable && <Badge variant="outline" className="text-[10px]"><Filter className="mr-1 h-2.5 w-2.5" /> {o.filters!.map(f => f.label.toLowerCase()).join(", ")}</Badge>}
+                      </div>
+                      <p className="text-xs text-muted-foreground">{o.description}</p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center">
+                      {filterable && (
+                        <Button variant="outline" size="sm" className="h-8" onClick={() => onAddFiltered(o)}>
+                          <Filter className="mr-1.5 h-3.5 w-3.5" /> Add filtered
+                        </Button>
+                      )}
+                      {isAdded
+                        ? <Badge variant="secondary" className="h-8"><Check className="mr-1 h-3 w-3" /> Added</Badge>
+                        : <Button size="sm" className="h-8" onClick={() => onAdd(o.key)}>Add</Button>}
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -435,92 +622,85 @@ function TablePickerDialog({ open, onOpenChange, sectionHeading, catalog, added,
   );
 }
 
-const ALL_STREAMS = "__all__";
+const ANY = "__any__";
 const toggleIn = <T,>(list: T[], item: T) => (list.includes(item) ? list.filter(x => x !== item) : [...list, item]);
 
-/** Chooses the filter of an activity delay table: activity status, delivery, work stream and search, as on the dashboard. */
-function DelayFilterDialog({ open, onOpenChange, adding, initial, streams, onApply }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  adding: boolean;
-  initial: DelayTableFilter;
-  streams: string[];
-  onApply: (filter: DelayTableFilter) => void;
+/** Chooses which rows a table shows, using the fields that table can be filtered by. */
+function TableFilterDialog({ target, onClose, onApply }: {
+  target: { option: TableOption; index: number | null; initial: FilterValues } | null;
+  onClose: () => void;
+  onApply: (values: FilterValues) => void;
 }) {
-  const [filter, setFilter] = React.useState<DelayTableFilter>(initial);
-  React.useEffect(() => { if (open) setFilter(initial); }, [open, initial]);
-  const update = (patch: Partial<DelayTableFilter>) => setFilter(f => ({ ...f, ...patch }));
-  const inProgressOnly = filter.statuses.length === 2 && filter.statuses.includes("In Good Progress") && filter.statuses.includes("Not In Good Progress");
+  const [values, setValues] = React.useState<FilterValues>({});
+  React.useEffect(() => { if (target) setValues(target.initial); }, [target]);
+  const set = (name: string, list: string[]) => setValues(v => ({ ...v, [name]: list }));
+  const fields: FilterField[] = target?.option.filters ?? [];
+  const adding = target?.index == null;
+
+  const field = (f: FilterField) => {
+    const chosen = values[f.name] ?? [];
+    if (f.kind === "text") {
+      return <Input value={chosen[0] ?? ""} onChange={e => set(f.name, e.target.value ? [e.target.value] : [])} placeholder="Activity, initiative or work stream" maxLength={100} aria-label={f.label} />;
+    }
+    if (f.kind === "select") {
+      return (
+        <Select value={chosen[0] ?? ANY} onValueChange={v => set(f.name, v === ANY ? [] : [v])}>
+          <SelectTrigger aria-label={f.label}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ANY}>All</SelectItem>
+            {f.options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      );
+    }
+    if (f.options.length === 0) return <p className="text-xs text-muted-foreground">Nothing to choose from in this period.</p>;
+    return (
+      <div className={`grid gap-2 ${f.options.length > 6 ? "max-h-56 overflow-y-auto pr-1" : ""} sm:grid-cols-2`}>
+        {f.options.map(o => (
+          <Label key={o.value} className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 px-3 py-2 text-sm font-normal hover:bg-muted/50">
+            <Checkbox checked={chosen.includes(o.value)} onCheckedChange={() => set(f.name, toggleIn(chosen, o.value))} />
+            <span className="min-w-0">{o.label}</span>
+          </Label>
+        ))}
+      </div>
+    );
+  };
+
+  const statusField = fields.find(f => f.name === "status" && f.options.some(o => o.value === "In Good Progress"));
+  const inProgress = ["In Good Progress", "Not In Good Progress"];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={target !== null} onOpenChange={open => { if (!open) onClose(); }}>
       <DialogContent className="flex max-h-[85vh] flex-col gap-4 sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>{adding ? "Add activity delay table" : "Filter activity delay table"}</DialogTitle>
-          <DialogDescription>
-            Same rows as the dashboard&apos;s activity delay table. Leave a group empty to include everything in it.
-          </DialogDescription>
+          <DialogTitle>{adding ? "Add filtered table" : "Filter table"}: {target?.option.label}</DialogTitle>
+          <DialogDescription>Choose which rows to show. Leave a group empty to include everything in it.</DialogDescription>
         </DialogHeader>
 
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-1 pb-1">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-medium text-foreground">Activity status</h3>
-              <Button
-                type="button"
-                variant={inProgressOnly ? "secondary" : "outline"}
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => update({ statuses: ["In Good Progress", "Not In Good Progress"] })}
-              >
-                In progress only
-              </Button>
+          {fields.map(f => (
+            <div key={f.name} className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-medium text-foreground">{f.label}</h3>
+                <div className="flex gap-1">
+                  {f === statusField && (
+                    <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => set(f.name, inProgress)}>In progress only</Button>
+                  )}
+                  {f.kind === "multi" && (values[f.name]?.length ?? 0) > 0 && (
+                    <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => set(f.name, [])}>Clear</Button>
+                  )}
+                </div>
+              </div>
+              {field(f)}
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {ACTIVITY_STATUS_ORDER.map(s => (
-                <Label key={s} className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 px-3 py-2 text-sm font-normal hover:bg-muted/50">
-                  <Checkbox checked={filter.statuses.includes(s)} onCheckedChange={() => update({ statuses: toggleIn(filter.statuses, s) })} />
-                  {s}
-                </Label>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium text-foreground">Delivery</h3>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {DELIVERY_ORDER.map(d => (
-                <Label key={d} className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 px-3 py-2 text-sm font-normal hover:bg-muted/50">
-                  <Checkbox checked={filter.deliveries.includes(d)} onCheckedChange={() => update({ deliveries: toggleIn(filter.deliveries, d) })} />
-                  {DELIVERY_STATE_LABEL[d]}
-                </Label>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-foreground">Work stream</h3>
-              <Select value={filter.stream || ALL_STREAMS} onValueChange={v => update({ stream: v === ALL_STREAMS ? "" : v })}>
-                <SelectTrigger aria-label="Work stream"><SelectValue placeholder="All work streams" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_STREAMS}>All work streams</SelectItem>
-                  {streams.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-foreground">Search</h3>
-              <Input value={filter.search} onChange={e => update({ search: e.target.value })} placeholder="Activity, initiative or stream" maxLength={100} aria-label="Search activities" />
-            </div>
-          </div>
+          ))}
         </div>
 
         <DialogFooter className="gap-2 sm:justify-between">
-          <Button variant="ghost" onClick={() => setFilter(EMPTY_DELAY_FILTER)}>Clear filters</Button>
+          <Button variant="ghost" onClick={() => setValues({})}>Clear all filters</Button>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={() => onApply(filter)}>{adding ? "Add table" : "Apply filter"}</Button>
+            <Button variant="outline" onClick={onClose}>Cancel</Button>
+            <Button onClick={() => onApply(values)}>{adding ? "Add table" : "Apply filter"}</Button>
           </div>
         </DialogFooter>
       </DialogContent>
@@ -529,30 +709,14 @@ function DelayFilterDialog({ open, onOpenChange, adding, initial, streams, onApp
 }
 
 function CorrectionsDialog({ open, onOpenChange, initial }: { open: boolean; onOpenChange: (open: boolean) => void; initial: SummaryCorrection[] }) {
-  const router = useRouter();
-  const { toast } = useToast();
+  const { busy, run } = useAction();
   const [rows, setRows] = React.useState<SummaryCorrection[]>(initial);
-  const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => { if (open) setRows(initial.length ? initial : [{ find: "", replace: "" }]); }, [open, initial]);
 
   const update = (n: number, patch: Partial<SummaryCorrection>) => setRows(rs => rs.map((r, m) => (m === n ? { ...r, ...patch } : r)));
   const filled = rows.filter(r => r.find.trim()).length;
-
-  const save = async () => {
-    setBusy(true);
-    try {
-      const result = await updateSummaryCorrections(rows.filter(r => r.find.trim()));
-      if (!result.success) { toast({ title: "Not saved", description: result.message, variant: "destructive" }); return; }
-      toast({ title: "Wording corrections saved", description: "They apply the next time the summary is generated." });
-      onOpenChange(false);
-      router.refresh();
-    } catch (error) {
-      toast({ title: "Not saved", description: describeError(error), variant: "destructive" });
-    } finally {
-      setBusy(false);
-    }
-  };
+  const save = () => run(() => updateSummaryCorrections(rows.filter(r => r.find.trim())), "Wording corrections saved — they apply the next time the summary is generated", () => onOpenChange(false));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

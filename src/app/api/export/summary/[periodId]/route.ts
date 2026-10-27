@@ -24,7 +24,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { periodId } = await params;
   const source = await loadSummarySource(periodId);
   if (!source) return NextResponse.json({ error: 'Reporting period not found' }, { status: 404 });
-  if (!source.summary || source.summary.sections.length === 0) {
+  if (!source.summary || !source.summary.sections.some(s => !s.hidden)) {
     return NextResponse.json({ error: 'No summary has been generated for this period yet.' }, { status: 404 });
   }
 
@@ -34,7 +34,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     planVersion: source.plan.version,
     periodName: source.period.name,
     periodEndDate: source.period.endDate,
-    sections: source.summary.sections,
+    // Deleted generated sections are kept hidden so regenerating doesn't bring them back; they aren't exported.
+    sections: source.summary.sections.filter(s => !s.hidden),
     tables: (await loadSummaryTables(source)).tables,
   };
   const buffer = asPdf ? buildSummaryPdf(doc) : await buildSummaryDocx(doc);
