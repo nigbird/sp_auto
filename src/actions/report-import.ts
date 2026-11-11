@@ -39,6 +39,12 @@ export interface ReportImportRow {
   title: string;
   leadOwner: string;
   actual: string;
+  /** The rest of what the row brings in, as read from the sheet. */
+  completionDate: string | null;
+  accomplishedTasks: string;
+  reasonForVariation: string;
+  wayForward: string;
+  escalationIssues: string;
   outcome: ReportRowOutcome;
   note: string | null;
 }
@@ -138,7 +144,11 @@ function evaluate(plan: LoadedPlan, parsed: ParsedReport, periodEnd: Date | null
   const rows = matches.map(({ sheet, activity, ownerChanged, duplicateOf }) => {
     const targetType = (activity?.targetType ?? null) as TargetType | null;
     const report = toImportReport(sheet, activity ? actualInTargetUnits(sheet, targetType) : sheet.actualRaw);
-    const base = { row: sheet.row, code: sheet.code, title: sheet.title, leadOwner: sheet.leadOwner };
+    const base = {
+      row: sheet.row, code: sheet.code, title: sheet.title, leadOwner: sheet.leadOwner,
+      completionDate: sheet.completionDate, accomplishedTasks: sheet.accomplishedTasks, reasonForVariation: sheet.reasonForVariation,
+      wayForward: sheet.wayForward, escalationIssues: sheet.escalationIssues,
+    };
     const actual = report.actualToDate != null ? formatTargetValue(report.actualToDate, targetType) : sheet.actualText ? `"${sheet.actualText.slice(0, 20)}"` : '—';
     const result = (outcome: ReportRowOutcome, note: string | null = null) => ({ ...base, actual, outcome, note, activity, report });
     const hasComments = !!(sheet.completionDate || sheet.accomplishedTasks || sheet.reasonForVariation || sheet.wayForward || sheet.escalationIssues);

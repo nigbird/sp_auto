@@ -31,6 +31,18 @@ const OUTCOME: Record<ReportRowOutcome, { label: string; variant: "default" | "s
   "own-activity": { label: "Your own activity", variant: "outline" },
 };
 
+const COMMENT_FIELDS = [
+  ["accomplishedTasks", "Accomplished"],
+  ["reasonForVariation", "Reason for variation"],
+  ["wayForward", "Way forward"],
+  ["escalationIssues", "Escalation"],
+] as const;
+
+type RowView = "all" | "import" | "skipped";
+
+const fmtDate = (d: string | null) =>
+  d ? new Date(`${d}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "—";
+
 const zeroCounts = () => Object.fromEntries(Object.keys(OUTCOME).map(k => [k, 0])) as Record<ReportRowOutcome, number>;
 
 /**
@@ -49,9 +61,10 @@ export function ReportImportDialog({ planId, selectedPeriodId }: { planId: strin
   const [error, setError] = React.useState<string | null>(null);
   const [problems, setProblems] = React.useState<string[]>([]);
   const [busy, setBusy] = React.useState<"reading" | "importing" | null>(null);
+  const [view, setView] = React.useState<RowView>("all");
 
   const reset = () => {
-    setFile(null); setPreview(null); setPeriodId(""); setNewPeriod(null); setError(null); setProblems([]);
+    setFile(null); setPreview(null); setPeriodId(""); setNewPeriod(null); setError(null); setProblems([]); setView("all");
   };
 
   const read = async (chosen: File, period?: string) => {
@@ -131,7 +144,7 @@ export function ReportImportDialog({ planId, selectedPeriodId }: { planId: strin
       <DialogTrigger asChild>
         <Button variant="outline" size="sm"><Upload className="mr-2 h-4 w-4" /> Import report</Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>Import a report from Excel</DialogTitle>
         </DialogHeader>
@@ -238,18 +251,29 @@ export function ReportImportDialog({ planId, selectedPeriodId }: { planId: strin
                 </Alert>
               )}
 
-              <div className="max-h-[320px] overflow-auto rounded-md border">
+              <div className="flex flex-wrap items-center gap-1 text-sm">
+                {([["all", `All (${preview.rows.length})`], ["import", `Will import (${counts.import})`], ["skipped", `Skipped (${skipped})`]] as const).map(([v, label]) => (
+                  <Button key={v} type="button" size="sm" variant={view === v ? "secondary" : "ghost"} onClick={() => setView(v)}>{label}</Button>
+                ))}
+              </div>
+
+              <div className="max-h-[420px] overflow-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-16">Row</TableHead>
-                      <TableHead>Activity</TableHead>
+                      <TableHead className="w-14">Row</TableHead>
+                      <TableHead className="min-w-[220px]">Activity</TableHead>
                       <TableHead className="text-right">Actual</TableHead>
-                      <TableHead>Result</TableHead>
+                      <TableHead className="whitespace-nowrap">Completion date</TableHead>
+                      <TableHead className="min-w-[240px]">Comments</TableHead>
+                      <TableHead className="min-w-[180px]">Result</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {[...preview.rows].sort((a, b) => Number(a.outcome === "import") - Number(b.outcome === "import") || a.row - b.row).map(r => (
+                    {[...preview.rows]
+                      .filter(r => view === "all" || (view === "import") === (r.outcome === "import"))
+                      .sort((a, b) => Number(a.outcome === "import") - Number(b.outcome === "import") || a.row - b.row)
+                      .map(r => (
                       <TableRow key={r.row} className="align-top">
                         <TableCell className="text-muted-foreground">{r.row}</TableCell>
                         <TableCell>
@@ -257,6 +281,19 @@ export function ReportImportDialog({ planId, selectedPeriodId }: { planId: strin
                           <p className="text-xs text-muted-foreground">{r.leadOwner}</p>
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{r.actual}</TableCell>
+                        <TableCell className="whitespace-nowrap tabular-nums">{fmtDate(r.completionDate)}</TableCell>
+                        <TableCell className="text-xs">
+                          {COMMENT_FIELDS.some(([k]) => r[k]) ? (
+                            <dl className="space-y-1">
+                              {COMMENT_FIELDS.filter(([k]) => r[k]).map(([k, label]) => (
+                                <div key={k}>
+                                  <dt className="font-medium">{label}</dt>
+                                  <dd className="line-clamp-3 text-muted-foreground" title={r[k]}>{r[k]}</dd>
+                                </div>
+                              ))}
+                            </dl>
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
                         <TableCell>
                           <Badge variant={OUTCOME[r.outcome].variant}>{OUTCOME[r.outcome].label}</Badge>
                           {r.note && <p className="mt-1 text-xs text-muted-foreground">{r.note}</p>}
