@@ -20,13 +20,18 @@ const NEW = "new";
 
 const OUTCOME: Record<ReportRowOutcome, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   import: { label: "Will import", variant: "default" },
-  "already-reported": { label: "Already reported", variant: "secondary" },
-  "below-previous": { label: "Below last period", variant: "destructive" },
-  "no-breakdown": { label: "No breakdown", variant: "outline" },
+  "no-actual": { label: "No actual", variant: "destructive" },
   invalid: { label: "Invalid value", variant: "destructive" },
-  unmatched: { label: "Not matched", variant: "outline" },
+  "no-lead-owner": { label: "No lead owner", variant: "destructive" },
+  unmatched: { label: "Not matched", variant: "destructive" },
+  duplicate: { label: "Repeated row", variant: "destructive" },
+  "no-breakdown": { label: "No breakdown", variant: "outline" },
+  "below-previous": { label: "Below last period", variant: "destructive" },
+  "already-reported": { label: "Already reported", variant: "secondary" },
   "own-activity": { label: "Your own activity", variant: "outline" },
 };
+
+const zeroCounts = () => Object.fromEntries(Object.keys(OUTCOME).map(k => [k, 0])) as Record<ReportRowOutcome, number>;
 
 /**
  * "Import report" on the Performance Report: loads a report sheet (the
@@ -87,8 +92,9 @@ export function ReportImportDialog({ planId, selectedPeriodId }: { planId: strin
 
   const counts = (preview?.rows ?? []).reduce<Record<ReportRowOutcome, number>>(
     (acc, r) => ({ ...acc, [r.outcome]: acc[r.outcome] + 1 }),
-    { import: 0, "already-reported": 0, "below-previous": 0, "no-breakdown": 0, invalid: 0, unmatched: 0, "own-activity": 0 }
+    zeroCounts()
   );
+  const skipped = (preview?.rows.length ?? 0) - counts.import;
   const through = preview?.throughMonth ? monthLabel(preview.throughMonth) : null;
   const fittingPeriods = preview?.periods.filter(p => p.fits) ?? [];
   const canImport = !!preview && counts.import > 0 && (periodId === NEW ? !!newPeriod : !!periodId) && busy === null;
@@ -107,7 +113,10 @@ export function ReportImportDialog({ planId, selectedPeriodId }: { planId: strin
         setProblems(result.problems ?? [result.message]);
         return;
       }
-      toast({ title: "Report imported", description: `${result.imported} approved ${result.imported === 1 ? "report was" : "reports were"} saved.` });
+      const saved = `${result.imported} approved ${result.imported === 1 ? "report was" : "reports were"} saved.`;
+      const notSaved = result.skipped > 0 ? ` ${result.skipped} ${result.skipped === 1 ? "row was" : "rows were"} skipped (reasons are in the Audit Log).` : "";
+      const missing = result.notInSheet > 0 ? ` ${result.notInSheet} plan ${result.notInSheet === 1 ? "activity has" : "activities have"} no row in the sheet.` : "";
+      toast({ title: result.skipped || result.notInSheet ? "Report imported — not every activity" : "Report imported", description: saved + notSaved + missing });
       setOpen(false);
       reset();
       router.push(`/reports?plan=${planId}&period=${result.periodId}`);
@@ -195,10 +204,34 @@ export function ReportImportDialog({ planId, selectedPeriodId }: { planId: strin
                 ))}
               </div>
 
+              {skipped > 0 && (
+                <Alert className="border-amber-500/50">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <AlertTitle>{counts.import} of {preview.rows.length} rows will be imported — {skipped} will be skipped</AlertTitle>
+                  <AlertDescription className="text-sm">
+                    Skipped rows are listed first in the table below with the reason for each. Fix them in the sheet and upload it again, or import now and add the rest later.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {preview.notInSheet.length > 0 && (
+                <Alert className="border-amber-500/50">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <AlertTitle>{preview.notInSheet.length} plan {preview.notInSheet.length === 1 ? "activity has" : "activities have"} no row in this sheet</AlertTitle>
+                  <AlertDescription>
+                    <p className="text-sm">They won't get a report from this import, so they won't appear in this period's Performance Report or summary.</p>
+                    <details className="mt-1 text-sm">
+                      <summary className="cursor-pointer">Show them</summary>
+                      <ul className="mt-1 max-h-40 space-y-0.5 overflow-auto">{preview.notInSheet.map((a, n) => <li key={n}>{a.title} <span className="text-muted-foreground">— {a.leadOwner}</span></li>)}</ul>
+                    </details>
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {preview.issues.length > 0 && (
                 <Alert className="border-amber-500/50">
                   <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  <AlertTitle>{preview.issues.length} row{preview.issues.length === 1 ? "" : "s"} in the sheet can't be read as a report</AlertTitle>
+                  <AlertTitle>{preview.issues.length} {preview.issues.length === 1 ? "problem" : "problems"} reading the sheet</AlertTitle>
                   <AlertDescription>
                     <ul className="mt-1 space-y-1 text-sm">{preview.issues.map((i, n) => <li key={n}>{i.row != null && <Badge variant="outline" className="mr-2">Row {i.row}</Badge>}{i.message}</li>)}</ul>
                   </AlertDescription>

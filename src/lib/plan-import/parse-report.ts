@@ -17,12 +17,14 @@ export interface ReportSheetRow {
   /** The actual as entered; turned into the activity's units by actualInTargetUnits. */
   actualRaw: number | null;
   actualIsPercentCell: boolean;
+  /** What the Actual cell held when it couldn't be read as a number ("N/A", "-", "#REF!"); empty when blank or numeric. */
+  actualText: string;
   completionDate: string | null; // yyyy-mm-dd
   accomplishedTasks: string;
   reasonForVariation: string;
   wayForward: string;
   escalationIssues: string;
-  /** An actual was entered — rows without one are only used to keep matching in sheet order. */
+  /** A numeric actual was read. Rows without one are still listed in the preview with the reason they're skipped. */
   hasReport: boolean;
 }
 
@@ -49,6 +51,32 @@ const HEADERS = {
 
 const clean = (v: unknown) => (v == null ? '' : String(v).replace(/\s+/g, ' ').trim());
 const serialToDate = (v: unknown) => (typeof v === 'number' && v > 20000 && v < 80000 ? new Date(Date.UTC(1899, 11, 30) + Math.round(v) * 86400000) : null);
+
+/** Text that is only a number ("1,200", " 85 % ", "0.5"), as typed into a cell formatted as text. */
+const NUMERIC_TEXT = /^[-+]?(\d{1,3}(,\d{3})+|\d+)?(\.\d+)?\s*%?$/;
+
+/**
+ * The Actual cell as a number. Numbers stored as text are read too, so a
+ * text-formatted column doesn't drop its rows; anything else that isn't
+ * blank comes back as `text` so the preview can say why the row is skipped.
+ */
+function readActual(cell: XLSX.CellObject | undefined): { value: number | null; isPercent: boolean; text: string } {
+  if (!cell || cell.v == null) return { value: null, isPercent: false, text: '' };
+  if (cell.t === 'e') return { value: null, isPercent: false, text: String(cell.w ?? '#ERROR') };
+  if (typeof cell.v === 'number') {
+    return Number.isFinite(cell.v)
+      ? { value: cell.v, isPercent: /%/.test(String(cell.z ?? '')), text: '' }
+      : { value: null, isPercent: false, text: String(cell.v) };
+  }
+  const raw = clean(cell.v);
+  if (!raw) return { value: null, isPercent: false, text: '' };
+  if (NUMERIC_TEXT.test(raw) && /\d/.test(raw)) {
+    const isPercent = raw.endsWith('%');
+    const n = Number(raw.replace(/[,%\s]/g, ''));
+    if (Number.isFinite(n)) return { value: isPercent ? n / 100 : n, isPercent, text: '' };
+  }
+  return { value: null, isPercent: false, text: raw };
+}
 
 /** The actual in the activity's units: a percentage target keeps 85 for 85%, whether typed as 85%, 0.85 or 85. */
 export function actualInTargetUnits(row: Pick<ReportSheetRow, 'actualRaw' | 'actualIsPercentCell'>, targetType: TargetType | null): number | null {
@@ -125,8 +153,7 @@ export function parseReportWorkbook(data: Buffer): ParsedReport {
     const excelRow = r + 1;
     const code = clean(cellAt(r, col.code)?.w ?? cellAt(r, col.code)?.v);
     const leadOwner = clean(cellAt(r, col.leadOwner)?.v);
-    const actualCell = cellAt(r, col.actual);
-    const actualRaw = typeof actualCell?.v === 'number' && Number.isFinite(actualCell.v) ? actualCell.v : null;
+    const actual = readActual(cellAt(r, col.actual));
     const text = (c: number | undefined) => clean(cellAt(r, c)?.v);
     const completion = serialToDate(cellAt(r, col.completionDate)?.v);
 
@@ -140,25 +167,21 @@ export function parseReportWorkbook(data: Buffer): ParsedReport {
       code,
       title,
       leadOwner,
-      actualRaw,
-      actualIsPercentCell: /%/.test(String(actualCell?.z ?? '')),
+      actualRaw: actual.value,
+      actualIsPercentCell: actual.isPercent,
+      actualText: actual.text,
       completionDate: completion && completion.getUTCFullYear() >= 2000 ? completion.toISOString().slice(0, 10) : null,
       accomplishedTasks: text(col.accomplished),
       reasonForVariation: text(col.reasonForVariation),
       wayForward: text(col.wayForward),
       escalationIssues: text(col.escalation),
-      hasReport: actualRaw != null,
+      hasReport: actual.value != null,
     };
-    if (actualRaw == null && (row.completionDate || row.accomplishedTasks || row.reasonForVariation || row.wayForward || row.escalationIssues)) {
-      issues.push({ row: excelRow, severity: 'warning', message: `"${title.slice(0, 60)}" has comments but no Actual — skipped.` });
-    }
-    if (row.hasReport && !leadOwner) {
-      issues.push({ row: excelRow, severity: 'warning', message: `"${title.slice(0, 60)}" has no Lead/ Owner — it can't be matched, skipped.` });
-      row.hasReport = false;
-    }
+    // Rows that can't be imported (no actual, unreadable actual, no lead owner) are kept: the preview lists each with its reason.
     rows.push(row);
   }
-  if (!rows.some(r => r.hasReport)) issues.push({ row: null, severity: 'error', message: 'No row has an "Actual up to the reporting period" filled in — there is nothing to import.' });
+  if (rows.length === 0) issues.push({ row: null, severity: 'error', message: `Sheet "${sheetName}" has no activity rows under its header — there is nothing to import.` });
+  else if (!rows.some(r => r.hasReport)) issues.push({ row: null, severity: 'error', message: `None of the ${rows.length} activity rows has a number in "Actual up to the reporting period" — there is nothing to import.` });
 
   return {
     sheetName,

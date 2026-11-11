@@ -22,7 +22,16 @@ import type { ImportPeriodSettings } from '@/lib/plan-import/write-plan';
  * submitted or approved for that period are never overwritten.
  */
 
-export type ReportRowOutcome = 'import' | 'unmatched' | 'no-breakdown' | 'invalid' | 'already-reported' | 'below-previous' | 'own-activity';
+/** What happens to a sheet row. Every row with an activity title gets one — none is dropped without a reason. */
+export type ReportRowOutcome =
+  | 'import' | 'no-actual' | 'invalid' | 'no-lead-owner' | 'unmatched' | 'duplicate'
+  | 'no-breakdown' | 'already-reported' | 'below-previous' | 'own-activity';
+
+/** A plan activity that no sheet row reports on, so it gets no report from this import. */
+export interface ActivityNotInSheet {
+  title: string;
+  leadOwner: string;
+}
 
 export interface ReportImportRow {
   row: number;
@@ -54,11 +63,15 @@ export interface ReportImportPreview {
   suggestedPeriod: ImportPeriodSettings;
   canCreatePeriod: boolean;
   rows: ReportImportRow[];
+  /** Approved plan activities with no row in the sheet. */
+  notInSheet: ActivityNotInSheet[];
   issues: ImportIssue[];
 }
 
 export type ReportPreviewResult = { success: true; preview: ReportImportPreview } | { success: false; message: string };
-export type ReportImportResult = { success: true; imported: number; periodId: string } | { success: false; message: string; problems?: string[] };
+export type ReportImportResult =
+  | { success: true; imported: number; skipped: number; skippedByOutcome: Partial<Record<ReportRowOutcome, number>>; notInSheet: number; periodId: string }
+  | { success: false; message: string; problems?: string[] };
 
 export interface ReportImportOptions {
   periodId?: string;
@@ -66,6 +79,20 @@ export interface ReportImportOptions {
 }
 
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
+
+/** Short reason per outcome, for messages that summarise skipped rows. */
+const OUTCOME_TEXT: Record<ReportRowOutcome, string> = {
+  import: 'imported',
+  'no-actual': 'no Actual entered',
+  invalid: 'Actual not a valid number',
+  'no-lead-owner': 'no Lead/ Owner',
+  unmatched: 'not matched to a plan activity',
+  duplicate: 'activity repeated in the sheet',
+  'no-breakdown': 'no approved monthly breakdown or annual target',
+  'already-reported': 'already submitted or approved for this period',
+  'below-previous': 'lower than the last approved cumulative actual',
+  'own-activity': 'your own activity',
+};
 
 function readReport(buffer: Buffer): ({ ok: true } & ParsedReport) | { ok: false; message: string } {
   try {
@@ -98,21 +125,51 @@ type LoadedPlan = NonNullable<Awaited<ReturnType<typeof loadPlan>>>;
  * Imported reports are saved as approved, so rows for the importer's own activities are left out:
  * like a single report, they need someone else to approve them.
  */
+const normKey = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+
 function evaluate(plan: LoadedPlan, parsed: ParsedReport, periodEnd: Date | null, periodId: string | null, importerId: string) {
-  return matchReportRows(parsed.rows, plan.activities).map(({ sheet, activity, ownerChanged }) => {
+  const matches = matchReportRows(parsed.rows, plan.activities);
+  const ownersByTitle = new Map<string, string[]>();
+  for (const a of plan.activities) {
+    const key = normKey(a.title);
+    ownersByTitle.set(key, [...(ownersByTitle.get(key) ?? []), a.leadOwner || 'no lead owner']);
+  }
+
+  const rows = matches.map(({ sheet, activity, ownerChanged, duplicateOf }) => {
     const targetType = (activity?.targetType ?? null) as TargetType | null;
     const report = toImportReport(sheet, activity ? actualInTargetUnits(sheet, targetType) : sheet.actualRaw);
     const base = { row: sheet.row, code: sheet.code, title: sheet.title, leadOwner: sheet.leadOwner };
-    const actual = report.actualToDate != null ? formatTargetValue(report.actualToDate, targetType) : '—';
+    const actual = report.actualToDate != null ? formatTargetValue(report.actualToDate, targetType) : sheet.actualText ? `"${sheet.actualText.slice(0, 20)}"` : '—';
     const result = (outcome: ReportRowOutcome, note: string | null = null) => ({ ...base, actual, outcome, note, activity, report });
+    const hasComments = !!(sheet.completionDate || sheet.accomplishedTasks || sheet.reasonForVariation || sheet.wayForward || sheet.escalationIssues);
 
-    if (!activity) return result('unmatched', 'No activity in this plan has this title and lead owner.');
+    // The row itself: an actual that can be read, and a lead owner to match on.
+    if (sheet.actualText) {
+      return result('invalid', `The Actual "${sheet.actualText.slice(0, 40)}" isn't a number. Enter a number (0 if nothing was achieved yet) to import this row.`);
+    }
+    if (!sheet.hasReport) {
+      if (!sheet.leadOwner && !activity) return result('no-actual', 'No Actual and no Lead/ Owner — if this is an activity, fill in both; if it is a heading or note row, it can be ignored.');
+      return result('no-actual', `The Actual cell is empty, so there is no report to import${activity ? '' : " (and the row doesn't match an activity in this plan)"}. Enter a number — 0 if nothing was achieved yet${hasComments ? '. Its comments are not saved without an Actual' : ''}.`);
+    }
+    if (!activity) {
+      if (duplicateOf) {
+        return result('duplicate', `Row ${duplicateOf.row} already reports on this activity${duplicateOf.hasReport ? '' : ' (with an empty Actual)'}. Each activity can have only one row — remove or merge the repeated row.`);
+      }
+      if (!sheet.leadOwner) return result('no-lead-owner', 'The Lead/ Owner cell is empty, and more than one activity (or none) has this title — fill in the lead owner so the row can be matched.');
+      const owners = ownersByTitle.get(normKey(sheet.title));
+      if (owners?.length) {
+        return result('unmatched', `An activity with this title exists under ${Array.from(new Set(owners)).join(', ')}, not "${sheet.leadOwner}". Correct the Lead/ Owner in the sheet.`);
+      }
+      return result('unmatched', 'No activity in this plan has this title. Check the title against the plan — it has to match word for word (spacing and capitals are ignored).');
+    }
     if (activity.responsibleId === importerId) return result('own-activity', "You're responsible for this activity, so its report has to be submitted and approved by someone else.");
     if (report.actualToDate! < 0) return result('invalid', "The actual can't be negative.");
     if (targetType === 'PERCENT' && report.actualToDate! > 100) return result('invalid', "A percentage actual can't be more than 100%.");
-    if (activity.planSubmissionStatus !== 'APPROVED' || activity.monthlyTargets.length === 0 || !(activity.annualTarget && activity.annualTarget > 0)) {
-      return result('no-breakdown', "The activity has no approved monthly breakdown to measure the report against.");
+    if (activity.planSubmissionStatus !== 'APPROVED') {
+      return result('no-breakdown', `The activity's monthly breakdown is ${activity.planSubmissionStatus ? String(activity.planSubmissionStatus).toLowerCase().replace(/_/g, ' ') : 'not submitted'}, not approved — approve it first, then import again.`);
     }
+    if (activity.monthlyTargets.length === 0) return result('no-breakdown', 'The activity has no monthly targets to measure the report against — add its monthly breakdown first.');
+    if (!(activity.annualTarget && activity.annualTarget > 0)) return result('no-breakdown', 'The activity has no annual target (it is empty or 0) to measure the report against.');
     const existing = periodId ? activity.periodEntries.find(e => e.reportingPeriodId === periodId) : undefined;
     if (existing && (existing.reportStatus === 'SUBMITTED' || existing.reportStatus === 'APPROVED')) {
       return result('already-reported', `Already ${existing.reportStatus === 'APPROVED' ? 'approved' : 'submitted'} for this period — kept as it is.`);
@@ -126,8 +183,19 @@ function evaluate(plan: LoadedPlan, parsed: ParsedReport, periodEnd: Date | null
         return result('below-previous', `Lower than the ${formatTargetValue(previous.actualToDate!, targetType)} approved for ${previous.reportingPeriod.name} — actuals are cumulative.`);
       }
     }
-    return result('import', ownerChanged ? `Matched by title — the lead owner is now ${activity.leadOwner ?? 'not set'} in the app.` : null);
+    if (ownerChanged) {
+      return result('import', sheet.leadOwner
+        ? `Matched by title — the lead owner is now ${activity.leadOwner ?? 'not set'} in the app.`
+        : `The Lead/ Owner cell is empty — matched by title to the only activity with it (${activity.leadOwner ?? 'no lead owner'}).`);
+    }
+    return result('import');
   });
+
+  const matched = new Set(matches.map(m => m.activity?.id).filter(Boolean));
+  const notInSheet: ActivityNotInSheet[] = plan.activities
+    .filter(a => a.approvalStatus === 'APPROVED' && !matched.has(a.id))
+    .map(a => ({ title: a.title, leadOwner: a.leadOwner || '—' }));
+  return { rows, notInSheet };
 }
 
 /** A new period ending in the sheet's month (or last month): from the day after the period before it, or the plan's first month. */
@@ -175,7 +243,8 @@ export async function previewReportImport(formData: FormData): Promise<ReportPre
   const suggestedPeriod = suggestPeriod(plan, parsed);
   const periodEnd = chosen?.endDate ?? (suggestedPeriod ? new Date(suggestedPeriod.endDate) : null);
 
-  const rows = evaluate(plan, parsed, periodEnd, chosen?.id ?? null, user.id).map(({ activity: _a, report: _r, ...row }) => row);
+  const evaluated = evaluate(plan, parsed, periodEnd, chosen?.id ?? null, user.id);
+  const rows = evaluated.rows.map(({ activity: _a, report: _r, ...row }) => row);
   return {
     success: true,
     preview: {
@@ -186,6 +255,7 @@ export async function previewReportImport(formData: FormData): Promise<ReportPre
       suggestedPeriod,
       canCreatePeriod: userCan(user, 'settings:manage'),
       rows,
+      notInSheet: evaluated.notInSheet,
       issues: parsed.issues,
     },
   };
@@ -235,8 +305,21 @@ export async function importPlanReport(formData: FormData): Promise<ReportImport
     return { success: false, message: 'Pick a reporting period for the report, or create one.' };
   }
 
-  const toImport = evaluate(plan, parsed, periodEnd, periodId, importer.id).filter(r => r.outcome === 'import');
-  if (toImport.length === 0) return { success: false, message: 'Nothing to import — no row matched an activity that can take this report.' };
+  const evaluated = evaluate(plan, parsed, periodEnd, periodId, importer.id);
+  const toImport = evaluated.rows.filter(r => r.outcome === 'import');
+  const skippedByOutcome: Partial<Record<ReportRowOutcome, number>> = {};
+  for (const r of evaluated.rows) if (r.outcome !== 'import') skippedByOutcome[r.outcome] = (skippedByOutcome[r.outcome] ?? 0) + 1;
+  const skipped = evaluated.rows.length - toImport.length;
+  if (toImport.length === 0) {
+    return {
+      success: false,
+      message: `Nothing to import — none of the ${evaluated.rows.length} rows can be imported. The preview lists the reason for each row.`,
+      problems: [
+        `Nothing to import — none of the ${evaluated.rows.length} rows can be imported:`,
+        ...Object.entries(skippedByOutcome).map(([o, n]) => `${n} × ${OUTCOME_TEXT[o as ReportRowOutcome]}`),
+      ],
+    };
+  }
 
   const now = new Date();
   let savedPeriodId: string;
@@ -286,11 +369,19 @@ export async function importPlanReport(formData: FormData): Promise<ReportImport
 
   await recordAudit({
     action: 'REPORTS_IMPORTED', entityType: 'ReportingPeriod', entityId: savedPeriodId,
-    summary: `Imported ${toImport.length} ${toImport.length === 1 ? 'report' : 'reports'}${through ? ` up to ${through}` : ''} into "${plan.name}" from ${upload.fileName}`,
-    metadata: { planId: plan.id, imported: toImport.length, newPeriod: newPeriod && !periodId ? newPeriod.name.trim() : null },
+    summary: `Imported ${toImport.length} ${toImport.length === 1 ? 'report' : 'reports'}${through ? ` up to ${through}` : ''} into "${plan.name}" from ${upload.fileName}${skipped ? `; ${skipped} ${skipped === 1 ? 'row' : 'rows'} skipped` : ''}`,
+    metadata: {
+      planId: plan.id,
+      imported: toImport.length,
+      skipped,
+      skippedByOutcome,
+      skippedRows: evaluated.rows.filter(r => r.outcome !== 'import').map(r => ({ row: r.row, title: r.title, outcome: r.outcome, note: r.note })),
+      notInSheet: evaluated.notInSheet.length,
+      newPeriod: newPeriod && !periodId ? newPeriod.name.trim() : null,
+    },
   });
   revalidatePath('/reports', 'layout');
   revalidatePath('/settings/reporting-periods');
   revalidatePath('/strategic-plan', 'layout');
-  return { success: true, imported: toImport.length, periodId: savedPeriodId };
+  return { success: true, imported: toImport.length, skipped, skippedByOutcome, notInSheet: evaluated.notInSheet.length, periodId: savedPeriodId };
 }
