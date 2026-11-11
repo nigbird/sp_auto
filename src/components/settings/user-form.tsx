@@ -118,7 +118,7 @@ export function UserForm({ user, onSubmit, onCancel, initialValues, fixedLeadOwn
   const showError = (error: UserFormError) => {
     setPending(null);
     const field = error.field as keyof UserFormValues | undefined;
-    const onForm = field && field in formSchema.shape && !(field === "leadOwnerId" && fixedLeadOwnerName) && !(field === "email" && user);
+    const onForm = field && field in formSchema.shape && !(field === "leadOwnerId" && fixedLeadOwnerName);
     if (onForm) {
       form.setError(field, { type: "server", message: error.message }, { shouldFocus: true });
     } else {
@@ -164,8 +164,9 @@ export function UserForm({ user, onSubmit, onCancel, initialValues, fixedLeadOwn
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input type="email" placeholder="user@example.com" {...field} disabled={!!user} />
+                <Input type="email" placeholder="user@example.com" {...field} />
               </FormControl>
+              {user && <FormDescription>Their username. Changing it signs them out on every device and tells their old address.</FormDescription>}
               <FormMessage />
             </FormItem>
           )}
@@ -247,6 +248,12 @@ export function UserForm({ user, onSubmit, onCancel, initialValues, fixedLeadOwn
                   <dt className="text-muted-foreground">Role</dt><dd>{roles.find(r => r.id === pending?.roleId)?.name}</dd>
                   <dt className="text-muted-foreground">Lead owner</dt><dd className={!leadOwnerName ? "text-amber-600" : ""}>{leadOwnerName || "None"}</dd>
                 </dl>
+                {user && pending && pending.email.trim().toLowerCase() !== user.email.toLowerCase() && (
+                  <p className="flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-2 text-amber-700 dark:text-amber-400">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>The email changes from {user.email}. {user.name} will be signed out everywhere and must sign in with the new address{user.lastLoginAt ? "" : "; a new invitation goes to it"}.</span>
+                  </p>
+                )}
                 {missingLeadOwner && (
                   <p className="flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-2 text-amber-700 dark:text-amber-400">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />

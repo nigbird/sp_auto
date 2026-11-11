@@ -5,7 +5,7 @@ import { verifyAccessToken, type AccessTokenClaims } from '@/lib/auth/jwt';
 import { requiredPermissions, satisfies } from '@/lib/auth/route-permissions';
 
 // Pages anyone may open without signing in. They still get the CSP below.
-const PUBLIC_PAGES = ['/login', '/forgot-password', '/set-password'];
+const PUBLIC_PAGES = ['/login', '/forgot-password', '/set-password', '/confirm-email'];
 
 const isDev = process.env.NODE_ENV !== 'production';
 

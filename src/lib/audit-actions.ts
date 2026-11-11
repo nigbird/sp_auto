@@ -26,6 +26,8 @@ export const AUDIT_ACTIONS = {
   PASSWORD_RESET_REQUEST: { label: 'Requested a password reset', category: 'Sign-in & security' },
   PASSWORD_SET: { label: 'Set password from link', category: 'Sign-in & security' },
   PASSWORD_CHANGE: { label: 'Changed password', category: 'Sign-in & security' },
+  EMAIL_CHANGE_REQUESTED: { label: 'Asked to change sign-in email', category: 'Sign-in & security' },
+  EMAIL_CHANGED: { label: 'Changed sign-in email', category: 'Sign-in & security' },
   PERMISSION_DENIED: { label: 'Was refused access', category: 'Sign-in & security' },
 
   // Users & roles

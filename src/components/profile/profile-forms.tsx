@@ -2,14 +2,14 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, MailCheck } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { updateMyName, changeMyPassword } from "@/actions/profile";
+import { updateMyName, changeMyPassword, requestEmailChange } from "@/actions/profile";
 import { checkPasswordStrength, PASSWORD_HINT } from "@/lib/auth/password-policy";
 
 const initials = (name: string) => name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0]!.toUpperCase()).join("");
@@ -94,9 +94,92 @@ function ProfileCard({ name: initialName, details }: { name: string; details: { 
             </div>
           ))}
         </dl>
-        <p className="text-xs text-muted-foreground">Email and role are managed by an administrator.</p>
+        <EmailChangeForm currentEmail={details.find(d => d.label === "Email")?.value ?? ""} />
+        <p className="text-xs text-muted-foreground">Your role is managed by an administrator.</p>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Changing your own sign-in email: confirmed with your current password, then
+ * from a link sent to the new address. The email only changes once that link is used.
+ */
+function EmailChangeForm({ currentEmail }: { currentEmail: string }) {
+  const [open, setOpen] = React.useState(false);
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [errors, setErrors] = React.useState<{ email?: string; password?: string; form?: string }>({});
+  const [sending, setSending] = React.useState(false);
+  const [sent, setSent] = React.useState<{ to: string; link?: string } | null>(null);
+
+  const close = () => { setOpen(false); setEmail(""); setPassword(""); setErrors({}); };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const found: typeof errors = {};
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) found.email = "Enter a valid email address.";
+    else if (email.trim().toLowerCase() === currentEmail.toLowerCase()) found.email = "This is already your email.";
+    if (!password) found.password = "Enter your current password.";
+    setErrors(found);
+    if (Object.keys(found).length > 0) return;
+
+    setSending(true);
+    try {
+      const result = await requestEmailChange(email, password);
+      if (!result.success) {
+        if (result.field === "email") setErrors({ email: result.message });
+        else if (result.field === "currentPassword") setErrors({ password: result.message });
+        else setErrors({ form: result.message });
+        return;
+      }
+      setSent({ to: result.sentTo, link: result.link });
+      close();
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (sent) {
+    return (
+      <div className="flex items-start gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm">
+        <MailCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
+        <div className="space-y-1">
+          <p>We sent a confirmation link to <strong>{sent.to}</strong>. Your email changes when you open it (it works for 1 hour). Until then, keep signing in with {currentEmail}.</p>
+          {sent.link && <p className="text-xs text-muted-foreground">Email sending is off on this server (development only): <a href={sent.link} className="underline break-all">open the confirmation link</a>.</p>}
+          <Button type="button" variant="link" className="h-auto p-0 text-xs" onClick={() => setSent(null)}>Use a different address</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!open) {
+    return <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>Change email</Button>;
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3 rounded-md border p-3" noValidate>
+      <div className="space-y-1">
+        <Label htmlFor="new-email">New email</Label>
+        <Input id="new-email" type="email" autoComplete="email" maxLength={254} value={email}
+          onChange={e => { setEmail(e.target.value); setErrors(({ email: _, ...rest }) => rest); }}
+          className={errors.email ? "border-destructive" : undefined} />
+        {errors.email && <p className="text-sm font-medium text-destructive">{errors.email}</p>}
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor="email-current-password">Current password</Label>
+        <PasswordInput id="email-current-password" value={password} onChange={v => { setPassword(v); setErrors(({ password: _, ...rest }) => rest); }} autoComplete="current-password" invalid={!!errors.password} />
+        {errors.password && <p className="text-sm font-medium text-destructive">{errors.password}</p>}
+      </div>
+      <p className="text-xs text-muted-foreground">We'll email a confirmation link to the new address. Once you confirm, you'll be signed out on all devices and sign in with the new email.</p>
+      {errors.form && <p className="text-sm font-medium text-destructive">{errors.form}</p>}
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" disabled={sending}>
+          {sending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Send confirmation link
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={close} disabled={sending}>Cancel</Button>
+      </div>
+    </form>
   );
 }
 

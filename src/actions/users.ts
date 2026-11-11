@@ -9,6 +9,7 @@ import { requireUser, type SessionUser } from '@/lib/auth/session';
 import { getPermissionsForRole, permissionsBeyond, requirePermission, userCan } from '@/lib/auth/permissions-server';
 import { sendPasswordLink, type SentLink } from '@/lib/auth/password-tokens';
 import { changedFields, recordAudit, writeAuditLog } from '@/lib/auth/audit';
+import { applyEmailChange, emailInUse, sendEmailChangedNotice } from '@/lib/auth/email-change';
 
 const nameSchema = z.string().trim().min(2, 'Name must be at least 2 characters.').max(100, 'Name must be at most 100 characters.')
     .regex(/^[^<>{}\u0000-\u001f\u007f]+$/, 'The name contains characters that are not allowed.');
@@ -236,6 +237,56 @@ export async function updateUser(email: string, data: { name?: string; roleId?: 
     }
     revalidatePath('/users');
     return updatedUser;
+}
+
+export type ChangeEmailResult =
+    | { success: true; user: User; invite: InviteOutcome | null }
+    | { success: false; message: string; field?: 'email' };
+
+/**
+ * An administrator changes someone else's sign-in email (e.g. it was
+ * mistyped, or the person's address changed). The user is signed out
+ * everywhere and their old address is told. Someone who hasn't signed in yet
+ * gets a fresh invitation at the new address; everyone else keeps their
+ * password and simply signs in with the new email.
+ *
+ * Your own email is changed from your profile, where it's confirmed from the
+ * new mailbox. Nobody can change the email of an account with more access
+ * than they have: they could then reset its password and take it over.
+ */
+export async function changeUserEmail(userId: string, newEmail: string): Promise<ChangeEmailResult> {
+    const actor = await requirePermission('users:manage');
+    const parsed = emailSchema.safeParse(typeof newEmail === 'string' ? newEmail : '');
+    if (!parsed.success) return { success: false, message: parsed.error.issues[0]!.message, field: 'email' };
+    const to = parsed.data;
+    if (!idSchema.safeParse(userId).success) return { success: false, message: 'This user no longer exists.' };
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, status: true, lastLoginAt: true, roleId: true } });
+    if (!user) return { success: false, message: 'This user no longer exists.' };
+    if (user.email === to) return { success: false, message: 'This is already their email.', field: 'email' };
+    if (user.id === actor.id) return { success: false, message: 'Change your own email from your Profile page — it is confirmed from the new address there.', field: 'email' };
+    if (permissionsBeyond(actor, await getPermissionsForRole(user.roleId)).length > 0) {
+        await recordAudit({
+            action: 'PERMISSION_DENIED', success: false, entityType: 'User', entityId: user.id, userId: user.id,
+            summary: `Refused to change the email of ${user.name}, whose role has more access than the person changing it`,
+        });
+        return { success: false, message: `${user.name}'s role has permissions you don't have, so you can't change their email. Ask an administrator with at least the same access.` };
+    }
+    if (await emailInUse(to, user.id)) return { success: false, message: `A user with the email ${to} already exists.`, field: 'email' };
+
+    const applied = await applyEmailChange(user.id, user.email, to);
+    if (!applied.ok) {
+        return { success: false, message: applied.reason === 'taken' ? `A user with the email ${to} already exists.` : `${user.name}'s email was changed by someone else just now. Reload and try again.`, field: 'email' };
+    }
+    await recordAudit({
+        action: 'EMAIL_CHANGED', identifier: to, userId: user.id, entityType: 'User', entityId: user.id,
+        summary: `Changed ${user.name}'s sign-in email from ${user.email} to ${to} (signed out of all sessions)`,
+        metadata: { from: user.email, to, by: actor.id },
+    });
+    await sendEmailChangedNotice(user, user.email, to, true);
+    // Never signed in: their old invitation was voided, so send one to the new address.
+    const invite = !user.lastLoginAt && user.status === 'ACTIVE' ? await deliverInvite({ id: user.id, name: user.name, email: to }) : null;
+    revalidatePath('/users');
+    return { success: true, user: await readUser(user.id), invite };
 }
 
 /**

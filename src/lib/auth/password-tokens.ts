@@ -70,9 +70,9 @@ export async function sendPasswordLink(
   return { emailed, link };
 }
 
-const APP_NAME = 'Nib International Bank Strategic Plan';
+export const APP_NAME = 'Nib International Bank Strategic Plan';
 
-function layout(heading: string, paragraphs: string[], link: string, buttonLabel: string, footnote: string): string {
+export function layout(heading: string, paragraphs: string[], link: string, buttonLabel: string, footnote: string): string {
   return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#3d2c20">
   <h2 style="margin:0 0 16px;color:#5B4030">${escapeHtml(heading)}</h2>
   ${paragraphs.map((p) => `<p style="line-height:1.5">${escapeHtml(p)}</p>`).join('\n  ')}

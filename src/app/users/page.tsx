@@ -39,7 +39,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
-import { getUsers, createUser, updateUser, setUserStatus, resendInvite, type InviteOutcome } from "@/actions/users";
+import { getUsers, createUser, updateUser, changeUserEmail, setUserStatus, resendInvite, type InviteOutcome } from "@/actions/users";
 import { describeError } from "@/lib/action-error";
 import type { User } from "@/lib/types";
 import { format, formatDistanceToNow } from "date-fns";
@@ -162,8 +162,22 @@ export default function UsersPage() {
 
   const handleUpdateUser = async (values: UserFormValues) => {
     if (!selectedUser) return;
+    // The email first: if it's refused, nothing else is saved either.
+    let email = selectedUser.email;
+    let invite: InviteOutcome | null = null;
+    const emailChanged = values.email.trim().toLowerCase() !== selectedUser.email.toLowerCase();
+    if (emailChanged) {
+      try {
+        const changed = await changeUserEmail(selectedUser.id, values.email);
+        if (!changed.success) return changed;
+        email = changed.user.email;
+        invite = changed.invite;
+      } catch (error) {
+        return { message: describeError(error, "Could not change the email. Please try again.") };
+      }
+    }
     try {
-      await updateUser(selectedUser.email, {
+      await updateUser(email, {
         name: values.name,
         roleId: values.roleId,
         leadOwnerId: values.leadOwnerId || null,
@@ -174,10 +188,16 @@ export default function UsersPage() {
     setUsers(await getUsers());
     setIsEditDialogOpen(false);
     setSelectedUser(null);
-    toast({
-      title: "User Updated",
-      description: `${values.name}'s details have been successfully updated.`,
-    });
+    if (invite && !invite.emailed) {
+      reportInvite({ name: values.name, email }, invite, "sent");
+    } else {
+      toast({
+        title: "User Updated",
+        description: emailChanged
+          ? `${values.name} now signs in with ${email} and has been signed out everywhere.${invite ? " A new invitation was emailed to that address." : ""}`
+          : `${values.name}'s details have been successfully updated.`,
+      });
+    }
   };
 
 
