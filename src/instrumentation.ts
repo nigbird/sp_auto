@@ -5,6 +5,12 @@
 const SYNC_INTERVAL_MS = 5 * 60 * 1000;
 
 export async function register() {
+  // OpenTelemetry (traces, metrics, logs -> local agent). Must load before anything else.
+  // Kept in this exact form so the bundler drops it from the edge build.
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
+    await import('./instrumentation.node');
+  }
+
   if (process.env.NEXT_RUNTIME !== 'nodejs') return;
 
   const { syncTimeBasedNotifications } = await import('@/lib/notification-sync');

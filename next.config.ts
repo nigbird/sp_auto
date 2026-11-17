@@ -32,6 +32,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // Don't advertise the framework (X-Powered-By: Next.js).
   poweredByHeader: false,
+  // OpenTelemetry SDK (src/instrumentation.node.ts) must be loaded from node_modules, not bundled.
+  serverExternalPackages: ['@opentelemetry/sdk-node', '@opentelemetry/auto-instrumentations-node', 'pino'],
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
