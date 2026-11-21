@@ -7,9 +7,10 @@ import { toast } from "@/hooks/use-toast";
 import { describeError } from "@/lib/action-error";
 import { AppLayout } from "@/components/app-layout";
 import { Toaster } from "@/components/ui/toaster";
-import { ClientOnly } from './client-only';
 
-const AUTH_PAGES = ["/login", "/forgot-password", "/set-password"];
+// Keep in step with PUBLIC_PAGES in src/middleware.ts: these are opened signed out,
+// so they must not get the app shell, whose header calls signed-in server actions.
+const AUTH_PAGES = ["/login", "/forgot-password", "/set-password", "/confirm-email"];
 
 export function RootLayoutClient({
   children,
@@ -40,9 +41,9 @@ export function RootLayoutClient({
     );
   }
 
-  return (
-    <ClientOnly>
-      <AppLayout>{children}</AppLayout>
-    </ClientOnly>
-  );
+  // Rendered on the server as well, not deferred until after hydration. Holding the
+  // page back until mount meant a page that calls redirect() or notFound() threw
+  // only once the router was already mounted, and the router crashed with React
+  // error #310 ("Rendered more hooks than during the previous render").
+  return <AppLayout>{children}</AppLayout>;
 }

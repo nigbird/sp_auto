@@ -20,7 +20,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { ClientOnly } from "../client-only"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -147,7 +146,7 @@ const SidebarProvider = React.forwardRef<
             ref={ref}
             {...props}
           >
-            <ClientOnly>{children}</ClientOnly>
+            {children}
           </div>
         </TooltipProvider>
       </SidebarContext.Provider>
