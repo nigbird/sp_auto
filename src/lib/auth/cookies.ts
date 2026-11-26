@@ -5,9 +5,14 @@ import { encryptForCookie } from './crypto';
 // SameSite=Strict: neither cookie is sent on any cross-site request, including
 // top-level navigations. Someone arriving from a link in an email therefore
 // lands on /login first, which recovers the session itself (see login/page.tsx).
+//
+// Always Secure (VA-007), whatever NODE_ENV is, so a server started without
+// NODE_ENV=production (e.g. `next dev` on a test box) still never sends the
+// session over plain HTTP. Browsers treat http://localhost as a secure
+// context, so local development keeps working.
 const baseCookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
+  secure: true,
   sameSite: 'strict' as const,
   path: '/',
 };

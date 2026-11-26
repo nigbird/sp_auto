@@ -26,7 +26,8 @@ export default async function MyPlanPage({ searchParams }: { searchParams: Promi
   // even for users who may view everyone's (Plan Approvals / Performance Report cover those).
   const [activities, plan, periods, reports, users] = await Promise.all([
     getActivities(planId, false, user.id),
-    getStrategicPlanById(planId),
+    // Structure only plus this user's own activities — never other people's (VA-001).
+    getStrategicPlanById(planId, { ownActivitiesOnly: true }),
     getReportingPeriods(planId),
     getMyPeriodReports(),
     getUsers(),

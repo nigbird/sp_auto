@@ -7,7 +7,7 @@ import { prisma } from '@/lib/prisma';
 import type { StrategicPlan as StrategicPlanType } from '@/lib/types';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth/session';
-import { requirePermission } from '@/lib/auth/permissions-server';
+import { requirePermission, userCan } from '@/lib/auth/permissions-server';
 import { validateWeightReconciliation } from '@/lib/utils';
 import { planFormSchema, zodIssuesToPlanIssues, type PlanFormValues, type PlanIssue } from '@/lib/plan-schema';
 import { newPillarData, syncPlanTree } from '@/lib/plan-sync';
@@ -124,9 +124,23 @@ export async function listStrategicPlans({ includeInactive = false }: { includeI
     });
 }
 
-export async function getStrategicPlanById(id: string) {
+/** Permissions that let someone see every person's activities in a plan, not just their own. */
+const PLAN_WIDE_VIEW = ['strategic-plan:view', 'strategic-plan:edit', 'plan-approvals:view', 'reports:view', 'dashboard:view'] as const;
+
+/**
+ * The plan with its pillar → objective → initiative structure.
+ *
+ * Activities are scoped to the caller (VA-001): anyone without a plan-wide
+ * view permission only ever gets the activities they are responsible for, and
+ * no milestones. Personal screens (My Plan, the own-only performance report)
+ * also pass `ownActivitiesOnly` so they never receive other people's work even
+ * when the role could see it elsewhere. This is a server action, so the option
+ * can only narrow what is returned, never widen it.
+ */
+export async function getStrategicPlanById(id: string, options?: { ownActivitiesOnly?: boolean }) {
     // Every screen that shows a plan's structure needs one of these (plan pages, My Plan, approvals, reports).
-    await requirePermission('strategic-plan:view', 'strategic-plan:edit', 'my-plan:view', 'plan-approvals:view', 'reports:view', 'reports:view-own', 'dashboard:view', 'dashboard:view-own');
+    const user = await requirePermission('strategic-plan:view', 'strategic-plan:edit', 'my-plan:view', 'plan-approvals:view', 'reports:view', 'reports:view-own', 'dashboard:view', 'dashboard:view-own');
+    const ownOnly = options?.ownActivitiesOnly === true || !userCan(user, ...PLAN_WIDE_VIEW);
 
     const plan = await prisma.strategicPlan.findUnique({
         where: { id },
@@ -142,6 +156,7 @@ export async function getStrategicPlanById(id: string) {
                                 include: {
                                     owner: { select: publicUserSelect },
                                     activities: {
+                                        ...(ownOnly ? { where: { responsibleId: user.id } } : {}),
                                         orderBy: { createdAt: 'asc' },
                                         include: {
                                             responsible: { select: publicUserSelect },
@@ -149,6 +164,7 @@ export async function getStrategicPlanById(id: string) {
                                         }
                                     },
                                     milestones: {
+                                        ...(ownOnly ? { where: { id: { in: [] } } } : {}),
                                         orderBy: { targetDate: 'asc' },
                                     },
                                 },

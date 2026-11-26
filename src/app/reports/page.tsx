@@ -22,7 +22,8 @@ export default async function PerformanceReportsPage({ searchParams }: { searchP
     ?? plans[0]?.id;
 
   const [plan, performance] = planId
-    ? await Promise.all([getStrategicPlanById(planId), getPlanPerformance(planId, periodId)])
+    // Same rule as getPlanPerformance's "own" scope, so a personal report never loads other people's activities.
+    ? await Promise.all([getStrategicPlanById(planId, { ownActivitiesOnly: !userCan(user, "reports:view") }), getPlanPerformance(planId, periodId)])
     : [null, null];
   const selectedPeriod = performance?.selected as { id: string; name: string } | null;
   // Personal view: keep only the user's own activities, and the pillars/objectives/initiatives they sit in.

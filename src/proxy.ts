@@ -40,8 +40,8 @@ function isPublicPage(pathname: string): boolean {
   return PUBLIC_PAGES.some((page) => pathname === page || pathname.startsWith(`${page}/`));
 }
 
-// Edge-safe auth check only: decrypts + verifies the access-token cookie's signature
-// and expiry. It cannot reach Prisma (Edge runtime), so it can't see a session
+// Lightweight auth check only: decrypts + verifies the access-token cookie's signature
+// and expiry. It deliberately does not query Prisma here, so it can't see a session
 // that was revoked server-side (forced logout, concurrent-session eviction) —
 // that DB-backed check happens in requireUser()/getCurrentUser() (src/lib/auth/session.ts)
 // on every server action and route handler that actually touches data.
@@ -50,7 +50,7 @@ function isPublicPage(pathname: string): boolean {
 // throttled or frozen (background tab, sleeping laptop), so an expired access
 // token alongside a refresh cookie is refreshed here, transparently, instead of
 // bouncing the user to /login on their next click.
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   // API responses aren't HTML documents; the evidence download sets its own, stricter policy.
   const csp = pathname.startsWith('/api/') ? null : contentSecurityPolicy(btoa(crypto.randomUUID()));

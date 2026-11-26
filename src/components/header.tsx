@@ -149,7 +149,7 @@ function Notifications() {
   );
 }
 
-export function Header({ pageTitle, headerActions }: { pageTitle: ReactNode, headerActions?: ReactNode }) {
+export function Header({ pageTitle, headerActions }: { pageTitle?: ReactNode, headerActions?: ReactNode }) {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
 

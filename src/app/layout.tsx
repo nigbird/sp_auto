@@ -20,7 +20,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Render every page per request: the CSP nonce (src/middleware.ts) is new each
+  // Render every page per request: the CSP nonce (src/proxy.ts) is new each
   // time, and a page prerendered at build time would carry no nonce at all.
   await connection();
 

@@ -98,7 +98,7 @@ Remove any default site (e.g. the IIS welcome page, SEC-055) so only the app ans
 - Evidence: 5 MB, 5 files per report; type decided from the file's content (magic bytes), not its name; SVG/HTML refused; downloaded with `nosniff`, a sandboxing CSP and `attachment` (images inline only). Downloads require sign-in plus ownership or approver rights.
 - Workbook imports: 10 MB; must be a real Excel container (zip/OLE signature) before parsing.
 
-**Browser hardening** (`next.config.ts`, `src/middleware.ts`)
+**Browser hardening** (`next.config.ts`, `src/proxy.ts`)
 - Content-Security-Policy with a fresh nonce per request: `script-src 'nonce-…' 'strict-dynamic'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`, everything else `'self'` only. Fonts and images are served from the app itself (no third-party hosts).
 - `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin`, `Permissions-Policy` (camera, microphone, geolocation, payment… disabled), COOP/COEP/CORP, `X-Permitted-Cross-Domain-Policies: none`; `X-Powered-By` removed. No CORS headers are sent, so other sites can't read responses.
 

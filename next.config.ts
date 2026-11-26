@@ -2,7 +2,7 @@ import type {NextConfig} from 'next';
 
 /**
  * Security headers sent on every response. The Content-Security-Policy is not
- * here: it carries a per-request nonce, so src/middleware.ts sets it.
+ * here: it carries a per-request nonce, so src/proxy.ts sets it.
  */
 const securityHeaders = [
   // Browsers ignore HSTS on plain-HTTP responses, so this is harmless in local development.
@@ -58,9 +58,6 @@ const nextConfig: NextConfig = {
   },
   typescript: {
     ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
   },
   images: {
     // The only images are small local files (the logo). Serving them as-is switches off the

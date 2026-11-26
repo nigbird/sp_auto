@@ -8,9 +8,16 @@ import { describeError } from "@/lib/action-error";
 import { AppLayout } from "@/components/app-layout";
 import { Toaster } from "@/components/ui/toaster";
 
-// Keep in step with PUBLIC_PAGES in src/middleware.ts: these are opened signed out,
+// Keep in step with PUBLIC_PAGES in src/proxy.ts: these are opened signed out,
 // so they must not get the app shell, whose header calls signed-in server actions.
 const AUTH_PAGES = ["/login", "/forgot-password", "/set-password", "/confirm-email"];
+
+// VA-008: Next.js publishes its exact version as window.next.version, which is
+// what fingerprinting tools report. Nothing reads it (Next only writes it), so
+// drop it as soon as the app's code loads. The router and other fields stay.
+if (typeof window !== "undefined") {
+  delete (window as { next?: { version?: string } }).next?.version;
+}
 
 export function RootLayoutClient({
   children,

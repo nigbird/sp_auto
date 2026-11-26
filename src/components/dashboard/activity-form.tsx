@@ -324,7 +324,7 @@ export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPla
                             mode="single"
                             selected={field.value}
                             onSelect={field.onChange}
-                            initialFocus
+                            autoFocus
                         />
                         </PopoverContent>
                     </Popover>
@@ -362,7 +362,7 @@ export function ActivityForm({ onSubmit, activity, users, onCancel, strategicPla
                             mode="single"
                             selected={field.value}
                             onSelect={field.onChange}
-                            initialFocus
+                            autoFocus
                         />
                         </PopoverContent>
                     </Popover>
