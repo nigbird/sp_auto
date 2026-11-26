@@ -5,6 +5,7 @@ import { AppSidebar } from "./app-sidebar";
 import { Header } from "./header";
 import { SessionKeepAlive } from "./session-keepalive";
 import { PermissionsProvider } from "./permissions-provider";
+import { Toaster } from "./ui/toaster";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </main>
         </div>
       </div>
+      {/* Every toast on a signed-in page (saved, deleted, could not ...) renders here. */}
+      <Toaster />
     </SidebarProvider>
     </PermissionsProvider>
   );

@@ -31,29 +31,38 @@ function validPermissions(permissions: unknown): string[] {
     return Array.from(new Set(permissions.filter((p): p is string => typeof p === 'string' && known.has(p))));
 }
 
-/** A role editor may only hand out permissions they hold themselves. */
-function assertGrantable(user: SessionUser, permissions: string[]) {
-    if (permissionsBeyond(user, permissions).length > 0) {
-        throw new Error("You can't grant permissions that your own role doesn't have.");
-    }
+/**
+ * Refusals a person can act on are returned, not thrown: production builds of
+ * Next.js replace a thrown server-action message with a generic one, so a thrown
+ * "still assigned to 3 users" reached the page as a meaningless digest.
+ */
+export type RoleActionResult = { success: true } | { success: false; message: string };
+const fail = (message: string): RoleActionResult => ({ success: false, message });
+
+/** A role editor may only hand out permissions they hold themselves. Returns the refusal, or null. */
+function grantRefusal(user: SessionUser, permissions: string[]): string | null {
+    return permissionsBeyond(user, permissions).length > 0
+        ? "You can't grant permissions that your own role doesn't have."
+        : null;
 }
 
-export async function createRole(name: string, permissions: string[]) {
+export async function createRole(name: string, permissions: string[]): Promise<RoleActionResult> {
     const user = await requirePermission('roles:manage');
     permissions = validPermissions(permissions);
-    assertGrantable(user, permissions);
+    const refusal = grantRefusal(user, permissions);
+    if (refusal) return fail(refusal);
 
     const trimmedName = String(name ?? '').trim().replace(/\s+/g, ' ');
     if (!trimmedName) {
-        throw new Error('Role name is required.');
+        return fail('Role name is required.');
     }
     if (trimmedName.length > 60 || /[<>{}\u0000-\u001f\u007f]/.test(trimmedName)) {
-        throw new Error('Use a role name of at most 60 characters, without < > { }.');
+        return fail('Use a role name of at most 60 characters, without < > { }.');
     }
 
     const existing = await prisma.role.findUnique({ where: { name: trimmedName } });
     if (existing) {
-        throw new Error(`A role named "${trimmedName}" already exists.`);
+        return fail(`A role named "${trimmedName}" already exists.`);
     }
 
     const role = await prisma.role.create({
@@ -70,22 +79,23 @@ export async function createRole(name: string, permissions: string[]) {
     });
 
     revalidatePath('/users/roles');
-    return role;
+    return { success: true };
 }
 
-export async function updateRolePermissions(roleId: string, permissions: string[]) {
+export async function updateRolePermissions(roleId: string, permissions: string[]): Promise<RoleActionResult> {
     const user = await requirePermission('roles:manage');
     permissions = validPermissions(permissions);
     // Removing "manage roles" from your own role would lock you out of this page.
     if (roleId === user.roleId && !permissions.includes('roles:manage')) {
-        throw new Error("You can't remove 'Create, edit and delete roles' from your own role.");
+        return fail("You can't remove 'Create, edit and delete roles' from your own role.");
     }
 
     const role = await prisma.role.findUnique({ where: { id: String(roleId) }, include: { permissions: { select: { permission: true } } } });
-    if (!role) throw new Error('This role no longer exists.');
+    if (!role) return fail('This role no longer exists. Refresh the page to see the current list.');
     const before = role.permissions.map((p) => p.permission);
     // Only newly added permissions count: keeping ones the role already had is fine.
-    assertGrantable(user, permissions.filter((p) => !before.includes(p)));
+    const refusal = grantRefusal(user, permissions.filter((p) => !before.includes(p)));
+    if (refusal) return fail(refusal);
 
     await prisma.$transaction([
         prisma.rolePermission.deleteMany({ where: { roleId } }),
@@ -105,23 +115,26 @@ export async function updateRolePermissions(roleId: string, permissions: string[
     }
 
     revalidatePath('/users/roles');
+    return { success: true };
 }
 
-export async function deleteRole(roleId: string) {
+export async function deleteRole(roleId: string): Promise<RoleActionResult> {
     await requirePermission('roles:manage');
 
-    const role = await prisma.role.findUnique({ where: { id: roleId } });
-    if (!role) return;
+    const role = await prisma.role.findUnique({ where: { id: String(roleId) } });
+    if (!role) return fail('This role no longer exists. Refresh the page to see the current list.');
     if (role.isSystem) {
-        throw new Error('Built-in roles cannot be deleted.');
+        return fail('Built-in roles cannot be deleted.');
     }
 
-    const usersWithRole = await prisma.user.count({ where: { roleId } });
+    const usersWithRole = await prisma.user.count({ where: { roleId: role.id } });
     if (usersWithRole > 0) {
-        throw new Error(`Cannot delete "${role.name}" — it is still assigned to ${usersWithRole} user(s).`);
+        const who = usersWithRole === 1 ? '1 user' : `${usersWithRole} users`;
+        return fail(`"${role.name}" is still assigned to ${who}. Give ${usersWithRole === 1 ? 'that user' : 'them'} a different role first, then delete it.`);
     }
 
-    await prisma.role.delete({ where: { id: roleId } });
-    await recordAudit({ action: 'ROLE_DELETED', entityType: 'Role', entityId: roleId, summary: `Deleted role "${role.name}"` });
+    await prisma.role.delete({ where: { id: role.id } });
+    await recordAudit({ action: 'ROLE_DELETED', entityType: 'Role', entityId: role.id, summary: `Deleted role "${role.name}"` });
     revalidatePath('/users/roles');
+    return { success: true };
 }

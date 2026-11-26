@@ -24,6 +24,7 @@ import { RoleForm, type RoleFormValues } from "@/components/settings/role-form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ListToolbar, Pagination, SearchBox, usePagination } from "@/components/list-controls";
 import { matchesSearch } from "@/lib/list-filters";
+import { describeError } from "@/lib/action-error";
 
 type RoleRow = {
   id: string;
@@ -39,6 +40,7 @@ export default function RolesPage() {
   const [editingRole, setEditingRole] = useState<RoleRow | null | undefined>(undefined);
   const [deletingRole, setDeletingRole] = useState<RoleRow | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
   const canManage = usePermissions().can("roles:manage");
   const [query, setQuery] = useState("");
@@ -66,40 +68,44 @@ export default function RolesPage() {
       return;
     }
     setIsSaving(true);
+    const failTitle = editingRole ? "Could Not Update Permissions" : "Could Not Create Role";
     try {
-      if (editingRole) {
-        await updateRolePermissions(editingRole.id, values.permissions);
-        toast({ title: "Permissions Updated", description: `${editingRole.name}'s permissions have been saved.` });
-      } else {
-        await createRole(values.name, values.permissions);
-        toast({ title: "Role Created", description: `"${values.name}" has been created.` });
+      const result = editingRole
+        ? await updateRolePermissions(editingRole.id, values.permissions)
+        : await createRole(values.name, values.permissions);
+      if (!result.success) {
+        // Keep the form open so the person can fix what was refused.
+        toast({ title: failTitle, description: result.message, variant: "destructive" });
+        return;
       }
+      toast(editingRole
+        ? { title: "Permissions Updated", description: `${editingRole.name}'s permissions have been saved.` }
+        : { title: "Role Created", description: `"${values.name}" has been created.` });
       setEditingRole(undefined);
       await loadRoles();
     } catch (error) {
-      toast({
-        title: editingRole ? "Could Not Update Permissions" : "Could Not Create Role",
-        description: error instanceof Error ? error.message : "An unexpected error occurred.",
-        variant: "destructive",
-      });
+      toast({ title: failTitle, description: describeError(error), variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!deletingRole) return;
+    const role = deletingRole;
+    if (!role) return;
+    setIsDeleting(true);
     try {
-      await deleteRole(deletingRole.id);
-      toast({ title: "Role Deleted", description: `"${deletingRole.name}" has been removed.` });
+      const result = await deleteRole(role.id);
+      if (!result.success) {
+        toast({ title: "Could Not Delete Role", description: result.message, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Role Deleted", description: `"${role.name}" has been removed.` });
       await loadRoles();
     } catch (error) {
-      toast({
-        title: "Could Not Delete Role",
-        description: error instanceof Error ? error.message : "An unexpected error occurred.",
-        variant: "destructive",
-      });
+      toast({ title: "Could Not Delete Role", description: describeError(error), variant: "destructive" });
     } finally {
+      setIsDeleting(false);
       setDeletingRole(null);
     }
   };
@@ -220,8 +226,18 @@ export default function RolesPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="border border-destructive/30 bg-destructive/10 text-destructive hover:border-destructive/40 hover:bg-destructive/15">Delete</AlertDialogAction>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                // Stay open until the server answers, so a refusal is shown against this role.
+                event.preventDefault();
+                void handleDelete();
+              }}
+              disabled={isDeleting}
+              className="border border-destructive/30 bg-destructive/10 text-destructive hover:border-destructive/40 hover:bg-destructive/15"
+            >
+              {isDeleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
