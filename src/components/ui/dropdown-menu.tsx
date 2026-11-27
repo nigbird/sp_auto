@@ -6,7 +6,15 @@ import { Check, ChevronRight, Circle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
-const DropdownMenu = DropdownMenuPrimitive.Root
+// Non-modal by default: a modal menu and a Dialog opened from one of its items
+// both lock <body> with pointer-events:none, and when they unmount in the wrong
+// order the lock is never removed, freezing the page until a reload.
+const DropdownMenu = ({
+  modal = false,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Root>) => (
+  <DropdownMenuPrimitive.Root modal={modal} {...props} />
+)
 
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger
 
