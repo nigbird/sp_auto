@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { updateMyName, changeMyPassword, requestEmailChange } from "@/actions/profile";
 import { checkPasswordStrength, PASSWORD_HINT } from "@/lib/auth/password-policy";
+import { safeSameOriginHref } from "@/lib/safe-url";
 
 const initials = (name: string) => name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0]!.toUpperCase()).join("");
 
@@ -141,12 +142,14 @@ function EmailChangeForm({ currentEmail }: { currentEmail: string }) {
   };
 
   if (sent) {
+    // Only ever link to this app's own confirm page (never a javascript:/data:/off-site URL).
+    const confirmHref = safeSameOriginHref(sent.link);
     return (
       <div className="flex items-start gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm">
         <MailCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
         <div className="space-y-1">
           <p>We sent a confirmation link to <strong>{sent.to}</strong>. Your email changes when you open it (it works for 1 hour). Until then, keep signing in with {currentEmail}.</p>
-          {sent.link && <p className="text-xs text-muted-foreground">Email sending is off on this server (development only): <a href={sent.link} className="underline break-all">open the confirmation link</a>.</p>}
+          {confirmHref && <p className="text-xs text-muted-foreground">Email sending is off on this server (development only): <a href={confirmHref} className="underline break-all">open the confirmation link</a>.</p>}
           <Button type="button" variant="link" className="h-auto p-0 text-xs" onClick={() => setSent(null)}>Use a different address</Button>
         </div>
       </div>
