@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma';
 import type { User } from '@/lib/types';
 import { requireUser, type SessionUser } from '@/lib/auth/session';
 import { getPermissionsForRole, permissionsBeyond, requirePermission, userCan } from '@/lib/auth/permissions-server';
+import { PLAN_WIDE_VIEW } from '@/lib/auth/permissions';
 import { sendPasswordLink, type SentLink } from '@/lib/auth/password-tokens';
 import { changedFields, recordAudit, writeAuditLog } from '@/lib/auth/audit';
 import { applyEmailChange, emailInUse, sendEmailChangedNotice } from '@/lib/auth/email-change';
@@ -42,15 +43,24 @@ function toUser<T extends UserRow>({ passwordTokens, lastLoginAt, ...u }: T) {
 }
 
 /**
- * Everyone, for people pickers across the app. Sign-in and invitation details
- * are account administration, so they're only included for people who can see the Users page.
+ * People for pickers and name lookups, scoped to what the caller may see:
+ * - Users page (users:view / users:manage): every account, with sign-in and invitation details.
+ * - Plan-wide roles (planners, approvers, report viewers): everyone, directory fields only.
+ * - Everyone else: only themselves — no other accounts are listed.
  */
 export async function getUsers(): Promise<User[]> {
     const viewer = await requireUser();
-    const users = await prisma.user.findMany({ select: userListSelect, orderBy: { name: 'asc' } });
+    const isAdmin = userCan(viewer, 'users:view', 'users:manage');
+    const seesEveryone = isAdmin || userCan(viewer, ...PLAN_WIDE_VIEW);
+    const users = await prisma.user.findMany({
+        where: seesEveryone ? undefined : { id: viewer.id },
+        select: userListSelect,
+        orderBy: { name: 'asc' },
+    });
     const rows = users.map(toUser);
-    if (userCan(viewer, 'users:view', 'users:manage')) return rows as unknown as User[];
-    return rows.map(({ lastLoginAt, invitePending, inviteSentAt, inviteExpiresAt, ...u }) => u) as unknown as User[];
+    if (isAdmin) return rows as unknown as User[];
+    // Directory fields only: no internal ids (role/office), timestamps or invitation state.
+    return rows.map(u => ({ id: u.id, name: u.name, email: u.email, avatar: u.avatar, status: u.status, role: u.role, leadOwner: u.leadOwner })) as unknown as User[];
 }
 
 /** Invitation links are credentials: only hand one to the administrator when explicitly allowed (see deliverInvite). */

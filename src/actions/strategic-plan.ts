@@ -140,24 +140,33 @@ export async function getStrategicPlanById(id: string, options?: { ownActivities
     const user = await requirePermission('strategic-plan:view', 'strategic-plan:edit', 'my-plan:view', 'plan-approvals:view', 'reports:view', 'reports:view-own', 'dashboard:view', 'dashboard:view-own');
     const ownOnly = options?.ownActivitiesOnly === true || !userCan(user, ...PLAN_WIDE_VIEW);
 
+    // Own-only callers get just the branches that hold their own activities —
+    // not other people's pillars/objectives/initiatives — and people only by name.
+    const ownActivity = { responsibleId: user.id };
+    const ownInitiative = { activities: { some: ownActivity } };
+    const personSelect = ownOnly ? { id: true, name: true, avatar: true } : publicUserSelect;
+
     const plan = await prisma.strategicPlan.findUnique({
         where: { id },
         include: {
             pillars: {
+                ...(ownOnly ? { where: { objectives: { some: { initiatives: { some: ownInitiative } } } } } : {}),
                 orderBy: { createdAt: 'asc' },
                 include: {
                     objectives: {
+                        ...(ownOnly ? { where: { initiatives: { some: ownInitiative } } } : {}),
                         orderBy: { createdAt: 'asc' },
                         include: {
                             initiatives: {
+                                ...(ownOnly ? { where: ownInitiative } : {}),
                                 orderBy: { createdAt: 'asc' },
                                 include: {
-                                    owner: { select: publicUserSelect },
+                                    owner: { select: personSelect },
                                     activities: {
-                                        ...(ownOnly ? { where: { responsibleId: user.id } } : {}),
+                                        ...(ownOnly ? { where: ownActivity } : {}),
                                         orderBy: { createdAt: 'asc' },
                                         include: {
-                                            responsible: { select: publicUserSelect },
+                                            responsible: { select: personSelect },
                                             monthlyTargets: { orderBy: { month: 'asc' } },
                                         }
                                     },
