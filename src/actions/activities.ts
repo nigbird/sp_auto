@@ -9,6 +9,7 @@ import { calculateActivityStatus, type StatusRule } from '@/lib/utils';
 import type { ApprovalStatus, User } from '@prisma/client';
 import { requireUser } from '@/lib/auth/session';
 import { requirePermission, hasPermission, userCan } from '@/lib/auth/permissions-server';
+import { PLAN_WIDE_VIEW } from '@/lib/auth/permissions';
 import { changedFields, recordAudit } from '@/lib/auth/audit';
 import { ensurePeriodEntriesForActivity } from '@/lib/period-entries';
 
@@ -40,7 +41,7 @@ function buildKpiData(kpi: KpiInput) {
 export async function getActivities(strategicPlanId?: string, approvedOnly?: boolean, responsibleId?: string): Promise<Activity[]> {
     const user = await requireUser();
     // Without a plan-wide view permission, people only ever get their own activities.
-    if (!userCan(user, 'dashboard:view', 'strategic-plan:view', 'plan-approvals:view', 'reports:view')) {
+    if (!userCan(user, ...PLAN_WIDE_VIEW)) {
         if (!userCan(user, 'my-plan:view')) throw new Error("You don't have permission to do this.");
         responsibleId = user.id;
     }

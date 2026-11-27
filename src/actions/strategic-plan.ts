@@ -8,6 +8,7 @@ import type { StrategicPlan as StrategicPlanType } from '@/lib/types';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth/session';
 import { requirePermission, userCan } from '@/lib/auth/permissions-server';
+import { PLAN_WIDE_VIEW } from '@/lib/auth/permissions';
 import { validateWeightReconciliation } from '@/lib/utils';
 import { planFormSchema, zodIssuesToPlanIssues, type PlanFormValues, type PlanIssue } from '@/lib/plan-schema';
 import { newPillarData, syncPlanTree } from '@/lib/plan-sync';
@@ -123,9 +124,6 @@ export async function listStrategicPlans({ includeInactive = false }: { includeI
         orderBy: includeInactive ? [{ isActive: 'desc' }, { updatedAt: 'desc' }] : { updatedAt: 'desc' },
     });
 }
-
-/** Permissions that let someone see every person's activities in a plan, not just their own. */
-const PLAN_WIDE_VIEW = ['strategic-plan:view', 'strategic-plan:edit', 'plan-approvals:view', 'reports:view', 'dashboard:view'] as const;
 
 /**
  * The plan with its pillar → objective → initiative structure.

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/auth/session';
 import { requirePermission, userCan } from '@/lib/auth/permissions-server';
+import { PLAN_WIDE_VIEW } from '@/lib/auth/permissions';
 import { recordAudit } from '@/lib/auth/audit';
 
 /** The activity's responsible person, or anyone who can see the whole plan. */
@@ -11,7 +12,7 @@ export async function getDeliverables(activityId: string) {
   const user = await requireUser();
   const activity = await prisma.activity.findUnique({ where: { id: String(activityId) }, select: { responsibleId: true } });
   if (!activity) return [];
-  if (activity.responsibleId !== user.id && !userCan(user, 'strategic-plan:view', 'strategic-plan:edit', 'plan-approvals:view', 'reports:view', 'dashboard:view')) return [];
+  if (activity.responsibleId !== user.id && !userCan(user, ...PLAN_WIDE_VIEW)) return [];
 
   return prisma.deliverable.findMany({
     where: { activityId },

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/auth/session';
 import { forbiddenResponse, userCan } from '@/lib/auth/permissions-server';
+import { PLAN_WIDE_VIEW } from '@/lib/auth/permissions';
 import { recordAudit } from '@/lib/auth/audit';
 import { buildPlanWorkbook } from '@/lib/plan-export/build-plan-workbook';
 import { buildPerformancePdf } from '@/lib/plan-export/build-performance-pdf';
@@ -17,13 +18,15 @@ import { performanceTrend } from '@/lib/performance-insights';
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
-  // The plan alone needs plan access; anything with report values needs export rights.
+  // The workbook lists every activity in the plan, so the plan alone needs a
+  // permission that may see everyone's activities (VA-001); anything with report
+  // values also needs export rights.
   const planOnly = request.nextUrl.searchParams.get('period') === 'none' && request.nextUrl.searchParams.get('format') !== 'pdf';
   const allowed = planOnly
-    ? userCan(user, 'strategic-plan:view', 'reports:export')
+    ? userCan(user, ...PLAN_WIDE_VIEW)
     : userCan(user, 'reports:export') && userCan(user, 'reports:view');
   if (!allowed) {
-    return forbiddenResponse(planOnly ? ["strategic-plan:view", "reports:export"] : ["reports:view", "reports:export"]);
+    return forbiddenResponse(planOnly ? PLAN_WIDE_VIEW : ["reports:view", "reports:export"]);
   }
 
   const { id } = await params;

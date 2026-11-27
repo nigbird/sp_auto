@@ -13,6 +13,7 @@ import { SendBreakdownRequestsButton, type BreakdownOwner, type RequestState } f
 import { MonthlyBreakdownTable } from "@/components/strategic-plan/monthly-breakdown-table";
 import { ExportMenu } from "@/components/export-menu";
 import { Can } from "@/components/permissions-provider";
+import { PLAN_WIDE_VIEW } from "@/lib/auth/permissions";
 import { PlanStructureView } from "@/components/strategic-plan/plan-structure-view";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -72,14 +73,17 @@ export default async function StrategicPlanDetailPage({ params }: { params: Prom
                     </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    <ExportMenu options={[
-                        {
-                            kind: "excel",
-                            label: "Plan (Excel)",
-                            description: "Structure, weights and monthly targets. Can be imported again.",
-                            href: `/api/export/plan/${plan.id}?period=none`,
-                        },
-                    ]} />
+                    {/* The workbook lists every activity, so it is only offered to people who may see them all (VA-001). */}
+                    <Can anyOf={PLAN_WIDE_VIEW}>
+                        <ExportMenu options={[
+                            {
+                                kind: "excel",
+                                label: "Plan (Excel)",
+                                description: "Structure, weights and monthly targets. Can be imported again.",
+                                href: `/api/export/plan/${plan.id}?period=none`,
+                            },
+                        ]} />
+                    </Can>
                     {isPublished && (
                         <Can anyOf={["reports:view"]}>
                             <Button asChild variant="outline">

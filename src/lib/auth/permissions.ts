@@ -17,7 +17,8 @@ export const PERMISSION_GROUPS = [
   {
     title: 'Strategic Plans',
     permissions: [
-      { id: 'strategic-plan:view', label: 'View strategic plans' },
+      { id: 'strategic-plan:view', label: 'View strategic plans (structure, and only my activities)' },
+      { id: 'strategic-plan:view-all', label: "See everyone's activities in plans" },
       { id: 'strategic-plan:edit', label: 'Create, import, edit and publish plans' },
       { id: 'strategic-plan:delete', label: 'Delete plans' },
     ],
@@ -95,6 +96,14 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<'Administrator' | 'Manager' | 'Use
   Manager: ALL_PERMISSIONS.filter((p) => !['users:manage', 'roles:manage', 'strategic-plan:delete', 'settings:manage', 'audit:view', 'audit:export', 'dashboard:view-own', 'reports:view-own'].includes(p)),
   User: ['dashboard:view-own', 'strategic-plan:view', 'my-plan:view', 'my-plan:update', 'my-reports:view', 'my-reports:submit', 'reports:view-own'],
 };
+
+/**
+ * Any one of these lets someone see other people's activities (VA-001).
+ * Everyone else — including holders of plain 'strategic-plan:view' — only ever
+ * gets the plan structure plus the activities they are responsible for.
+ * Every plan/activity read that can return other people's work checks this list.
+ */
+export const PLAN_WIDE_VIEW: Permission[] = ['strategic-plan:view-all', 'strategic-plan:edit', 'plan-approvals:view', 'reports:view', 'dashboard:view'];
 
 /** True if the list grants at least one of the given permissions. */
 export function hasAny(granted: readonly string[] | null | undefined, ...required: Permission[]): boolean {
